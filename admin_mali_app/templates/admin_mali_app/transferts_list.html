@@ -1,0 +1,291 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}Transferts d'Argent - Admin Mali{% endblock %}
+
+{% block page_title %}Transferts d'Argent{% endblock %}
+
+{% block extra_head %}
+<style>
+    .transfer-card {
+        border-left: 4px solid var(--primary-color);
+        transition: all 0.3s ease;
+    }
+    
+    .transfer-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(255, 107, 53, 0.15);
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .status-initie {
+        background: rgba(255, 193, 7, 0.2);
+        color: #856404;
+    }
+    
+    .status-envoye {
+        background: rgba(13, 202, 240, 0.2);
+        color: #055160;
+    }
+    
+    .status-confirme_chine {
+        background: rgba(25, 135, 84, 0.2);
+        color: #0f5132;
+    }
+    
+    .status-annule {
+        background: rgba(220, 53, 69, 0.2);
+        color: #721c24;
+    }
+    
+    .btn-add-transfer {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        border-radius: 10px;
+        padding: 12px 24px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-add-transfer:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+        color: white;
+    }
+    
+    .filter-card {
+        background: #FFF8F6;
+        border: 1px solid #FFE5D9;
+        border-radius: 15px;
+    }
+    
+    .amount-display {
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <!-- Filtres -->
+        <div class="card filter-card">
+            <div class="card-body">
+                <form method="get" class="row align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Filtrer par statut</label>
+                        <select name="statut" class="form-select">
+                            <option value="">Tous les statuts</option>
+                            {% for key, value in status_choices %}
+                                <option value="{{ key }}" {% if statut_filter == key %}selected{% endif %}>
+                                    {{ value }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date de début</label>
+                        <input type="date" name="date_debut" class="form-control" value="{{ request.GET.date_debut }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date de fin</label>
+                        <input type="date" name="date_fin" class="form-control" value="{{ request.GET.date_fin }}">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Filtrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'admin_mali_app:transfert_create' %}" class="btn btn-add-transfer">
+            <i class="fas fa-plus me-2"></i>
+            Nouveau Transfert
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% if transferts %}
+            <div class="row">
+                {% for transfert in transferts %}
+                <div class="col-lg-6 mb-3">
+                    <div class="card transfer-card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-money-bill-transfer me-2"></i>
+                                {{ transfert.numero_transfert }}
+                            </h6>
+                            <span class="status-badge status-{{ transfert.statut }}">
+                                {{ transfert.get_statut_display }}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Montant FCFA</small>
+                                    <div class="amount-display">{{ transfert.montant_fcfa|floatformat:0 }} FCFA</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Montant Yuan</small>
+                                    <div class="amount-display">
+                                        {% if transfert.montant_yuan %}
+                                            {{ transfert.montant_yuan|floatformat:2 }} ¥
+                                        {% else %}
+                                            <span class="text-muted">Non calculé</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <hr class="my-3">
+                            
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Méthode</small>
+                                    <div>{{ transfert.get_methode_transfert_display }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Frais</small>
+                                    <div class="amount-display">{{ transfert.frais_transfert|floatformat:0 }} FCFA</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-2">
+                                <small class="text-muted">Destinataire</small>
+                                <div><strong>{{ transfert.destinataire_nom }}</strong></div>
+                                <div><i class="fas fa-phone me-1"></i>{{ transfert.destinataire_telephone }}</div>
+                            </div>
+                            
+                            <div class="mt-2">
+                                <small class="text-muted">Admin Mali</small>
+                                <div>{{ transfert.admin_mali.get_full_name|default:transfert.admin_mali.telephone }}</div>
+                            </div>
+                            
+                            {% if transfert.admin_chine %}
+                            <div class="mt-2">
+                                <small class="text-muted">Confirmé par (Chine)</small>
+                                <div>{{ transfert.admin_chine.get_full_name|default:transfert.admin_chine.telephone }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i>
+                                {{ transfert.date_initiation|date:"d/m/Y H:i" }}
+                            </small>
+                            <div>
+                                <a href="{% url 'admin_mali_app:transfert_detail' transfert.id %}" 
+                                   class="btn btn-sm btn-outline-primary me-2">
+                                    <i class="fas fa-eye"></i> Voir
+                                </a>
+                                {% if transfert.statut == 'initie' %}
+                                <a href="{% url 'admin_mali_app:transfert_edit' transfert.id %}" 
+                                   class="btn btn-sm btn-outline-warning">
+                                    <i class="fas fa-edit"></i> Modifier
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Pagination si nécessaire -->
+            {% if transferts.has_other_pages %}
+            <nav aria-label="Pagination des transferts">
+                <ul class="pagination justify-content-center">
+                    {% if transferts.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ transferts.previous_page_number }}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}">
+                                Précédent
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in transferts.paginator.page_range %}
+                        {% if transferts.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if transferts.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ transferts.next_page_number }}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}">
+                                Suivant
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        {% else %}
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-money-bill-transfer fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucun transfert trouvé</h5>
+                    <p class="text-muted">
+                        {% if statut_filter %}
+                            Aucun transfert ne correspond aux critères de filtrage.
+                        {% else %}
+                            Aucun transfert d'argent n'a encore été enregistré.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'admin_mali_app:transfert_create' %}" class="btn btn-add-transfer">
+                        <i class="fas fa-plus me-2"></i>
+                        Créer le premier transfert
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation des cartes au survol
+    const transferCards = document.querySelectorAll('.transfer-card');
+    transferCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.borderLeftWidth = '6px';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.borderLeftWidth = '4px';
+        });
+    });
+    
+    // Auto-submit du formulaire de filtre
+    const statutSelect = document.querySelector('select[name="statut"]');
+    if (statutSelect) {
+        statutSelect.addEventListener('change', function() {
+            this.form.submit();
+        });
+    }
+});
+</script>
+{% endblock %}

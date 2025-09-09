@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Connexion - Admin Mali{% endblock %}
+
+{% block main_content %}
+<div class="login-container">
+    <a href="{% url 'authentication:home' %}" class="back-btn">
+        <i class="fas fa-arrow-left"></i>
+        Retour
+    </a>
+    <div class="login-card">
+            <!-- Logo et titre -->
+            <div class="text-center mb-4">
+                <div class="mb-3">
+                    <i class="fas fa-user-shield" style="font-size: 3rem; color: #FF6B35;"></i>
+                </div>
+                <h2 class="fw-bold" style="color: #FF6B35;">Admin Mali</h2>
+                <p class="text-muted">Espace d'administration Mali</p>
+            </div>
+
+            <!-- Formulaire de connexion -->
+            <div class="card border-0 shadow-lg">
+                <div class="card-header text-center" style="background: linear-gradient(135deg, #FF6B35, #E55A4E); color: white;">
+                    <h4 class="mb-0">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Connexion
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" id="loginForm">
+                        {% csrf_token %}
+                        
+                        <!-- Champ téléphone -->
+                        <div class="mb-3">
+                            <label for="id_phone_number" class="form-label">
+                                <i class="fas fa-phone me-2" style="color: #FF6B35;"></i>
+                                Numéro de téléphone
+                            </label>
+                            <input type="tel" 
+                                   class="form-control form-control-lg" 
+                                   id="id_phone_number" 
+                                   name="phone_number" 
+                                   placeholder="+223 XX XX XX XX"
+                                   style="border: 2px solid #FFE5D9; border-radius: 10px;"
+                                   required>
+                            <div class="invalid-feedback" id="phone-error"></div>
+                        </div>
+
+                        <!-- Champ mot de passe -->
+                        <div class="mb-4">
+                            <label for="id_password" class="form-label">
+                                <i class="fas fa-lock me-2" style="color: #FF6B35;"></i>
+                                Mot de passe
+                            </label>
+                            <div class="input-group">
+                                <input type="password" 
+                                       class="form-control form-control-lg" 
+                                       id="id_password" 
+                                       name="password" 
+                                       placeholder="Votre mot de passe"
+                                       style="border: 2px solid #FFE5D9; border-radius: 10px 0 0 10px;"
+                                       required>
+                                <button class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        id="togglePassword"
+                                        style="border: 2px solid #FFE5D9; border-left: none; border-radius: 0 10px 10px 0;">
+                                    <i class="fas fa-eye" id="eyeIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Bouton de connexion -->
+                        <button type="submit" 
+                                class="btn btn-lg w-100 mb-3"
+                                style="background: linear-gradient(135deg, #FF6B35, #E55A4E); border: none; border-radius: 10px; color: white; font-weight: 600;">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Se connecter
+                        </button>
+                        
+                        <!-- Lien mot de passe oublié -->
+                        <div class="text-center">
+                            <a href="{% url 'authentication:password_reset_request' %}" 
+                               style="color: #FF6B35; text-decoration: none;">
+                                <i class="fas fa-key me-1"></i>
+                                Mot de passe oublié ?
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Liens de navigation -->
+            <div class="text-center mt-4">
+                <div class="row">
+                    <div class="col">
+                        <a href="{% url 'authentication:role_based_login' role='agent_chine' %}" 
+                           class="text-decoration-none" style="color: #6c757d;">
+                            <small>Agent Chine</small>
+                        </a>
+                    </div>
+                    <div class="col">
+                        <a href="{% url 'authentication:role_based_login' role='agent_mali' %}" 
+                           class="text-decoration-none" style="color: #6c757d;">
+                            <small>Agent Mali</small>
+                        </a>
+                    </div>
+                    <div class="col">
+                        <a href="{% url 'authentication:role_based_login' role='client' %}" 
+                           class="text-decoration-none" style="color: #6c757d;">
+                            <small>Client</small>
+                        </a>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <a href="{% url 'authentication:home' %}" 
+                       class="text-decoration-none" style="color: #FF6B35;">
+                        <i class="fas fa-home me-1"></i>
+                        Retour à l'accueil
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validation du numéro de téléphone
+    const phoneInput = document.getElementById('id_phone_number');
+    const phoneError = document.getElementById('phone-error');
+    
+    phoneInput.addEventListener('input', function() {
+        const phone = this.value.trim();
+        const phoneRegex = /^(\+223|00223|223)?\s?[0-9]{8}$/;
+        
+        if (phone && !phoneRegex.test(phone)) {
+            this.classList.add('is-invalid');
+            phoneError.textContent = 'Format valide: +223 XX XX XX XX ou 8 chiffres';
+        } else {
+            this.classList.remove('is-invalid');
+            phoneError.textContent = '';
+        }
+    });
+    
+    // Toggle mot de passe
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('id_password');
+    const eyeIcon = document.getElementById('eyeIcon');
+    
+    togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        
+        eyeIcon.classList.toggle('fa-eye');
+        eyeIcon.classList.toggle('fa-eye-slash');
+    });
+    
+    // Animation du formulaire
+    const form = document.getElementById('loginForm');
+    form.addEventListener('submit', function(e) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Connexion en cours...';
+        submitBtn.disabled = true;
+    });
+    
+    // Formatage automatique du téléphone
+    phoneInput.addEventListener('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        
+        if (value.startsWith('223')) {
+            value = '+' + value;
+        } else if (value.startsWith('00223')) {
+            value = '+' + value.substring(2);
+        } else if (value.length === 8) {
+            value = '+223 ' + value;
+        }
+        
+        // Formatage visuel
+        if (value.startsWith('+223')) {
+            const number = value.substring(4);
+            if (number.length > 0) {
+                const formatted = number.match(/.{1,2}/g)?.join(' ') || number;
+                this.value = '+223 ' + formatted;
+            }
+        }
+    });
+});
+</script>
+
+<style>
+/* Styles pour le conteneur de login admin Mali */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #ea580c 0%, #ff6b35 100%);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.login-card {
+    background: white;
+    border-radius: 24px;
+    padding: 50px 40px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    width: 100%;
+    max-width: 450px;
+    position: relative;
+    z-index: 1;
+    border-top: 6px solid #ff6b35;
+}
+
+.back-btn {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50px;
+    padding: 12px 20px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+    text-decoration: none;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.card {
+    border-radius: 15px !important;
+    overflow: hidden;
+}
+
+.form-control:focus {
+    border-color: #FF6B35 !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4) !important;
+    transition: all 0.3s ease;
+}
+
+.card-header {
+    border: none !important;
+}
+
+/* Animation pour les liens */
+a {
+    transition: all 0.3s ease;
+}
+
+a:hover {
+    transform: translateY(-1px);
+}
+
+/* Animation d'apparition */
+.login-card {
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,540 @@
+{% extends "client_app/base_client.html" %}
+
+{% block title %}Suivi {{ colis.numero_suivi }} - TS Air Cargo{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tracking-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .tracking-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 200px;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/><circle cx="50" cy="50" r="25" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/><circle cx="50" cy="50" r="10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/></svg>');
+        opacity: 0.3;
+        transform: translate(50px, -50px);
+    }
+    
+    .tracking-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        letter-spacing: 2px;
+        margin-bottom: 10px;
+    }
+    
+    .current-status {
+        font-size: 1.3rem;
+        padding: 10px 20px;
+        border-radius: 25px;
+        display: inline-block;
+        margin-top: 15px;
+    }
+    
+    .status-receptionne_chine {
+        background-color: rgba(255, 193, 7, 0.2);
+        color: #856404;
+        border: 2px solid rgba(255, 193, 7, 0.5);
+    }
+    
+    .status-en_transit, .status-expedie {
+        background-color: rgba(0, 123, 255, 0.2);
+        color: #004085;
+        border: 2px solid rgba(0, 123, 255, 0.5);
+    }
+    
+    .status-arrive {
+        background-color: rgba(40, 167, 69, 0.2);
+        color: #155724;
+        border: 2px solid rgba(40, 167, 69, 0.5);
+    }
+    
+    .status-livre {
+        background-color: rgba(25, 135, 84, 0.2);
+        color: #0f5132;
+        border: 2px solid rgba(25, 135, 84, 0.5);
+    }
+    
+    .status-perdu {
+        background-color: rgba(220, 53, 69, 0.2);
+        color: #721c24;
+        border: 2px solid rgba(220, 53, 69, 0.5);
+    }
+    
+    .progress-timeline {
+        position: relative;
+        padding: 40px 0;
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 0;
+        list-style: none;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 30px;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: #e9ecef;
+        border-radius: 2px;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 40px;
+        padding-left: 80px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: 10px;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: white;
+        z-index: 2;
+    }
+    
+    .timeline-item.completed .timeline-marker {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.2);
+    }
+    
+    .timeline-item.current .timeline-marker {
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.2);
+        animation: pulse 2s infinite;
+    }
+    
+    .timeline-item.pending .timeline-marker {
+        background: #6c757d;
+        opacity: 0.5;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.4); }
+        50% { box-shadow: 0 0 0 8px rgba(0, 123, 255, 0.1); }
+        100% { box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.4); }
+    }
+    
+    .timeline-content {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        position: relative;
+    }
+    
+    .timeline-content::before {
+        content: '';
+        position: absolute;
+        left: -15px;
+        top: 20px;
+        width: 0;
+        height: 0;
+        border-top: 10px solid transparent;
+        border-bottom: 10px solid transparent;
+        border-right: 15px solid white;
+    }
+    
+    .timeline-item.completed .timeline-content {
+        border-left: 4px solid #28a745;
+    }
+    
+    .timeline-item.current .timeline-content {
+        border-left: 4px solid #007bff;
+        background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+    }
+    
+    .timeline-date {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 8px;
+    }
+    
+    .timeline-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 8px;
+    }
+    
+    .timeline-description {
+        color: #6c757d;
+        line-height: 1.6;
+        margin: 0;
+    }
+    
+    .colis-info-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .info-value {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    
+    .owner-badge {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        display: inline-block;
+        margin-bottom: 20px;
+    }
+    
+    .public-notice {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        border: 1px solid #ffeaa7;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .search-again {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        margin-top: 40px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header du suivi -->
+<div class="tracking-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <div class="tracking-number">{{ colis.numero_suivi }}</div>
+            <p class="mb-0 opacity-90">{{ colis.description|truncatechars:80 }}</p>
+            <div class="current-status status-{{ colis.statut }}">
+                {{ colis.get_statut_display }}
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if is_owner %}
+            <div class="owner-badge">
+                <i class="fas fa-user-check me-2"></i>Votre colis
+            </div>
+            {% else %}
+            <div class="public-notice">
+                <i class="fas fa-eye me-2"></i>
+                <strong>Suivi public</strong><br>
+                <small>Informations limitées disponibles</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Timeline de suivi -->
+    <div class="col-md-8">
+        <div class="card colis-info-card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="fas fa-route text-primary me-2"></i>
+                    Historique de suivi
+                </h5>
+                
+                <div class="progress-timeline">
+                    <ul class="timeline">
+                        {% for etape in historique %}
+                        <li class="timeline-item {% if etape.actif %}completed{% endif %}">
+                            <div class="timeline-marker">
+                                {% if etape.statut == 'Réceptionné en Chine' %}
+                                    <i class="fas fa-warehouse"></i>
+                                {% elif etape.statut == 'Expédié de Chine' or etape.statut == 'En Transit' %}
+                                    <i class="fas fa-plane"></i>
+                                {% elif etape.statut == 'Arrivé au Mali' %}
+                                    <i class="fas fa-map-marker-alt"></i>
+                                {% elif etape.statut == 'Livré' %}
+                                    <i class="fas fa-check"></i>
+                                {% else %}
+                                    <i class="fas fa-circle"></i>
+                                {% endif %}
+                            </div>
+                            <div class="timeline-content">
+                                {% if etape.date %}
+                                <div class="timeline-date">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    {{ etape.date|date:"d M Y à H:i" }}
+                                </div>
+                                {% endif %}
+                                <div class="timeline-title">{{ etape.statut }}</div>
+                                <p class="timeline-description">{{ etape.description }}</p>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informations du colis -->
+    <div class="col-md-4">
+        <div class="card colis-info-card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="fas fa-info-circle text-primary me-2"></i>
+                    Informations
+                </h5>
+                
+                <div class="info-item">
+                    <span class="info-label">Numéro de suivi</span>
+                    <span class="info-value">{{ colis.numero_suivi }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Statut actuel</span>
+                    <span class="info-value">
+                        <span class="badge bg-primary status-{{ colis.statut }}">
+                            {{ colis.get_statut_display }}
+                        </span>
+                    </span>
+                </div>
+                
+                {% if is_owner %}
+                <!-- Informations complètes pour le propriétaire -->
+                <div class="info-item">
+                    <span class="info-label">Lot</span>
+                    <span class="info-value">{{ colis.lot.numero_lot }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Poids</span>
+                    <span class="info-value">{{ colis.poids }} kg</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Dimensions</span>
+                    <span class="info-value">{{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }} cm</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Prix</span>
+                    <span class="info-value">{{ colis.prix_calcule|floatformat:0 }} CFA</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Paiement</span>
+                    <span class="info-value">{{ colis.get_mode_paiement_display }}</span>
+                </div>
+                {% else %}
+                <!-- Informations limitées pour le public -->
+                <div class="info-item">
+                    <span class="info-label">Transport</span>
+                    <span class="info-value">{{ colis.get_type_transport_display }}</span>
+                </div>
+                {% endif %}
+                
+                {% if colis.lot.date_creation %}
+                <div class="info-item">
+                    <span class="info-label">Date création</span>
+                    <span class="info-value">{{ colis.lot.date_creation|date:"d M Y" }}</span>
+                </div>
+                {% endif %}
+                
+                {% if colis.lot.date_expedition %}
+                <div class="info-item">
+                    <span class="info-label">Date expédition</span>
+                    <span class="info-value">{{ colis.lot.date_expedition|date:"d M Y" }}</span>
+                </div>
+                {% endif %}
+                
+                {% if colis.lot.date_arrivee %}
+                <div class="info-item">
+                    <span class="info-label">Date arrivée</span>
+                    <span class="info-value">{{ colis.lot.date_arrivee|date:"d M Y" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="card colis-info-card">
+            <div class="card-body text-center">
+                <h6 class="card-title">Actions</h6>
+                
+                {% if is_owner %}
+                <a href="{% url 'client_app:colis_detail' colis.id %}" class="btn btn-primary btn-sm mb-2 w-100">
+                    <i class="fas fa-eye me-2"></i>Voir détails complets
+                </a>
+                <a href="{% url 'client_app:mes_colis' %}" class="btn btn-outline-primary btn-sm mb-2 w-100">
+                    <i class="fas fa-list me-2"></i>Mes autres colis
+                </a>
+                {% endif %}
+                
+                <a href="{% url 'client_app:suivi_colis' %}" class="btn btn-outline-secondary btn-sm w-100">
+                    <i class="fas fa-search me-2"></i>Suivre un autre colis
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section "Suivre un autre colis" -->
+<div class="search-again">
+    <h5 class="mb-3">
+        <i class="fas fa-search text-primary me-2"></i>
+        Suivre un autre colis
+    </h5>
+    <p class="text-muted mb-4">Entrez un autre numéro de suivi pour le suivre</p>
+    
+    <form class="d-flex justify-content-center" onsubmit="return searchAnother(event)">
+        <div class="input-group" style="max-width: 400px;">
+            <input type="text" 
+                   class="form-control" 
+                   id="autre_numero" 
+                   placeholder="Ex: TS1A2B3C4D" 
+                   pattern="^TS[A-Z0-9]{8}$">
+            <button class="btn btn-primary" type="submit">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Section d'aide -->
+<div class="mt-5">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-question-circle fa-3x text-primary mb-3"></i>
+                    <h5>Besoin d'aide ?</h5>
+                    <p class="text-muted">Notre équipe est disponible pour vous aider</p>
+                    <a href="https://wa.me/223XXXXXXXX" class="btn btn-success" target="_blank">
+                        <i class="fab fa-whatsapp me-2"></i>Contacter sur WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-bell fa-3x text-info mb-3"></i>
+                    <h5>Notifications automatiques</h5>
+                    <p class="text-muted">Recevez des mises à jour par WhatsApp</p>
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'client_app:notifications' %}" class="btn btn-info">
+                            <i class="fas fa-list me-2"></i>Voir mes notifications
+                        </a>
+                    {% else %}
+                        <a href="{% url 'authentication:login' %}" class="btn btn-info">
+                            <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function searchAnother(event) {
+    event.preventDefault();
+    
+    const numeroSuivi = document.getElementById('autre_numero').value.trim().toUpperCase();
+    
+    // Validation du format
+    const regex = /^TS[A-Z0-9]{8}$/;
+    if (!regex.test(numeroSuivi)) {
+        alert('Format invalide. Le numéro doit commencer par "TS" suivi de 8 caractères.');
+        return false;
+    }
+    
+    // Redirection
+    window.location.href = `/client/suivi/${numeroSuivi}/`;
+    return false;
+}
+
+// Auto-formatting
+document.getElementById('autre_numero').addEventListener('input', function(e) {
+    let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    if (value.length > 0 && !value.startsWith('TS')) {
+        if (value.startsWith('T')) {
+            value = 'TS' + value.substring(1);
+        } else {
+            value = 'TS' + value;
+        }
+    }
+    
+    if (value.length > 10) {
+        value = value.substring(0, 10);
+    }
+    
+    e.target.value = value;
+});
+
+// Animation des éléments de timeline au scroll
+function animateTimelineOnScroll() {
+    const timelineItems = document.querySelectorAll('.timeline-item');
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateX(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    
+    timelineItems.forEach((item, index) => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(-50px)';
+        item.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`;
+        observer.observe(item);
+    });
+}
+
+// Lancer l'animation au chargement
+document.addEventListener('DOMContentLoaded', animateTimelineOnScroll);
+</script>
+{% endblock %}

@@ -1,0 +1,264 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo Mali{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">{{ title }}</h2>
+        <p class="text-muted mb-0">Détails complets de la dépense</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:depense_edit' depense.id %}" class="btn btn-warning">
+            <i class="bi bi-pencil"></i> Modifier
+        </a>
+        <a href="{% url 'agent_mali:depenses' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Détails de la dépense -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Informations de la dépense
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="small fw-bold text-muted">DESCRIPTION</label>
+                        <div class="h6">{{ depense.libelle }}</div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="small fw-bold text-muted">CATÉGORIE</label>
+                        <div>
+                            <span class="badge bg-primary fs-6">{{ depense.get_type_depense_display }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="small fw-bold text-muted">MONTANT</label>
+                        <div class="h4 text-danger">{{ depense.montant|floatformat:0 }} CFA</div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="small fw-bold text-muted">DATE DE LA DÉPENSE</label>
+                        <div class="h6">{{ depense.date_depense|date:"d/m/Y" }}</div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="small fw-bold text-muted">AGENT</label>
+                        <div class="d-flex align-items-center">
+                            <div class="user-avatar me-2" style="width: 32px; height: 32px; font-size: 12px;">
+                                {{ depense.agent.first_name.0|upper }}{{ depense.agent.last_name.0|upper }}
+                            </div>
+                            <div>{{ depense.agent.get_full_name }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="small fw-bold text-muted">JUSTIFICATIF</label>
+                        <div>
+                            {% if depense.justificatif %}
+                                <a href="{{ depense.justificatif.url }}" target="_blank" class="btn btn-outline-info btn-sm">
+                                    <i class="bi bi-file-earmark"></i> Voir le justificatif
+                                </a>
+                            {% else %}
+                                <span class="text-muted">Aucun justificatif fourni</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if depense.notes %}
+                    <div class="col-12 mb-3">
+                        <label class="small fw-bold text-muted">NOTES ADDITIONNELLES</label>
+                        <div class="p-3 bg-light rounded">
+                            {{ depense.notes|linebreaks }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Métadonnées -->
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-clock"></i> Historique
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">CRÉÉE LE</small>
+                    <div>{{ depense.date_creation|date:"d/m/Y à H:i" }}</div>
+                </div>
+                
+                {% if depense.date_modification %}
+                <div class="mb-3">
+                    <small class="text-muted">DERNIÈRE MODIFICATION</small>
+                    <div>{{ depense.date_modification|date:"d/m/Y à H:i" }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="card shadow mt-3">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-gear"></i> Actions rapides
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'agent_mali:depense_edit' depense.id %}" class="btn btn-warning">
+                        <i class="bi bi-pencil"></i> Modifier cette dépense
+                    </a>
+                    
+                    {% if depense.justificatif %}
+                    <a href="{{ depense.justificatif.url }}" target="_blank" class="btn btn-outline-info">
+                        <i class="bi bi-download"></i> Télécharger le justificatif
+                    </a>
+                    {% endif %}
+                    
+                    <button type="button" class="btn btn-outline-primary" onclick="printDepense()">
+                        <i class="bi bi-printer"></i> Imprimer
+                    </button>
+                    
+                    <hr>
+                    
+                    <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
+                        <i class="bi bi-trash"></i> Supprimer cette dépense
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistiques liées -->
+        <div class="card shadow mt-3">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-graph-up"></i> Contexte
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">DÉPENSES DU MÊME TYPE CE MOIS</small>
+                    <div class="h6 text-primary">
+                        {% comment %}Calcul à faire côté backend{% endcomment %}
+                        <!-- Placeholder -->
+                        <span class="text-muted">En cours de calcul...</span>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">POURCENTAGE DU BUDGET MENSUEL</small>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: 15%"></div>
+                    </div>
+                    <small class="text-muted">~15% du budget estimé</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function printDepense() {
+        // Ouvrir une nouvelle fenêtre pour l'impression
+        const printWindow = window.open('', '_blank');
+        
+        const printContent = `
+            <html>
+            <head>
+                <title>Dépense - {{ depense.libelle }}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .detail { margin-bottom: 10px; }
+                    .label { font-weight: bold; color: #666; }
+                    .amount { font-size: 1.5em; color: #dc3545; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>TS Air Cargo - Justificatif de Dépense</h2>
+                    <p>Date d'impression: ${new Date().toLocaleDateString('fr-FR')}</p>
+                </div>
+                
+                <div class="detail">
+                    <span class="label">Description:</span> {{ depense.libelle }}
+                </div>
+                
+                <div class="detail">
+                    <span class="label">Catégorie:</span> {{ depense.get_type_depense_display }}
+                </div>
+                
+                <div class="detail">
+                    <span class="label">Montant:</span> 
+                    <span class="amount">{{ depense.montant|floatformat:0 }} CFA</span>
+                </div>
+                
+                <div class="detail">
+                    <span class="label">Date de la dépense:</span> {{ depense.date_depense|date:"d/m/Y" }}
+                </div>
+                
+                <div class="detail">
+                    <span class="label">Agent:</span> {{ depense.agent.get_full_name }}
+                </div>
+                
+                {% if depense.notes %}
+                <div class="detail">
+                    <span class="label">Notes:</span><br>
+                    {{ depense.notes|linebreaks }}
+                </div>
+                {% endif %}
+                
+                <div class="detail" style="margin-top: 30px;">
+                    <span class="label">Créée le:</span> {{ depense.date_creation|date:"d/m/Y à H:i" }}
+                </div>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.print();
+    }
+    
+    function confirmDelete() {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette dépense ?\n\nCette action est irréversible.')) {
+            // Créer un formulaire pour la suppression
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "agent_mali:depense_delete" depense.id %}';
+            
+            // Ajouter le token CSRF
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) {
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = csrfToken.value;
+                form.appendChild(csrfInput);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

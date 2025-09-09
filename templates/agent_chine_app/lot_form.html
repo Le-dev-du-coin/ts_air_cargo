@@ -1,0 +1,160 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ title }}</h2>
+        <p class="text-muted mb-0">Organisez vos envois dans un nouveau lot</p>
+    </div>
+    <a href="{% url 'agent_chine:lot_list' %}" class="action-btn-outline">
+        <i class="bi bi-arrow-left"></i>
+        Retour à la liste
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-box"></i>
+                    Informations du lot
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Informations du lot -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Information :</strong> 
+                                Le numéro de lot sera généré automatiquement au format AAAAMMJJXXX (date + compteur).
+                                Le statut sera initialement défini sur "Ouvert" pour permettre l'ajout de colis.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuration optionnelle -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary border-bottom pb-2 mb-3">
+                                <i class="bi bi-gear"></i> Configuration (optionnel)
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="prix_transport" class="form-label">
+                                Prix de transport (FCFA)
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-currency-exchange"></i>
+                                </span>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="prix_transport" 
+                                       name="prix_transport"
+                                       placeholder="0"
+                                       step="0.01"
+                                       min="0">
+                                <span class="input-group-text">FCFA</span>
+                            </div>
+                            <div class="form-text">
+                                Peut être défini maintenant ou lors de la fermeture du lot
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="description" class="form-label">
+                                Description (optionnel)
+                            </label>
+                            <textarea class="form-control" 
+                                      id="description" 
+                                      name="description" 
+                                      rows="3"
+                                      placeholder="Description du lot, notes particulières..."></textarea>
+                            <div class="form-text">
+                                Notes internes pour identifier ce lot
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aperçu -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="bi bi-eye"></i> Aperçu du lot
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <strong>Numéro :</strong><br>
+                                            <span class="text-muted">Généré automatiquement</span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <strong>Statut initial :</strong><br>
+                                            <span class="status-badge status-ouvert">Ouvert</span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <strong>Agent créateur :</strong><br>
+                                            {{ user.get_full_name }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'agent_chine:lot_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Annuler
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle me-1"></i>
+                            {{ submit_text }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-format prix transport
+document.getElementById('prix_transport')?.addEventListener('input', function(e) {
+    let value = parseFloat(e.target.value);
+    if (!isNaN(value) && value >= 0) {
+        // Validation OK
+        e.target.setCustomValidity('');
+    }
+});
+
+// Preview mise à jour
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    });
+});
+</script>
+{% endblock %}

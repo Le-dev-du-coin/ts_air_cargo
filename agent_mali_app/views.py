@@ -1,0 +1,2163 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db.models import Count, Sum, Q, Avg
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from datetime import datetime, timedelta, date
+from django.core.paginator import Paginator
+from django.db import transaction
+import json
+
+from .models import Depense, ReceptionLot, Livraison
+from agent_chine_app.models import Lot, Colis, Client
+from notifications_app.services import NotificationService
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+# Décorateur pour vérifier que l'utilisateur est un agent mali
+def agent_mali_required(view_func):
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated or not request.user.is_agent_mali:
+            messages.error(request, "Accès refusé. Vous devez être un agent au Mali.")
+            return redirect('authentication:login')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+@agent_mali_required
+def dashboard_view(request):
+    """
+    Tableau de bord pour Agent Mali avec statistiques temps réel
+    """
+    # Statistiques des lots - inclure les lots expédiés comme en transit pour l'agent Mali
+    lots_en_transit = Lot.objects.filter(statut__in=['expedie', 'en_transit']).count()
+    lots_arrives = Lot.objects.filter(statut='arrive').count()
+    lots_expedies_total = Lot.objects.filter(statut='expedie').count()
+    
+    # Statistiques des colis - inclure les colis expédiés comme en transit pour l'agent Mali
+    colis_en_transit = Colis.objects.filter(statut__in=['expedie', 'en_transit']).count()
+    colis_arrives = Colis.objects.filter(statut='arrive').count()
+    colis_livres = Colis.objects.filter(statut='livre').count()
+    colis_perdus = Colis.objects.filter(statut='perdu').count()
+    
+    # Statistiques de livraison aujourd'hui
+    aujourd_hui = timezone.now().date()
+    livraisons_aujourd_hui = Livraison.objects.filter(
+        date_livraison_effective__date=aujourd_hui,
+        statut='livree'
+    ).count()
+    
+    # Calculs de revenus et dépenses du mois
+    debut_mois = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Revenus basés sur le prix de transport des colis livrés ce mois
+    revenus_livraison_mois = Colis.objects.filter(
+        statut='livre',
+        livraisons__date_livraison_effective__gte=debut_mois,
+        livraisons__statut='livree'
+    ).aggregate(total=Sum('prix_calcule'))['total'] or 0
+    
+    # Revenus journaliers (colis livrés aujourd'hui)
+    revenus_livraison_aujourd_hui = Colis.objects.filter(
+        statut='livre',
+        livraisons__date_livraison_effective__date=aujourd_hui,
+        livraisons__statut='livree'
+    ).aggregate(total=Sum('prix_calcule'))['total'] or 0
+    
+    # Valeur totale des colis en stock (arrivés mais pas encore livrés)
+    valeur_stock_magasin = Colis.objects.filter(
+        statut='arrive'
+    ).aggregate(total=Sum('prix_calcule'))['total'] or 0
+    
+    # Dépenses du mois
+    depenses_mois = Depense.objects.filter(
+        date_depense__gte=debut_mois.date()
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    # Calcul du bénéfice mensuel
+    benefice_mois = float(revenus_livraison_mois) - float(depenses_mois)
+    
+    # Derniers lots reçus - inclure les lots expédiés et en transit
+    derniers_lots_recus = Lot.objects.filter(
+        statut__in=['arrive', 'en_transit', 'expedie']
+    ).order_by('-date_expedition')[:5]
+    
+    # Dernières livraisons
+    dernieres_livraisons = Livraison.objects.filter(
+        statut='livree'
+    ).select_related('colis__client__user').order_by('-date_livraison_effective')[:5]
+    
+    # Colis à livrer (priorité)
+    colis_a_livrer = Colis.objects.filter(
+        statut='arrive'
+    ).select_related('client__user', 'lot').count()
+    
+    # Colis livrés en attente de paiement
+    colis_attente_paiement = Colis.objects.filter(
+        statut='livre',
+        livraisons__statut='livree',
+        livraisons__statut_paiement='en_attente'
+    ).distinct().count()
+    
+    # Debug: imprimer la valeur pour vérifier
+    print(f"DEBUG - Colis en attente de paiement: {colis_attente_paiement}")
+    
+    context = {
+        'stats': {
+            'lots_en_transit': lots_en_transit,
+            'lots_arrives': lots_arrives,
+            'lots_expedies_total': lots_expedies_total,
+            'colis_en_transit': colis_en_transit,
+            'colis_arrives': colis_arrives,
+            'colis_livres': colis_livres,
+            'colis_perdus': colis_perdus,
+            'livraisons_aujourd_hui': livraisons_aujourd_hui,
+            'revenus_livraison_mois': float(revenus_livraison_mois),
+            'revenus_livraison_aujourd_hui': float(revenus_livraison_aujourd_hui),
+            'valeur_stock_magasin': float(valeur_stock_magasin),
+            'depenses_mois': float(depenses_mois),
+            'benefice_mois': benefice_mois,
+            'colis_a_livrer': colis_a_livrer,
+            'colis_attente_paiement': colis_attente_paiement,
+        },
+        'derniers_lots_recus': derniers_lots_recus,
+        'dernieres_livraisons': dernieres_livraisons,
+    }
+    return render(request, 'agent_mali_app/dashboard.html', context)
+
+@agent_mali_required
+def colis_attente_paiement_view(request):
+    """
+    Vue pour gérer les colis livrés en attente de paiement
+    """
+    colis_attente = Colis.objects.filter(
+        statut='livre',
+        livraisons__statut='livree',
+        livraisons__statut_paiement='en_attente'
+    ).select_related(
+        'client__user', 'lot'
+    ).prefetch_related('livraisons').distinct().order_by('-livraisons__date_livraison_effective')
+    
+    context = {
+        'colis_attente': colis_attente,
+        'title': 'Colis en Attente de Paiement',
+    }
+    return render(request, 'agent_mali_app/colis_attente_paiement.html', context)
+
+@agent_mali_required
+def marquer_paiement_view(request, colis_id):
+    """
+    Marquer un colis comme payé
+    """
+    if request.method == 'POST':
+        colis = get_object_or_404(Colis, id=colis_id, statut='livre')
+        
+        # Mettre à jour toutes les livraisons de ce colis
+        livraisons = colis.livraisons.filter(
+            statut='livree',
+            statut_paiement='en_attente'
+        )
+        
+        if livraisons.exists():
+            livraisons.update(statut_paiement='paye')
+            messages.success(
+                request, 
+                f"✅ Colis {colis.numero_suivi} marqué comme payé."
+            )
+        else:
+            messages.warning(
+                request,
+                f"⚠️ Aucune livraison en attente de paiement pour ce colis."
+            )
+    
+    return redirect('agent_mali:colis_attente_paiement')
+
+@agent_mali_required
+def marquer_perdu_view(request, colis_id):
+    """
+    Marquer un colis comme perdu
+    """
+    if request.method == 'POST':
+        colis = get_object_or_404(Colis, id=colis_id, statut='arrive')
+        
+        try:
+            raison_perte = request.POST.get('raison_perte')
+            commentaire = request.POST.get('commentaire', '')
+            notifier_client = request.POST.get('notifier_client') == 'on'
+            
+            # Mettre à jour le statut du colis
+            colis.statut = 'perdu'
+            colis.save()
+            
+            # Envoyer notification au client si demandé
+            if notifier_client:
+                try:
+                    from django.conf import settings
+                    
+                    message = f"""
+😔 Information importante concernant votre colis
+
+Bonjour {colis.client.user.get_full_name()},
+
+Nous vous informons malheureusement que votre colis {colis.numero_suivi} a été marqué comme perdu.
+
+📋 Raison: {dict([
+    ('transport', 'Perdu pendant le transport'),
+    ('vol', 'Vol/Disparition'),
+    ('deterioration', 'Détérioration complète'),
+    ('erreur_livraison', 'Erreur de livraison'),
+    ('autre', 'Autre raison')
+]).get(raison_perte, raison_perte)}
+
+💬 Détails: {commentaire if commentaire else 'Aucun détail supplémentaire'}
+
+Nous nous excusons sincèrement pour ce désagrément. Notre équipe va enquêter sur cet incident.
+
+Veuillez nous contacter pour discuter des démarches de compensation.
+
+Équipe TS Air Cargo Mali
+📞 Contact: +223 XX XX XX XX
+                    """.strip()
+                    
+                    NotificationService.send_notification(
+                        user=colis.client.user,
+                        message=message,
+                        method='whatsapp',
+                        title="Colis Perdu",
+                        categorie='colis_perdu'
+                    )
+                    
+                except Exception as notif_error:
+                    print(f"Erreur notification perte: {notif_error}")
+            
+            messages.success(
+                request, 
+                f"⚠️ Colis {colis.numero_suivi} marqué comme perdu. Client notifié: {'Oui' if notifier_client else 'Non'}"
+            )
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors du marquage comme perdu: {str(e)}")
+    
+    return redirect('agent_mali:colis_a_livrer')
+
+@agent_mali_required
+@require_http_methods(["GET"])
+def colis_details_api(request, colis_id):
+    """
+    API pour récupérer les détails d'un colis
+    """
+    try:
+        colis = get_object_or_404(Colis, id=colis_id)
+        
+        # Informations du colis
+        data = {
+            'numero_suivi': colis.numero_suivi,
+            'description': colis.description,
+            'statut': colis.get_statut_display(),
+            'type_transport': colis.get_type_transport_display(),
+            'poids': float(colis.poids),
+            'prix_calcule': float(colis.prix_calcule),
+            'date_creation': colis.date_creation.strftime('%d/%m/%Y à %H:%M'),
+            'dimensions': {
+                'longueur': float(colis.longueur),
+                'largeur': float(colis.largeur),
+                'hauteur': float(colis.hauteur),
+                'volume_m3': colis.volume_m3()
+            },
+            'client': {
+                'nom': colis.client.user.get_full_name(),
+                'telephone': colis.client.user.telephone,
+                'email': colis.client.user.email or 'Non renseigné',
+                'adresse': colis.client.adresse,
+                'pays': colis.client.get_pays_display()
+            },
+            'lot': {
+                'numero': colis.lot.numero_lot,
+                'statut': colis.lot.get_statut_display(),
+                'date_expedition': colis.lot.date_expedition.strftime('%d/%m/%Y à %H:%M') if colis.lot.date_expedition else None,
+                'date_arrivee': colis.lot.date_arrivee.strftime('%d/%m/%Y à %H:%M') if colis.lot.date_arrivee else None,
+                'agent_createur': colis.lot.agent_createur.get_full_name() if colis.lot.agent_createur else None
+            }
+        }
+        
+        # Informations de livraison si disponibles
+        livraison = colis.livraisons.filter(statut='livree').first()
+        if livraison:
+            # Gérer le statut de paiement en toute sécurité
+            try:
+                if hasattr(livraison, 'statut_paiement') and livraison.statut_paiement:
+                    statut_paiement = livraison.get_statut_paiement_display()
+                else:
+                    statut_paiement = 'Non défini'
+            except:
+                statut_paiement = 'Non défini'
+            
+            data['livraison'] = {
+                'date_livraison': livraison.date_livraison_effective.strftime('%d/%m/%Y à %H:%M') if livraison.date_livraison_effective else 'Non définie',
+                'nom_destinataire': livraison.nom_destinataire or 'Non défini',
+                'adresse_livraison': livraison.adresse_livraison or 'Non définie',
+                'statut_paiement': statut_paiement,
+                'agent_livreur': livraison.agent_livreur.get_full_name() if livraison.agent_livreur else 'Non défini',
+                'notes': livraison.notes_livraison or ''
+            }
+        
+        return JsonResponse({
+            'success': True,
+            'data': data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@agent_mali_required
+def lots_en_transit_view(request):
+    """
+    Liste des lots en transit venant de Chine (inclut les lots expédiés)
+    """
+    lots = Lot.objects.filter(
+        statut__in=['expedie', 'en_transit']
+    ).select_related('agent_createur').prefetch_related('colis__client__user').order_by('-date_expedition')
+    
+    # Calculs pour statistiques
+    total_colis = sum(lot.colis.count() for lot in lots)
+    valeur_transport_total = sum(float(lot.prix_transport or 0) for lot in lots)
+    
+    context = {
+        'lots': lots,
+        'total_colis': total_colis,
+        'valeur_transport_total': valeur_transport_total,
+        'title': 'Lots En Transit',
+    }
+    return render(request, 'agent_mali_app/lots_en_transit.html', context)
+
+@agent_mali_required
+def recevoir_lot_view(request, lot_id):
+    """
+    Réceptionner un lot au Mali avec gestion de la réception partielle
+    """
+    lot = get_object_or_404(Lot, id=lot_id, statut__in=['expedie', 'en_transit'])
+    
+    if request.method == 'POST':
+        try:
+            commentaire = request.POST.get('commentaire', '')
+            notifier_clients = request.POST.get('notifier_clients') == 'on'
+            
+            # Récupérer les colis sélectionnés pour réception
+            colis_recus_ids = request.POST.getlist('colis_recus')
+            
+            # Si aucun colis spécifique n'est sélectionné, 
+            # réceptionner seulement les colis pas encore arrivés
+            if not colis_recus_ids:
+                colis_non_arrives = lot.colis.exclude(statut='arrive')
+                colis_recus_ids = [str(c.id) for c in colis_non_arrives]
+            
+            # S'assurer qu'on ne traite que les colis pas encore arrivés
+            colis_a_recevoir = lot.colis.filter(
+                id__in=colis_recus_ids
+            ).exclude(statut='arrive')
+            
+            if not colis_a_recevoir.exists():
+                messages.warning(request, "⚠️ Aucun colis nouveau à réceptionner dans cette sélection.")
+                return redirect('agent_mali:recevoir_lot', lot_id=lot.id)
+            
+            # Créer l'enregistrement de réception
+            reception = ReceptionLot.objects.create(
+                lot=lot,
+                agent_receptionnaire=request.user,
+                observations=commentaire
+            )
+            
+            # Mettre à jour le statut des colis reçus
+            colis_a_recevoir.update(statut='arrive')
+            
+            # Vérifier si tous les colis du lot sont maintenant arrivés
+            colis_non_arrives_restants = lot.colis.exclude(statut='arrive')
+            
+            if not colis_non_arrives_restants.exists():
+                # Réception complète
+                lot.statut = 'arrive'
+                reception.reception_complete = True
+                reception_type = "complète"
+            else:
+                # Réception partielle
+                lot.statut = 'en_transit'
+                reception.reception_complete = False
+                reception.colis_manquants.set(colis_non_arrives_restants)
+                reception_type = "partielle"
+            
+            lot.date_arrivee = timezone.now()
+            lot.save()
+            reception.save()
+            
+            # Envoyer des notifications de masse via tâche asynchrone
+            colis_recus_count = colis_a_recevoir.count()
+            
+            print(f"DEBUG - Notification clients activée: {notifier_clients}")
+            print(f"DEBUG - Nombre de colis à notifier: {colis_recus_count}")
+            
+            if notifier_clients:
+                # Utiliser la tâche asynchrone pour notifications de masse
+                from notifications_app.tasks import send_bulk_lot_notifications
+                
+                print(f"DEBUG - Lancement de la tâche asynchrone pour les notifications...")
+                
+                try:
+                    # Lancer la tâche asynchrone
+                    task_result = send_bulk_lot_notifications.delay(
+                        lot_id=lot.id,
+                        notification_type='lot_arrived',
+                        initiated_by_id=request.user.id
+                    )
+                    
+                    print(f"DEBUG - Tâche asynchrone lancée avec ID: {task_result.id}")
+                    notifications_envoyees = f"Tâche asynchrone lancée (ID: {task_result.id})"
+                    
+                except Exception as async_error:
+                    print(f"Erreur lancement tâche asynchrone: {async_error}")
+                    notifications_envoyees = "Erreur lors du lancement"
+            
+            if notifier_clients:
+                if "Tâche asynchrone" in str(notifications_envoyees):
+                    messages.success(request, f"✅ Réception {reception_type} du lot {lot.numero_lot} ! {colis_recus_count} colis reçus. Notifications en cours d'envoi...")
+                else:
+                    messages.success(request, f"✅ Réception {reception_type} du lot {lot.numero_lot} ! {colis_recus_count} colis reçus. Erreur notifications: {notifications_envoyees}")
+            else:
+                messages.success(request, f"✅ Réception {reception_type} du lot {lot.numero_lot} ! {colis_recus_count} colis reçus (notifications désactivées).")
+            return redirect('agent_mali:lots_en_transit')
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la réception: {str(e)}")
+    
+    # Calculs pour affichage
+    total_colis = lot.colis.count()
+    total_poids = sum(float(c.poids) for c in lot.colis.all())
+    
+    context = {
+        'lot': lot,
+        'total_colis': total_colis,
+        'total_poids': total_poids,
+        'title': f'Réceptionner le lot {lot.numero_lot}',
+    }
+    return render(request, 'agent_mali_app/recevoir_lot.html', context)
+
+@agent_mali_required
+def colis_a_livrer_view(request):
+    """
+    Liste des colis arrivés au Mali et prêts à être livrés
+    """
+    colis = Colis.objects.filter(
+        statut='arrive'
+    ).select_related('client__user', 'lot').order_by('-lot__date_arrivee')
+    
+    # Filtrage par recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        colis = colis.filter(
+            Q(numero_suivi__icontains=search_query) |
+            Q(client__user__first_name__icontains=search_query) |
+            Q(client__user__last_name__icontains=search_query) |
+            Q(client__user__telephone__icontains=search_query)
+        )
+    
+    # Calcul de la valeur totale
+    valeur_totale = sum(float(c.prix_calcule) for c in colis)
+    
+    # Calcul du poids total
+    poids_total = sum(float(c.poids) for c in colis)
+    
+    # Calcul des clients uniques
+    clients_uniques = colis.values_list('client__id', flat=True).distinct().count()
+    
+    context = {
+        'colis': colis,
+        'search_query': search_query,
+        'valeur_totale': valeur_totale,
+        'poids_total': poids_total,
+        'clients_uniques': clients_uniques,
+        'title': 'Colis à Livrer',
+    }
+    return render(request, 'agent_mali_app/colis_a_livrer.html', context)
+
+@agent_mali_required
+def marquer_livre_view(request, colis_id):
+    """
+    Marquer un colis comme livré
+    """
+    colis = get_object_or_404(Colis, id=colis_id, statut='arrive')
+    
+    if request.method == 'POST':
+        try:
+            # Récupérer les données du formulaire
+            nom_destinataire = request.POST.get('personne_receptrice') or colis.client.user.get_full_name()
+            adresse_livraison = request.POST.get('adresse_livraison') or colis.client.adresse or "Adresse non spécifiée"
+            notes_livraison = request.POST.get('commentaire', '')
+            mode_livraison = request.POST.get('mode_livraison')
+            statut_paiement = request.POST.get('statut_paiement', 'en_attente')
+            
+            # Créer l'enregistrement de livraison
+            livraison = Livraison.objects.create(
+                colis=colis,
+                agent_livreur=request.user,
+                date_planifiee=timezone.now(),
+                date_livraison_effective=timezone.now(),
+                statut='livree',
+                statut_paiement=statut_paiement,
+                adresse_livraison=adresse_livraison,
+                telephone_destinataire=colis.client.user.telephone,
+                nom_destinataire=nom_destinataire,
+                notes_livraison=notes_livraison
+            )
+            
+            # Mettre à jour le statut du colis
+            colis.statut = 'livre'
+            colis.save()
+            
+            # Envoyer notification de livraison
+            try:
+                from django.conf import settings
+                
+                if getattr(settings, 'DEBUG', True):
+                    message = f"""
+✅ [SANDBOX TEST] Colis livré avec succès !
+
+👤 Client: {colis.client.user.get_full_name()}
+📞 Téléphone: {colis.client.user.telephone}
+
+📦 Colis: {colis.numero_suivi}
+🏠 Livré à: {nom_destinataire}
+📅 Date de livraison: {livraison.date_livraison_effective.strftime('%d/%m/%Y à %H:%M')}
+
+✅ Votre colis a été livré avec succès !
+Merci d'avoir choisi TS Air Cargo.
+
+Équipe TS Air Cargo 🚀
+                    """.strip()
+                else:
+                    message = f"""
+✅ Colis livré avec succès !
+
+Votre colis {colis.numero_suivi} a été livré avec succès.
+
+📅 Date de livraison: {livraison.date_livraison_effective.strftime('%d/%m/%Y à %H:%M')}
+🏠 Livré à: {nom_destinataire}
+
+Merci d'avoir choisi TS Air Cargo !
+                    """.strip()
+                
+                NotificationService.send_notification(
+                    user=colis.client.user,
+                    message=message,
+                    method='whatsapp',
+                    title="Colis Livré",
+                    categorie='colis_livre'
+                )
+            except Exception as notif_error:
+                print(f"Erreur notification livraison: {notif_error}")
+            
+            messages.success(request, f"✅ Colis {colis.numero_suivi} marqué comme livré avec succès !")
+            return redirect('agent_mali:colis_a_livrer')
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la livraison: {str(e)}")
+    
+    context = {
+        'colis': colis,
+        'title': f'Livrer le colis {colis.numero_suivi}',
+    }
+    return render(request, 'agent_mali_app/marquer_livre.html', context)
+
+@agent_mali_required
+def depenses_view(request):
+    """
+    Liste et gestion des dépenses avec statistiques avancées
+    """
+    # Base queryset
+    depenses = Depense.objects.filter(agent=request.user).order_by('-date_depense')
+    
+    # Filtres
+    search_query = request.GET.get('search', '')
+    categorie_filter = request.GET.get('categorie', '')
+    date_debut = request.GET.get('date_debut', '')
+    date_fin = request.GET.get('date_fin', '')
+    montant_min = request.GET.get('montant_min', '')
+    
+    # Application des filtres
+    if search_query:
+        depenses = depenses.filter(
+            Q(libelle__icontains=search_query) |
+            Q(notes__icontains=search_query) |
+            Q(montant__icontains=search_query)
+        )
+    
+    if categorie_filter:
+        depenses = depenses.filter(type_depense=categorie_filter)
+    
+    if date_debut:
+        depenses = depenses.filter(date_depense__gte=date_debut)
+    
+    if date_fin:
+        depenses = depenses.filter(date_depense__lte=date_fin)
+    
+    if montant_min:
+        try:
+            depenses = depenses.filter(montant__gte=float(montant_min))
+        except ValueError:
+            pass
+    
+    # Calcul des statistiques
+    aujourd_hui = date.today()
+    debut_mois = aujourd_hui.replace(day=1)
+    debut_semaine = aujourd_hui - timedelta(days=aujourd_hui.weekday())
+    
+    # Totaux par période
+    total_mois = Depense.objects.filter(
+        agent=request.user,
+        date_depense__gte=debut_mois
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    total_semaine = Depense.objects.filter(
+        agent=request.user,
+        date_depense__gte=debut_semaine
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    # Moyenne journalière (30 derniers jours)
+    debut_30j = aujourd_hui - timedelta(days=30)
+    total_30j = Depense.objects.filter(
+        agent=request.user,
+        date_depense__gte=debut_30j
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    moyenne_journaliere = total_30j / 30
+    
+    # Pagination
+    paginator = Paginator(depenses, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'depenses': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+        'total_mois': float(total_mois),
+        'total_semaine': float(total_semaine),
+        'moyenne_journaliere': float(moyenne_journaliere),
+        'search_query': search_query,
+        'categorie_filter': categorie_filter,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'montant_min': montant_min,
+        'title': 'Gestion des Dépenses',
+    }
+    return render(request, 'agent_mali_app/depenses.html', context)
+
+@agent_mali_required
+def depense_create_view(request):
+    """
+    Créer une nouvelle dépense
+    """
+    if request.method == 'POST':
+        try:
+            # Récupérer les données du formulaire
+            libelle = request.POST.get('libelle')
+            type_depense = request.POST.get('type_depense')
+            montant = request.POST.get('montant')
+            date_depense = request.POST.get('date_depense')
+            notes = request.POST.get('notes', '')
+            justificatif = request.FILES.get('justificatif')
+            
+            # Créer la dépense
+            depense = Depense.objects.create(
+                libelle=libelle,
+                type_depense=type_depense,
+                montant=float(montant),
+                date_depense=date_depense,
+                agent=request.user,
+                notes=notes,
+                justificatif=justificatif
+            )
+            
+            messages.success(request, f"✅ Dépense '{libelle}' enregistrée avec succès !")
+            return redirect('agent_mali:depenses')
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de l'enregistrement: {str(e)}")
+    
+    # Statistiques pour le sidebar
+    aujourd_hui = date.today()
+    debut_mois = aujourd_hui.replace(day=1)
+    
+    total_mois_actuel = Depense.objects.filter(
+        agent=request.user,
+        date_depense__gte=debut_mois
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    nombre_depenses_mois = Depense.objects.filter(
+        agent=request.user,
+        date_depense__gte=debut_mois
+    ).count()
+    
+    moyenne_depense_mois = total_mois_actuel / nombre_depenses_mois if nombre_depenses_mois > 0 else 0
+    
+    dernieres_depenses = Depense.objects.filter(
+        agent=request.user
+    ).order_by('-date_depense')[:5]
+    
+    context = {
+        'title': 'Nouvelle Dépense',
+        'type_choices': Depense.TYPE_DEPENSE_CHOICES,
+        'total_mois_actuel': float(total_mois_actuel),
+        'nombre_depenses_mois': nombre_depenses_mois,
+        'moyenne_depense_mois': float(moyenne_depense_mois),
+        'dernieres_depenses': dernieres_depenses,
+    }
+    return render(request, 'agent_mali_app/nouvelle_depense.html', context)
+
+@agent_mali_required
+def nouvelle_depense_view(request):
+    """
+    Créer une nouvelle dépense - alias pour depense_create_view
+    """
+    return depense_create_view(request)
+
+
+@agent_mali_required
+def depense_edit_view(request, depense_id):
+    """
+    Modifier une dépense existante
+    """
+    depense = get_object_or_404(Depense, id=depense_id, agent=request.user)
+    
+    if request.method == 'POST':
+        try:
+            # Récupérer les données du formulaire
+            libelle = request.POST.get('libelle')
+            type_depense = request.POST.get('type_depense')
+            montant = request.POST.get('montant')
+            date_depense = request.POST.get('date_depense')
+            notes = request.POST.get('notes', '')
+            justificatif = request.FILES.get('justificatif')
+            
+            # Mettre à jour la dépense
+            depense.libelle = libelle
+            depense.type_depense = type_depense
+            depense.montant = float(montant)
+            depense.date_depense = date_depense
+            depense.notes = notes
+            
+            # Mettre à jour le justificatif si fourni
+            if justificatif:
+                depense.justificatif = justificatif
+            
+            depense.save()
+            
+            messages.success(request, f"✅ Dépense '{libelle}' modifiée avec succès !")
+            return redirect('agent_mali:depenses')
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la modification: {str(e)}")
+    
+    context = {
+        'depense': depense,
+        'title': f'Modifier Dépense - {depense.libelle}',
+        'type_choices': Depense.TYPE_DEPENSE_CHOICES,
+    }
+    return render(request, 'agent_mali_app/depense_form.html', context)
+
+@agent_mali_required
+def depense_delete_view(request, depense_id):
+    """
+    Supprimer une dépense
+    """
+    depense = get_object_or_404(Depense, id=depense_id, agent=request.user)
+    
+    if request.method == 'POST':
+        libelle = depense.libelle
+        depense.delete()
+        messages.success(request, f"✅ Dépense '{libelle}' supprimée avec succès !")
+        return redirect('agent_mali:depenses')
+    
+    return redirect('agent_mali:depenses')
+
+@agent_mali_required
+def depense_detail_view(request, depense_id):
+    """
+    Afficher les détails d'une dépense
+    """
+    depense = get_object_or_404(Depense, id=depense_id, agent=request.user)
+    
+    context = {
+        'depense': depense,
+        'title': f'Détails - {depense.libelle}',
+    }
+    return render(request, 'agent_mali_app/depense_detail.html', context)
+
+@agent_mali_required
+def rapports_view(request):
+    """
+    Interface de génération de rapports
+    """
+    # Statistiques du jour pour affichage
+    aujourd_hui = date.today()
+    
+    # Lots reçus aujourd'hui
+    lots_recus_aujourd_hui = ReceptionLot.objects.filter(
+        date_reception__date=aujourd_hui
+    ).count()
+    
+    # Colis livrés aujourd'hui
+    colis_livres_aujourd_hui = Livraison.objects.filter(
+        date_livraison_effective__date=aujourd_hui,
+        statut='livree'
+    ).count()
+    
+    # Dépenses du jour
+    depenses_total_aujourd_hui = Depense.objects.filter(
+        agent=request.user,
+        date_depense=aujourd_hui
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    # Clients notifiés aujourd'hui (approximation)
+    clients_notifies_aujourd_hui = lots_recus_aujourd_hui + colis_livres_aujourd_hui
+    
+    # Revenus de livraison aujourd'hui
+    revenus_livraison_aujourd_hui = Livraison.objects.filter(
+        date_livraison_effective__date=aujourd_hui,
+        statut='livree',
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    
+    # Historique des rapports (simulé pour l'instant)
+    rapports_historique = []
+    
+    context = {
+        'stats_jour': {
+            'lots_recus': lots_recus_aujourd_hui,
+            'colis_livres': colis_livres_aujourd_hui,
+            'depenses_total': float(depenses_total_aujourd_hui),
+            'clients_notifies': clients_notifies_aujourd_hui,
+            'revenus_livraison': float(revenus_livraison_aujourd_hui),
+        },
+        'rapports_historique': rapports_historique,
+        'today': aujourd_hui,
+        'title': 'Rapports et Analyses',
+    }
+    return render(request, 'agent_mali_app/rapports.html', context)
+
+@agent_mali_required
+@require_http_methods(["POST"])
+def send_report_whatsapp_api(request):
+    """
+    API pour envoyer un rapport via WhatsApp ET par email avec PDF
+    """
+    try:
+        data = json.loads(request.body)
+        report_type = data.get('type')
+        period = data.get('period')
+        
+        # Générer le rapport PDF
+        pdf_content = generate_daily_report_pdf(period)
+        
+        # Message de base pour WhatsApp
+        whatsapp_message = f"""
+📈 Rapport Journalier TS Air Cargo Mali
+
+📅 Date: {datetime.strptime(period, '%Y-%m-%d').strftime('%d/%m/%Y')}
+👥 Agent: {request.user.get_full_name()}
+🏢 Agence: Mali
+
+📊 Rapport automatique quotidien généré.
+
+📧 Le rapport détaillé en PDF a été envoyé par email.
+
+Équipe TS Air Cargo Mali 🚀
+        """.strip()
+        
+        # Utiliser le service de notification existant pour simplifier
+        from notifications_app.services import NotificationService
+        
+        # Créer un message détaillé pour les admins WhatsApp
+        admin_whatsapp_message = f"""
+📈 RAPPORT JOURNALIER AUTOMATIQUE
+
+📅 Date: {datetime.strptime(period, '%Y-%m-%d').strftime('%d/%m/%Y')}
+👥 Généré par: {request.user.get_full_name()}
+🏢 Agence: Mali - Bamako
+
+📆 Type: Rapport {report_type}
+🗓️ Période: {period}
+
+📧 Le rapport détaillé en PDF a été envoyé par email.
+
+Équipe TS Air Cargo Mali 🚀
+        """.strip()
+        
+        # 1. Envoyer la notification WhatsApp
+        admins_contacted_whatsapp = NotificationService.send_admin_notification(
+            message=admin_whatsapp_message,
+            title=f"Rapport {report_type} - {datetime.strptime(period, '%Y-%m-%d').strftime('%d/%m/%Y')}"
+        )
+        
+        # 2. Envoyer le PDF par email
+        from django.core.mail import EmailMessage
+        from django.conf import settings
+        
+        # Sujet de l'email
+        email_subject = f"📊 Rapport Quotidien TS Air Cargo Mali - {datetime.strptime(period, '%Y-%m-%d').strftime('%d/%m/%Y')}"
+        
+        # Corps de l'email
+        email_body = f"""
+Bonjour,
+
+Veuillez trouver ci-joint le rapport quotidien d'activité TS Air Cargo Mali.
+
+📊 INFORMATIONS DU RAPPORT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 Date du rapport: {datetime.strptime(period, '%Y-%m-%d').strftime('%d/%m/%Y')}
+👤 Généré par: {request.user.get_full_name()}
+🏢 Agence: Mali - Bamako
+🕐 Date de génération: {datetime.now().strftime('%d/%m/%Y à %H:%M')}
+
+📋 CONTENU DU RAPPORT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• 📦 Lots reçus de Chine
+• 🚚 Colis livrés aux clients
+• 💸 Dépenses enregistrées
+• 💰 Revenus de livraison collectés
+• 📊 Analyses de performance journalière
+• 📈 Indicateurs clés de performance (KPI)
+
+📎 Le rapport détaillé est disponible en pièce jointe au format PDF.
+
+📱 NOTIFICATION WHATSAPP:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Une notification WhatsApp a également été envoyée à {admins_contacted_whatsapp} administrateur(s).
+
+Pour toute question concernant ce rapport, n'hésitez pas à nous contacter.
+
+Cordialement,
+Équipe TS Air Cargo Mali
+
+📧 contact@ts-aircargo.com | 📞 +223 XX XX XX XX
+🌐 www.ts-aircargo.com
+        """.strip()
+        
+        # Déterminer les destinataires de l'email
+        email_recipients = getattr(settings, 'EMAIL_REPORT_RECIPIENTS', ['admin@ts-aircargo.com'])
+        
+        # En mode développement, vérifier si l'utilisateur a un email
+        if settings.DEBUG and request.user.email:
+            # Ajouter l'email de l'utilisateur connecté pour les tests
+            if request.user.email not in email_recipients:
+                email_recipients = [request.user.email] + email_recipients
+        
+        # Créer et envoyer l'email
+        email_sent_count = 0
+        try:
+            email = EmailMessage(
+                subject=email_subject,
+                body=email_body,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@ts-aircargo.com'),
+                to=email_recipients,
+            )
+            
+            # Attacher le PDF
+            email.attach(
+                f"rapport_quotidien_{period}.pdf",
+                pdf_content,
+                'application/pdf'
+            )
+            
+            # Envoyer l'email
+            email.send()
+            email_sent_count = len(email_recipients)
+            
+        except Exception as email_error:
+            print(f"Erreur envoi email: {email_error}")
+            # Continuer même si l'email échoue
+        
+        # Construire le message de retour
+        success_parts = []
+        if admins_contacted_whatsapp > 0:
+            success_parts.append(f"{admins_contacted_whatsapp} notification(s) WhatsApp")
+        if email_sent_count > 0:
+            success_parts.append(f"{email_sent_count} email(s) avec PDF")
+        
+        if success_parts:
+            return JsonResponse({
+                'success': True,
+                'message': f'Rapport {report_type} envoyé avec succès : ' + ' et '.join(success_parts)
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Aucune notification n\'a pu être envoyée. Vérifiez la configuration WhatsApp et Email.'
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@agent_mali_required
+@require_http_methods(["POST"])
+def generate_daily_report_api(request):
+    """
+    API pour générer un rapport quotidien en PDF et le renvoyer comme un fichier
+    """
+    try:
+        data = json.loads(request.body)
+        date = data.get('date')
+
+        # Vérifier la date
+        if not date:
+            return JsonResponse({'success': False, 'error': 'Date non fournie'}, status=400)
+
+        # Générer le PDF
+        pdf_content = generate_daily_report_pdf(date)
+
+        # Retourner le fichier PDF
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="rapport_quotidien_{date}.pdf"'
+        return response
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@agent_mali_required
+@require_http_methods(["POST"])
+def generate_monthly_report_api(request):
+    """
+    API pour générer un rapport mensuel en PDF et le renvoyer comme un fichier
+    """
+    try:
+        data = json.loads(request.body)
+        month = data.get('month')  # Format: 'YYYY-MM'
+
+        # Vérifier le mois
+        if not month:
+            return JsonResponse({'success': False, 'error': 'Mois non fourni'}, status=400)
+
+        # Générer le PDF
+        pdf_content = generate_monthly_report_pdf(month)
+
+        # Retourner le fichier PDF
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="rapport_mensuel_{month}.pdf"'
+        return response
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@agent_mali_required
+@require_http_methods(["POST"])
+def generate_yearly_report_api(request):
+    """
+    API pour générer un rapport annuel en PDF et le renvoyer comme un fichier
+    """
+    try:
+        data = json.loads(request.body)
+        year = data.get('year')  # Format: 'YYYY'
+
+        # Vérifier l'année
+        if not year:
+            return JsonResponse({'success': False, 'error': 'Année non fournie'}, status=400)
+
+        # Générer le PDF
+        pdf_content = generate_yearly_report_pdf(year)
+
+        # Retourner le fichier PDF
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="rapport_annuel_{year}.pdf"'
+        return response
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@agent_mali_required
+@require_http_methods(["POST"])
+def send_report_email_api(request):
+    """
+    API pour envoyer un rapport par email
+    """
+    try:
+        data = json.loads(request.body)
+        report_type = data.get('type', 'daily')
+        period = data.get('period')
+        
+        if not period:
+            return JsonResponse({
+                'success': False,
+                'error': 'Période non fournie'
+            })
+        
+        # Générer le PDF selon le type de rapport
+        if report_type == 'daily':
+            pdf_content = generate_daily_report_pdf(period)
+            subject = f"Rapport Quotidien TS Air Cargo Mali - {datetime.strptime(period, '%Y-%m-%d').strftime('%d/%m/%Y')}"
+            filename = f"rapport_quotidien_{period}.pdf"
+        elif report_type == 'monthly':
+            pdf_content = generate_monthly_report_pdf(period)
+            year, month = period.split('-')
+            month_name = datetime(int(year), int(month), 1).strftime('%B %Y')
+            subject = f"Rapport Mensuel TS Air Cargo Mali - {month_name}"
+            filename = f"rapport_mensuel_{period}.pdf"
+        elif report_type == 'yearly':
+            pdf_content = generate_yearly_report_pdf(period)
+            subject = f"Rapport Annuel TS Air Cargo Mali - {period}"
+            filename = f"rapport_annuel_{period}.pdf"
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Type de rapport non supporté'
+            })
+        
+        # Contenu de l'email
+        email_body = f"""
+Bonjour,
+
+Veuillez trouver ci-joint le rapport d'activité TS Air Cargo Mali.
+
+📊 Type de rapport: {report_type.title()}
+📅 Période: {period}
+👤 Généré par: {request.user.get_full_name()}
+🏢 Agence: Mali - Bamako
+🕐 Date de génération: {datetime.now().strftime('%d/%m/%Y à %H:%M')}
+
+Ce rapport contient les informations détaillées sur:
+• Les lots reçus
+• Les colis livrés
+• Les dépenses enregistrées
+• Les revenus générés
+• Les analyses de performance
+
+Cordialement,
+Équipe TS Air Cargo Mali
+        """.strip()
+        
+        # Envoyer l'email
+        from django.core.mail import EmailMessage
+        from django.conf import settings
+        
+        # Configuration email destinataire
+        # En mode développement, envoyer à l'utilisateur connecté ou un email de test
+        if hasattr(settings, 'EMAIL_TEST_RECIPIENTS') and settings.EMAIL_TEST_RECIPIENTS:
+            recipients = settings.EMAIL_TEST_RECIPIENTS
+        else:
+            # Fallback: utiliser l'email de l'utilisateur connecté si disponible
+            recipients = [request.user.email] if request.user.email else ['admin@ts-aircargo.com']
+        
+        email = EmailMessage(
+            subject=subject,
+            body=email_body,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@ts-aircargo.com'),
+            to=recipients,
+        )
+        
+        # Attacher le PDF
+        email.attach(filename, pdf_content, 'application/pdf')
+        
+        # Envoyer l'email
+        email.send()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Rapport {report_type} envoyé par email avec succès à {len(recipients)} destinataire(s)'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur lors de l\'envoi email: {str(e)}'
+        })
+
+@agent_mali_required
+@require_http_methods(["POST"])
+def schedule_auto_report_api(request):
+    """
+    API pour programmer l'envoi automatique des rapports
+    """
+    try:
+        data = json.loads(request.body)
+        enabled = data.get('enabled', False)
+        time = data.get('time', '23:59')
+        
+        if enabled:
+            # Programmer la tâche automatique
+            # Note: Ceci nécessite une implémentation avec Celery ou Django-cron
+            # Pour le moment, on simule la programmation
+            
+            # Sauvegarder la configuration dans la session ou la base de données
+            request.session['auto_report_enabled'] = True
+            request.session['auto_report_time'] = time
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Envoi automatique programmé pour {time} chaque jour'
+            })
+        else:
+            # Désactiver la tâche automatique
+            request.session['auto_report_enabled'] = False
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Envoi automatique désactivé'
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+def generate_daily_report_pdf(date_str):
+    """
+    Générer un rapport journalier en PDF avec design professionnel
+    """
+    from io import BytesIO
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from datetime import datetime, timedelta
+    import os
+    
+    # Créer un buffer en mémoire
+    buffer = BytesIO()
+    
+    # Créer le document PDF avec marges optimisées
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        rightMargin=50,
+        leftMargin=50,
+        topMargin=50,
+        bottomMargin=50
+    )
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Styles personnalisés
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        spaceAfter=15,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1f4e79'),
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#2c5282'),
+        fontName='Helvetica-Bold'
+    )
+    
+    section_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading3'],
+        fontSize=12,
+        spaceAfter=8,
+        spaceBefore=12,
+        textColor=colors.HexColor('#2d3748'),
+        fontName='Helvetica-Bold',
+        borderWidth=1,
+        borderColor=colors.HexColor('#e2e8f0'),
+        borderPadding=5,
+        backColor=colors.HexColor('#f7fafc')
+    )
+    
+    # En-tête avec logo et titre
+    title = Paragraph("📊 RAPPORT JOURNALIER", title_style)
+    story.append(title)
+    
+    subtitle = Paragraph("TS AIR CARGO - AGENCE MALI", subtitle_style)
+    story.append(subtitle)
+    
+    # Ligne de séparation
+    story.append(Spacer(1, 10))
+    
+    # Informations de base
+    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+    date_filter = date_obj.date()
+    
+    info_data = [
+        ['📅 Date du rapport:', date_obj.strftime('%d/%m/%Y')],
+        ['🕐 Généré le:', datetime.now().strftime('%d/%m/%Y à %H:%M')],
+        ['🏢 Agence:', 'Mali - Bamako']
+    ]
+    
+    info_table = Table(info_data, colWidths=[2*inch, 3*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#edf2f7')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2d3748')),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    
+    story.append(info_table)
+    story.append(Spacer(1, 12))
+    
+    # Statistiques du jour
+    # Lots reçus
+    lots_recus = ReceptionLot.objects.filter(date_reception__date=date_filter).count()
+    
+    # Colis livrés
+    colis_livres = Livraison.objects.filter(
+        date_livraison_effective__date=date_filter,
+        statut='livree'
+    ).count()
+    
+    # Dépenses
+    depenses_total = Depense.objects.filter(
+        date_depense=date_filter
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    # Revenus
+    revenus_total = Livraison.objects.filter(
+        date_livraison_effective__date=date_filter,
+        statut='livree',
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    
+    # Bénéfice
+    benefice_net = revenus_total - depenses_total
+    
+    # Vérifier s'il y a des données
+    has_data = lots_recus > 0 or colis_livres > 0 or depenses_total > 0 or revenus_total > 0
+    
+    if has_data:
+        # Section des indicateurs clés
+        section_title = Paragraph("📈 INDICATEURS CLÉS DE PERFORMANCE", section_style)
+        story.append(section_title)
+        
+        # Tableau des KPIs avec couleurs
+        kpi_data = [
+            ['📊 INDICATEUR', '📋 VALEUR', '📈 STATUT'],
+            ['📦 Lots reçus', str(lots_recus), '✅ Traité' if lots_recus > 0 else '⚪ Aucun'],
+            ['🚚 Colis livrés', str(colis_livres), '✅ Livré' if colis_livres > 0 else '⚪ Aucun'],
+            ['💸 Dépenses totales', f"{depenses_total:,.0f} CFA", '🔴 Sortie' if depenses_total > 0 else '⚪ Aucune'],
+            ['💰 Revenus de livraison', f"{revenus_total:,.0f} CFA", '🟢 Entrée' if revenus_total > 0 else '⚪ Aucun'],
+            ['📊 Bénéfice net', f"{benefice_net:,.0f} CFA", 
+             '🟢 Positif' if benefice_net > 0 else '🔴 Négatif' if benefice_net < 0 else '⚪ Équilibré']
+        ]
+        
+        kpi_table = Table(kpi_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch])
+        kpi_table.setStyle(TableStyle([
+            # En-tête
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            
+            # Corps du tableau
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2d3748')),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 1), (1, -1), 'CENTER'),
+            ('ALIGN', (2, 1), (2, -1), 'CENTER'),
+            
+            # Alternance de couleurs
+            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#f7fafc')),
+            ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor('#f7fafc')),
+            ('BACKGROUND', (0, 6), (-1, 6), colors.HexColor('#f7fafc')),
+            
+            # Mise en forme spéciale pour le bénéfice
+            ('BACKGROUND', (0, 5), (-1, 5), 
+             colors.HexColor('#c6f6d5') if benefice_net > 0 else 
+             colors.HexColor('#fed7d7') if benefice_net < 0 else colors.HexColor('#e2e8f0')),
+            
+            # Bordures et espacement
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        
+        story.append(kpi_table)
+        story.append(Spacer(1, 10))
+        
+        # Section détails des dépenses si il y en a
+        if depenses_total > 0:
+            section_depenses = Paragraph("💸 DÉTAIL DES DÉPENSES", section_style)
+            story.append(section_depenses)
+            
+            depenses_detail = Depense.objects.filter(
+                date_depense=date_filter
+            ).values('type_depense', 'libelle', 'montant')[:10]  # Limiter à 10 entrées
+            
+            if depenses_detail:
+                depenses_data = [['🏷️ TYPE', '📝 LIBELLÉ', '💰 MONTANT']]
+                for dep in depenses_detail:
+                    depenses_data.append([
+                        dep['type_depense'].replace('_', ' ').title(),
+                        dep['libelle'][:30] + '...' if len(dep['libelle']) > 30 else dep['libelle'],
+                        f"{dep['montant']:,.0f} CFA"
+                    ])
+                
+                depenses_table = Table(depenses_data, colWidths=[1.5*inch, 2.5*inch, 1.5*inch])
+                depenses_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e53e3e')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 11),
+                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                    
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2d3748')),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('ALIGN', (0, 1), (1, -1), 'LEFT'),
+                    ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+                    
+                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ]))
+                
+                story.append(depenses_table)
+                story.append(Spacer(1, 8))
+        
+    else:
+        # Aucune donnée disponible
+        no_data_style = ParagraphStyle(
+            'NoData',
+            parent=styles['Normal'],
+            fontSize=14,
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#718096'),
+            fontName='Helvetica'
+        )
+        
+        no_data_msg = Paragraph(
+            "📭 AUCUNE ACTIVITÉ ENREGISTRÉE<br/><br/>" + 
+            "Aucune donnée n'a été trouvée pour cette date.<br/>" +
+            "• Aucun lot reçu<br/>" +
+            "• Aucun colis livré<br/>" +
+            "• Aucune dépense enregistrée<br/>" +
+            "• Aucun revenu généré<br/><br/>" +
+            "Vérifiez que les données ont été correctement saisies.",
+            no_data_style
+        )
+        story.append(no_data_msg)
+        story.append(Spacer(1, 10))
+    
+    # Pied de page
+    story.append(Spacer(1, 15))
+    
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=9,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#718096'),
+        fontName='Helvetica-Oblique'
+    )
+    
+    footer = Paragraph(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br/>" +
+        f"📧 contact@ts-aircargo.com | 📞 +223 XX XX XX XX | 🌐 www.ts-aircargo.com<br/>" +
+        f"© {datetime.now().year} TS Air Cargo Mali - Tous droits réservés",
+        footer_style
+    )
+    story.append(footer)
+    
+    # Construire le PDF
+    doc.build(story)
+    
+    # Récupérer le contenu
+    pdf_content = buffer.getvalue()
+    buffer.close()
+    
+    return pdf_content
+
+def generate_monthly_report_pdf(month_str):
+    """
+    Générer un rapport mensuel en PDF avec design professionnel
+    Format month_str: 'YYYY-MM'
+    """
+    from io import BytesIO
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from datetime import datetime, timedelta
+    from calendar import monthrange
+    import locale
+    
+    # Définir la locale en français si possible
+    try:
+        locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
+    except:
+        pass
+    
+    # Créer un buffer en mémoire
+    buffer = BytesIO()
+    
+    # Créer le document PDF avec marges
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=18
+    )
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Styles personnalisés
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1f4e79'),
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#2c5282'),
+        fontName='Helvetica-Bold'
+    )
+    
+    section_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading3'],
+        fontSize=14,
+        spaceAfter=15,
+        spaceBefore=25,
+        textColor=colors.HexColor('#2d3748'),
+        fontName='Helvetica-Bold',
+        borderWidth=1,
+        borderColor=colors.HexColor('#e2e8f0'),
+        borderPadding=8,
+        backColor=colors.HexColor('#f7fafc')
+    )
+    
+    # Traitement de la période
+    year, month = map(int, month_str.split('-'))
+    month_obj = datetime(year, month, 1)
+    
+    # Calculer les dates de début et fin du mois
+    start_date = datetime(year, month, 1).date()
+    _, last_day = monthrange(year, month)
+    end_date = datetime(year, month, last_day).date()
+    
+    # En-tête avec logo et titre
+    title = Paragraph("📊 RAPPORT MENSUEL", title_style)
+    story.append(title)
+    
+    subtitle = Paragraph("TS AIR CARGO - AGENCE MALI", subtitle_style)
+    story.append(subtitle)
+    
+    # Ligne de séparation
+    story.append(Spacer(1, 20))
+    
+    # Informations de base
+    month_name = month_obj.strftime('%B %Y').title()
+    info_data = [
+        ['📅 Période du rapport:', month_name],
+        ['🕐 Généré le:', datetime.now().strftime('%d/%m/%Y à %H:%M')],
+        ['🏢 Agence:', 'Mali - Bamako'],
+        ['📈 Du:', start_date.strftime('%d/%m/%Y')],
+        ['📈 Au:', end_date.strftime('%d/%m/%Y')]
+    ]
+    
+    info_table = Table(info_data, colWidths=[2*inch, 3*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#edf2f7')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2d3748')),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    
+    story.append(info_table)
+    story.append(Spacer(1, 30))
+    
+    # Statistiques du mois
+    # Lots reçus
+    lots_recus = ReceptionLot.objects.filter(
+        date_reception__date__gte=start_date,
+        date_reception__date__lte=end_date
+    ).count()
+    
+    # Colis livrés
+    colis_livres = Livraison.objects.filter(
+        date_livraison_effective__date__gte=start_date,
+        date_livraison_effective__date__lte=end_date,
+        statut='livree'
+    ).count()
+    
+    # Dépenses
+    depenses_total = Depense.objects.filter(
+        date_depense__gte=start_date,
+        date_depense__lte=end_date
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    # Revenus
+    revenus_total = Livraison.objects.filter(
+        date_livraison_effective__date__gte=start_date,
+        date_livraison_effective__date__lte=end_date,
+        statut='livree',
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    
+    # Bénéfice
+    benefice_net = revenus_total - depenses_total
+    
+    # Moyennes journalières
+    nombre_jours = (end_date - start_date).days + 1
+    moy_lots_jour = lots_recus / nombre_jours if nombre_jours > 0 else 0
+    moy_colis_jour = colis_livres / nombre_jours if nombre_jours > 0 else 0
+    moy_revenus_jour = revenus_total / nombre_jours if nombre_jours > 0 else 0
+    
+    # Vérifier s'il y a des données
+    has_data = lots_recus > 0 or colis_livres > 0 or depenses_total > 0 or revenus_total > 0
+    
+    if has_data:
+        # Section des indicateurs clés
+        section_title = Paragraph("📈 INDICATEURS CLÉS MENSUELS", section_style)
+        story.append(section_title)
+        
+        # Tableau des KPIs avec couleurs
+        kpi_data = [
+            ['📊 INDICATEUR', '📋 VALEUR', '📊 MOYENNE/JOUR', '📈 STATUT'],
+            ['📦 Lots reçus', str(lots_recus), f"{moy_lots_jour:.1f}", '✅ Actif' if lots_recus > 0 else '⚪ Inactif'],
+            ['🚚 Colis livrés', str(colis_livres), f"{moy_colis_jour:.1f}", '✅ Performant' if colis_livres > 0 else '⚪ Aucun'],
+            ['💸 Dépenses totales', f"{depenses_total:,.0f} CFA", f"{depenses_total/nombre_jours:,.0f} CFA", '🔴 Sortie' if depenses_total > 0 else '⚪ Aucune'],
+            ['💰 Revenus totaux', f"{revenus_total:,.0f} CFA", f"{moy_revenus_jour:,.0f} CFA", '🟢 Entrée' if revenus_total > 0 else '⚪ Aucun'],
+            ['📊 Bénéfice net', f"{benefice_net:,.0f} CFA", f"{benefice_net/nombre_jours:,.0f} CFA", 
+             '🟢 Positif' if benefice_net > 0 else '🔴 Négatif' if benefice_net < 0 else '⚪ Équilibré']
+        ]
+        
+        kpi_table = Table(kpi_data, colWidths=[2*inch, 1.3*inch, 1.3*inch, 1.4*inch])
+        kpi_table.setStyle(TableStyle([
+            # En-tête
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            
+            # Corps du tableau
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2d3748')),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            
+            # Alternance de couleurs
+            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#f7fafc')),
+            ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor('#f7fafc')),
+            ('BACKGROUND', (0, 6), (-1, 6), colors.HexColor('#f7fafc')),
+            
+            # Mise en forme spéciale pour le bénéfice
+            ('BACKGROUND', (0, 5), (-1, 5), 
+             colors.HexColor('#c6f6d5') if benefice_net > 0 else 
+             colors.HexColor('#fed7d7') if benefice_net < 0 else colors.HexColor('#e2e8f0')),
+            
+            # Bordures et espacement
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        
+        story.append(kpi_table)
+        story.append(Spacer(1, 30))
+        
+        # Analyse des dépenses par type
+        if depenses_total > 0:
+            section_depenses = Paragraph("💸 ANALYSE DES DÉPENSES PAR CATÉGORIE", section_style)
+            story.append(section_depenses)
+            
+            depenses_par_type = Depense.objects.filter(
+                date_depense__gte=start_date,
+                date_depense__lte=end_date
+            ).values('type_depense').annotate(
+                total=Sum('montant'),
+                count=Count('id')
+            ).order_by('-total')
+            
+            if depenses_par_type:
+                depenses_data = [['🏷️ CATÉGORIE', '💰 MONTANT TOTAL', '📊 NOMBRE', '📈 % DU TOTAL']]
+                for dep in depenses_par_type:
+                    pourcentage = (dep['total'] / depenses_total * 100) if depenses_total > 0 else 0
+                    depenses_data.append([
+                        dep['type_depense'].replace('_', ' ').title(),
+                        f"{dep['total']:,.0f} CFA",
+                        str(dep['count']),
+                        f"{pourcentage:.1f}%"
+                    ])
+                
+                depenses_table = Table(depenses_data, colWidths=[2*inch, 1.5*inch, 1*inch, 1*inch])
+                depenses_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e53e3e')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                    
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2d3748')),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+                    ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+                    
+                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ]))
+                
+                story.append(depenses_table)
+                story.append(Spacer(1, 20))
+    
+    else:
+        # Aucune donnée disponible
+        no_data_style = ParagraphStyle(
+            'NoData',
+            parent=styles['Normal'],
+            fontSize=14,
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#718096'),
+            fontName='Helvetica'
+        )
+        
+        no_data_msg = Paragraph(
+            f"📭 AUCUNE ACTIVITÉ ENREGISTRÉE POUR {month_name.upper()}<br/><br/>" + 
+            "Aucune donnée n'a été trouvée pour cette période.<br/>" +
+            "• Aucun lot reçu<br/>" +
+            "• Aucun colis livré<br/>" +
+            "• Aucune dépense enregistrée<br/>" +
+            "• Aucun revenu généré<br/><br/>" +
+            "Vérifiez que les données ont été correctement saisies.",
+            no_data_style
+        )
+        story.append(no_data_msg)
+        story.append(Spacer(1, 30))
+    
+    # Pied de page
+    story.append(Spacer(1, 50))
+    
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#718096'),
+        fontName='Helvetica-Oblique'
+    )
+    
+    footer = Paragraph(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br/>" +
+        f"📧 contact@ts-aircargo.com | 📞 +223 XX XX XX XX | 🌐 www.ts-aircargo.com<br/>" +
+        f"© {datetime.now().year} TS Air Cargo Mali - Tous droits réservés",
+        footer_style
+    )
+    story.append(footer)
+    
+    # Construire le PDF
+    doc.build(story)
+    
+    # Récupérer le contenu
+    pdf_content = buffer.getvalue()
+    buffer.close()
+    
+    return pdf_content
+
+def generate_yearly_report_pdf(year_str):
+    """
+    Générer un rapport annuel en PDF avec design professionnel
+    Format year_str: 'YYYY'
+    """
+    from io import BytesIO
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from datetime import datetime, timedelta
+    
+    # Créer un buffer en mémoire
+    buffer = BytesIO()
+    
+    # Créer le document PDF avec marges
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=18
+    )
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Styles personnalisés
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1f4e79'),
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#2c5282'),
+        fontName='Helvetica-Bold'
+    )
+    
+    section_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading3'],
+        fontSize=14,
+        spaceAfter=15,
+        spaceBefore=25,
+        textColor=colors.HexColor('#2d3748'),
+        fontName='Helvetica-Bold',
+        borderWidth=1,
+        borderColor=colors.HexColor('#e2e8f0'),
+        borderPadding=8,
+        backColor=colors.HexColor('#f7fafc')
+    )
+    
+    # Traitement de l'année
+    year = int(year_str)
+    start_date = datetime(year, 1, 1).date()
+    end_date = datetime(year, 12, 31).date()
+    
+    # En-tête avec logo et titre
+    title = Paragraph("📊 RAPPORT ANNUEL", title_style)
+    story.append(title)
+    
+    subtitle = Paragraph("TS AIR CARGO - AGENCE MALI", subtitle_style)
+    story.append(subtitle)
+    
+    # Ligne de séparation
+    story.append(Spacer(1, 20))
+    
+    # Informations de base
+    info_data = [
+        ['📅 Année du rapport:', str(year)],
+        ['🕐 Généré le:', datetime.now().strftime('%d/%m/%Y à %H:%M')],
+        ['🏢 Agence:', 'Mali - Bamako'],
+        ['📈 Période:', f"Du 01/01/{year} au 31/12/{year}"]
+    ]
+    
+    info_table = Table(info_data, colWidths=[2*inch, 3*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#edf2f7')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2d3748')),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    
+    story.append(info_table)
+    story.append(Spacer(1, 30))
+    
+    # Statistiques de l'année
+    # Lots reçus
+    lots_recus = ReceptionLot.objects.filter(
+        date_reception__date__gte=start_date,
+        date_reception__date__lte=end_date
+    ).count()
+    
+    # Colis livrés
+    colis_livres = Livraison.objects.filter(
+        date_livraison_effective__date__gte=start_date,
+        date_livraison_effective__date__lte=end_date,
+        statut='livree'
+    ).count()
+    
+    # Dépenses
+    depenses_total = Depense.objects.filter(
+        date_depense__gte=start_date,
+        date_depense__lte=end_date
+    ).aggregate(total=Sum('montant'))['total'] or 0
+    
+    # Revenus
+    revenus_total = Livraison.objects.filter(
+        date_livraison_effective__date__gte=start_date,
+        date_livraison_effective__date__lte=end_date,
+        statut='livree',
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    
+    # Bénéfice
+    benefice_net = revenus_total - depenses_total
+    
+    # Moyennes mensuelles
+    moy_lots_mois = lots_recus / 12
+    moy_colis_mois = colis_livres / 12
+    moy_revenus_mois = revenus_total / 12
+    moy_depenses_mois = depenses_total / 12
+    
+    # Vérifier s'il y a des données
+    has_data = lots_recus > 0 or colis_livres > 0 or depenses_total > 0 or revenus_total > 0
+    
+    if has_data:
+        # Section des indicateurs clés
+        section_title = Paragraph("📈 BILAN ANNUEL - INDICATEURS CLÉS", section_style)
+        story.append(section_title)
+        
+        # Tableau des KPIs avec couleurs
+        kpi_data = [
+            ['📊 INDICATEUR', '📋 TOTAL ANNUEL', '📊 MOYENNE/MOIS', '📈 PERFORMANCE'],
+            ['📦 Lots reçus', str(lots_recus), f"{moy_lots_mois:.1f}", '✅ Excellent' if lots_recus > 100 else '🟡 Moyen' if lots_recus > 50 else '🔴 Faible'],
+            ['🚚 Colis livrés', str(colis_livres), f"{moy_colis_mois:.1f}", '✅ Excellent' if colis_livres > 500 else '🟡 Moyen' if colis_livres > 200 else '🔴 Faible'],
+            ['💸 Dépenses totales', f"{depenses_total:,.0f} CFA", f"{moy_depenses_mois:,.0f} CFA", '🔴 Élevé' if depenses_total > 1000000 else '🟡 Modéré'],
+            ['💰 Revenus totaux', f"{revenus_total:,.0f} CFA", f"{moy_revenus_mois:,.0f} CFA", '✅ Excellent' if revenus_total > 2000000 else '🟡 Moyen'],
+            ['📊 Bénéfice net', f"{benefice_net:,.0f} CFA", f"{benefice_net/12:,.0f} CFA", 
+             '🟢 Très Positif' if benefice_net > 1000000 else '✅ Positif' if benefice_net > 0 else '🔴 Négatif']
+        ]
+        
+        kpi_table = Table(kpi_data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+        kpi_table.setStyle(TableStyle([
+            # En-tête
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            
+            # Corps du tableau
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2d3748')),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            
+            # Alternance de couleurs
+            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#f7fafc')),
+            ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor('#f7fafc')),
+            ('BACKGROUND', (0, 6), (-1, 6), colors.HexColor('#f7fafc')),
+            
+            # Mise en forme spéciale pour le bénéfice
+            ('BACKGROUND', (0, 5), (-1, 5), 
+             colors.HexColor('#c6f6d5') if benefice_net > 0 else 
+             colors.HexColor('#fed7d7') if benefice_net < 0 else colors.HexColor('#e2e8f0')),
+            
+            # Bordures et espacement
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        
+        story.append(kpi_table)
+        story.append(Spacer(1, 30))
+        
+        # Évolution mensuelle (tableau récapitulatif)
+        section_evolution = Paragraph("📈 ÉVOLUTION MENSUELLE", section_style)
+        story.append(section_evolution)
+        
+        # Créer un tableau avec l'évolution mois par mois
+        evolution_data = [['MOIS', 'LOTS REÇUS', 'COLIS LIVRÉS', 'REVENUS (CFA)', 'DÉPENSES (CFA)']]
+        
+        for month in range(1, 13):
+            month_start = datetime(year, month, 1).date()
+            if month == 12:
+                month_end = datetime(year, 12, 31).date()
+            else:
+                month_end = datetime(year, month + 1, 1).date() - timedelta(days=1)
+            
+            # Statistiques du mois
+            lots_mois = ReceptionLot.objects.filter(
+                date_reception__date__gte=month_start,
+                date_reception__date__lte=month_end
+            ).count()
+            
+            colis_mois = Livraison.objects.filter(
+                date_livraison_effective__date__gte=month_start,
+                date_livraison_effective__date__lte=month_end,
+                statut='livree'
+            ).count()
+            
+            revenus_mois = Livraison.objects.filter(
+                date_livraison_effective__date__gte=month_start,
+                date_livraison_effective__date__lte=month_end,
+                statut='livree',
+                montant_collecte__isnull=False
+            ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+            
+            depenses_mois = Depense.objects.filter(
+                date_depense__gte=month_start,
+                date_depense__lte=month_end
+            ).aggregate(total=Sum('montant'))['total'] or 0
+            
+            month_name = datetime(year, month, 1).strftime('%B')[:3].title()
+            evolution_data.append([
+                month_name,
+                str(lots_mois),
+                str(colis_mois),
+                f"{revenus_mois:,.0f}" if revenus_mois > 0 else "-",
+                f"{depenses_mois:,.0f}" if depenses_mois > 0 else "-"
+            ])
+        
+        evolution_table = Table(evolution_data, colWidths=[1*inch, 1*inch, 1*inch, 1.5*inch, 1.5*inch])
+        evolution_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#38a169')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2d3748')),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e0')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        story.append(evolution_table)
+        story.append(Spacer(1, 20))
+    
+    else:
+        # Aucune donnée disponible
+        no_data_style = ParagraphStyle(
+            'NoData',
+            parent=styles['Normal'],
+            fontSize=14,
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#718096'),
+            fontName='Helvetica'
+        )
+        
+        no_data_msg = Paragraph(
+            f"📭 AUCUNE ACTIVITÉ ENREGISTRÉE POUR L'ANNÉE {year}<br/><br/>" + 
+            "Aucune donnée n'a été trouvée pour cette année.<br/>" +
+            "• Aucun lot reçu<br/>" +
+            "• Aucun colis livré<br/>" +
+            "• Aucune dépense enregistrée<br/>" +
+            "• Aucun revenu généré<br/><br/>" +
+            "Vérifiez que les données ont été correctement saisies.",
+            no_data_style
+        )
+        story.append(no_data_msg)
+        story.append(Spacer(1, 30))
+    
+    # Pied de page
+    story.append(Spacer(1, 50))
+    
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#718096'),
+        fontName='Helvetica-Oblique'
+    )
+    
+    footer = Paragraph(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br/>" +
+        f"📧 contact@ts-aircargo.com | 📞 +223 XX XX XX XX | 🌐 www.ts-aircargo.com<br/>" +
+        f"© {datetime.now().year} TS Air Cargo Mali - Tous droits réservés",
+        footer_style
+    )
+    story.append(footer)
+    
+    # Construire le PDF
+    doc.build(story)
+    
+    # Récupérer le contenu
+    pdf_content = buffer.getvalue()
+    buffer.close()
+    
+    return pdf_content

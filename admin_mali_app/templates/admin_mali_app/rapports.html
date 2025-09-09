@@ -1,0 +1,407 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}Rapports - Admin Mali{% endblock %}
+
+{% block page_title %}Rapports{% endblock %}
+
+{% block extra_head %}
+<style>
+    .report-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-left: 5px solid var(--primary-color);
+    }
+    
+    .report-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .report-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+    }
+    
+    .btn-generate {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-generate:hover {
+        background: var(--secondary-color);
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .filter-section {
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .report-results {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 15px;
+        padding: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filtres de rapport -->
+<div class="filter-section">
+    <h5 class="mb-3"><i class="fas fa-filter"></i> Filtres de Rapport</h5>
+    <form method="get" id="reportForm">
+        <div class="row">
+            <div class="col-md-3">
+                <label for="date_debut" class="form-label">Date de début</label>
+                <input type="date" name="date_debut" class="form-control" id="date_debut" value="{{ request.GET.date_debut }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_fin" class="form-label">Date de fin</label>
+                <input type="date" name="date_fin" class="form-control" id="date_fin" value="{{ request.GET.date_fin }}">
+            </div>
+            <div class="col-md-3">
+                <label for="type_rapport" class="form-label">Type de rapport</label>
+                <select name="type_rapport" class="form-select" id="type_rapport">
+                    <option value="">Tous les rapports</option>
+                    <option value="transferts" {% if request.GET.type_rapport == 'transferts' %}selected{% endif %}>Transferts</option>
+                    <option value="agents" {% if request.GET.type_rapport == 'agents' %}selected{% endif %}>Agents</option>
+                    <option value="financier" {% if request.GET.type_rapport == 'financier' %}selected{% endif %}>Financier</option>
+                    <option value="operationnel" {% if request.GET.type_rapport == 'operationnel' %}selected{% endif %}>Opérationnel</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-generate w-100">
+                    <i class="fas fa-chart-bar"></i> Générer
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Types de rapports disponibles -->
+<div class="row mb-4">
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="report-card p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="report-icon me-3">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Rapport des Transferts</h6>
+                    <small class="text-muted">Détail des transactions</small>
+                </div>
+            </div>
+            <p class="text-muted small">Analyse complète des transferts d'argent avec statistiques détaillées.</p>
+            <a href="?type_rapport=transferts" class="btn btn-generate btn-sm">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="report-card p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="report-icon me-3">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Rapport des Agents</h6>
+                    <small class="text-muted">Performance des agents</small>
+                </div>
+            </div>
+            <p class="text-muted small">Évaluation des performances et activités des agents.</p>
+            <a href="?type_rapport=agents" class="btn btn-generate btn-sm">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="report-card p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="report-icon me-3">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Rapport Financier</h6>
+                    <small class="text-muted">Analyse financière</small>
+                </div>
+            </div>
+            <p class="text-muted small">Bilan financier et analyse des revenus générés.</p>
+            <a href="?type_rapport=financier" class="btn btn-generate btn-sm">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="report-card p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="report-icon me-3">
+                    <i class="fas fa-cogs"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Rapport Opérationnel</h6>
+                    <small class="text-muted">Activités opérationnelles</small>
+                </div>
+            </div>
+            <p class="text-muted small">Statistiques d'utilisation et d'activité du système.</p>
+            <a href="?type_rapport=operationnel" class="btn btn-generate btn-sm">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Résultats du rapport -->
+{% if rapport_data %}
+<div class="report-results">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h5><i class="fas fa-chart-bar"></i> Résultats du Rapport</h5>
+        <div>
+            <button class="btn btn-outline-primary btn-sm me-2" onclick="window.print()">
+                <i class="fas fa-print"></i> Imprimer
+            </button>
+            <button class="btn btn-outline-success btn-sm" onclick="exportToExcel()">
+                <i class="fas fa-file-excel"></i> Exporter Excel
+            </button>
+        </div>
+    </div>
+    
+    {% if request.GET.type_rapport == 'transferts' %}
+        <!-- Rapport des transferts -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-primary">{{ rapport_data.total_transferts }}</h4>
+                    <small class="text-muted">Total Transferts</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-success">{{ rapport_data.total_montant|floatformat:0 }}</h4>
+                    <small class="text-muted">Montant Total (FCFA)</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-info">{{ rapport_data.montant_moyen|floatformat:0 }}</h4>
+                    <small class="text-muted">Montant Moyen (FCFA)</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-warning">{{ rapport_data.transferts_en_cours }}</h4>
+                    <small class="text-muted">En Cours</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Référence</th>
+                        <th>Destinataire</th>
+                        <th>Montant</th>
+                        <th>Méthode</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transfert in rapport_data.transferts %}
+                    <tr>
+                        <td>{{ transfert.date_initiation|date:"d/m/Y H:i" }}</td>
+                        <td>{{ transfert.numero_transfert }}</td>
+                        <td>{{ transfert.destinataire_nom }}</td>
+                        <td>{{ transfert.montant_fcfa|floatformat:0 }} FCFA</td>
+                        <td>{{ transfert.get_methode_transfert_display }}</td>
+                        <td>
+                            <span class="badge bg-{{ transfert.statut|lower }}">
+                                {{ transfert.get_statut_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">Aucun transfert trouvé</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+    {% elif request.GET.type_rapport == 'financier' %}
+        <!-- Rapport financier -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <h4 class="text-success">{{ rapport_data.revenus_total|floatformat:0 }}</h4>
+                    <small class="text-muted">Revenus Total (FCFA)</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <h4 class="text-primary">{{ rapport_data.commissions|floatformat:0 }}</h4>
+                    <small class="text-muted">Commissions (FCFA)</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <h4 class="text-info">{{ rapport_data.benefice_net|floatformat:0 }}</h4>
+                    <small class="text-muted">Bénéfice Net (FCFA)</small>
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="revenueChart" width="400" height="200"></canvas>
+        
+    {% elif request.GET.type_rapport == 'agents' %}
+        <!-- Rapport des agents -->
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Agent</th>
+                        <th>Transferts Traités</th>
+                        <th>Montant Total</th>
+                        <th>Commission</th>
+                        <th>Performance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agent in rapport_data.agents %}
+                    <tr>
+                        <td>{{ agent.nom }} {{ agent.prenom }}</td>
+                        <td>{{ agent.nb_transferts }}</td>
+                        <td>{{ agent.montant_total|floatformat:0 }} FCFA</td>
+                        <td>{{ agent.commission|floatformat:0 }} FCFA</td>
+                        <td>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar" role="progressbar" style="width: {{ agent.performance }}%">
+                                    {{ agent.performance }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">Aucun agent trouvé</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+    {% elif request.GET.type_rapport == 'operationnel' %}
+        <!-- Rapport opérationnel -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-primary">{{ rapport_data.taux_reussite }}%</h4>
+                    <small class="text-muted">Taux de Réussite</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-warning">{{ rapport_data.temps_moyen }}</h4>
+                    <small class="text-muted">Temps Moyen (min)</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-info">{{ rapport_data.pic_activite }}</h4>
+                    <small class="text-muted">Pic d'Activité</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-success">{{ rapport_data.satisfaction }}%</h4>
+                    <small class="text-muted">Satisfaction</small>
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="operationalChart" width="400" height="200"></canvas>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+function exportToExcel() {
+    // Construire l'URL d'export avec les paramètres actuels
+    const urlParams = new URLSearchParams(window.location.search);
+    const exportUrl = '{% url "admin_mali_app:export_rapport_excel" %}?' + urlParams.toString();
+    
+    // Ouvrir dans une nouvelle fenêtre pour le téléchargement
+    window.open(exportUrl, '_blank');
+}
+
+// Initialisation des graphiques si nécessaire
+{% if request.GET.type_rapport == 'financier' and rapport_data %}
+const ctx = document.getElementById('revenueChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ rapport_data.mois|safe }},
+        datasets: [{
+            label: 'Revenus Mensuels',
+            data: {{ rapport_data.revenus_mensuels|safe }},
+            borderColor: 'rgb(255, 99, 71)',
+            backgroundColor: 'rgba(255, 99, 71, 0.2)',
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Évolution des Revenus'
+            }
+        }
+    }
+});
+{% endif %}
+
+{% if request.GET.type_rapport == 'operationnel' and rapport_data %}
+const ctxOp = document.getElementById('operationalChart').getContext('2d');
+new Chart(ctxOp, {
+    type: 'doughnut',
+    data: {
+        labels: ['Réussis', 'En Cours', 'Échoués'],
+        datasets: [{
+            data: [{{ rapport_data.transferts_reussis }}, {{ rapport_data.transferts_en_cours }}, {{ rapport_data.transferts_echecs }}],
+            backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Répartition des Transferts'
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

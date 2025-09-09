@@ -1,0 +1,53 @@
+# Framework principal
+Django>=4.2.0,<5.0
+
+# Base de données PostgreSQL
+psycopg2-binary>=2.9.0
+
+# Tâches asynchrones
+celery>=5.3.0
+redis>=4.6.0
+
+# API et authentification
+djangorestframework>=3.14.0
+
+# Interface d'administration améliorée
+django-jazzmin>=2.6.0
+
+# Gestion des médias
+Pillow>=10.0.0
+
+# Notifications
+# twilio>=8.9.0  # REMOVED - Migration complète vers WaChap
+requests>=2.31.0  # Pour Orange SMS API
+
+# Génération de PDF pour les rapports
+reportlab>=4.0.0
+weasyprint>=60.0
+
+# Utilitaires
+python-dotenv>=1.0.0  # Pour les variables d'environnement
+phonenumbers>=8.13.0  # Validation des numéros de téléphone
+python-dateutil>=2.8.0
+
+# Monitoring et logs
+django-extensions>=3.2.0
+
+# Export de données
+openpyxl>=3.1.0  # Pour Excel
+pandas>=2.0.0  # Analyse de données
+
+# Tests et développement
+pytest>=7.4.0
+pytest-django>=4.5.0
+coverage>=7.3.0
+
+# Production
+gunicorn>=21.2.0
+whitenoise>=6.5.0
+
+# CORS pour les APIs
+django-cors-headers>=4.3.0
+
+# Timezone
+pytz>=2023.3

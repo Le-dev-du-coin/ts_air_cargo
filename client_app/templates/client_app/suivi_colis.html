@@ -1,0 +1,367 @@
+{% extends "client_app/base_client.html" %}
+
+{% block title %}Suivi de Colis - TS Air Cargo{% endblock %}
+
+{% block extra_head %}
+<style>
+    .search-hero {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 60px 40px;
+        text-align: center;
+        margin-bottom: 40px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .search-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+        opacity: 0.3;
+        animation: float 20s infinite linear;
+    }
+    
+    @keyframes float {
+        0% { transform: translateX(-50px) translateY(-50px); }
+        100% { transform: translateX(-100px) translateY(-100px); }
+    }
+    
+    .search-form {
+        position: relative;
+        z-index: 2;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .search-input {
+        border: none;
+        border-radius: 50px;
+        padding: 15px 25px;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .search-btn {
+        border-radius: 50px;
+        padding: 15px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        background: white;
+        color: #007bff;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s;
+    }
+    
+    .search-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        color: #0056b3;
+    }
+    
+    .features-grid {
+        margin-top: 50px;
+    }
+    
+    .feature-card {
+        border: none;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        transition: all 0.3s;
+        height: 100%;
+        background: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .feature-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: white;
+        margin: 0 auto 20px;
+    }
+    
+    .feature-track {
+        background: linear-gradient(135deg, #28a745, #20c997);
+    }
+    
+    .feature-realtime {
+        background: linear-gradient(135deg, #007bff, #6610f2);
+    }
+    
+    .feature-history {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+    }
+    
+    .feature-notifications {
+        background: linear-gradient(135deg, #dc3545, #e83e8c);
+    }
+    
+    .tracking-format {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 30px;
+        margin-top: 30px;
+    }
+    
+    .format-example {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+        border-left: 4px solid #007bff;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+    }
+    
+    .help-section {
+        background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+        border-radius: 15px;
+        padding: 30px;
+        margin-top: 40px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section avec formulaire de recherche -->
+<div class="search-hero">
+    <div class="container">
+        <h1 class="display-4 mb-4">Suivez votre colis en temps réel</h1>
+        <p class="lead mb-4">Entrez votre numéro de suivi pour connaître l'état de votre colis</p>
+        
+        <form class="search-form" method="get" action="{% url 'client_app:suivi_detail' '0' %}" onsubmit="return handleSearch(event)">
+            <input type="text" 
+                   class="form-control search-input" 
+                   id="numero_suivi" 
+                   name="numero_suivi" 
+                   placeholder="Ex: TS1A2B3C4D" 
+                   required
+                   pattern="^TS[A-Z0-9]{8}$"
+                   title="Format attendu: TS suivi de 8 caractères (lettres et chiffres)">
+            
+            <button type="submit" class="btn search-btn">
+                <i class="fas fa-search me-2"></i>Suivre mon colis
+            </button>
+        </form>
+        
+        <p class="mt-3 small opacity-75">
+            <i class="fas fa-info-circle me-1"></i>
+            Votre numéro de suivi commence par "TS" suivi de 8 caractères
+        </p>
+    </div>
+</div>
+
+<!-- Fonctionnalités -->
+<div class="features-grid">
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="card feature-card">
+                <div class="feature-icon feature-track">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <h5>Suivi en temps réel</h5>
+                <p class="text-muted">Suivez votre colis à chaque étape de son voyage depuis la Chine jusqu'au Mali</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card feature-card">
+                <div class="feature-icon feature-realtime">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <h5>Mise à jour automatique</h5>
+                <p class="text-muted">Recevez des mises à jour automatiques sur l'état de votre colis</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card feature-card">
+                <div class="feature-icon feature-history">
+                    <i class="fas fa-history"></i>
+                </div>
+                <h5>Historique complet</h5>
+                <p class="text-muted">Consultez l'historique détaillé de tous les mouvements de votre colis</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card feature-card">
+                <div class="feature-icon feature-notifications">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <h5>Notifications WhatsApp</h5>
+                <p class="text-muted">Recevez des notifications WhatsApp pour chaque étape importante</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Format du numéro de suivi -->
+<div class="tracking-format">
+    <h4 class="mb-4">
+        <i class="fas fa-question-circle text-primary me-2"></i>
+        Comment trouver mon numéro de suivi ?
+    </h4>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <h6><i class="fas fa-tag me-2"></i>Format du numéro :</h6>
+            <div class="format-example">
+                TS + 8 caractères alphanumériques
+            </div>
+            
+            <h6 class="mt-3"><i class="fas fa-lightbulb me-2"></i>Exemples valides :</h6>
+            <div class="format-example">TS1A2B3C4D</div>
+            <div class="format-example">TSAB123456</div>
+            <div class="format-example">TS9Z8Y7X6W</div>
+        </div>
+        
+        <div class="col-md-6">
+            <h6><i class="fas fa-search me-2"></i>Où le trouver :</h6>
+            <ul class="list-unstyled">
+                <li class="mb-2">
+                    <i class="fas fa-sms text-success me-2"></i>
+                    Dans le SMS de confirmation reçu
+                </li>
+                <li class="mb-2">
+                    <i class="fab fa-whatsapp text-success me-2"></i>
+                    Dans le message WhatsApp de confirmation
+                </li>
+                <li class="mb-2">
+                    <i class="fas fa-receipt text-info me-2"></i>
+                    Sur votre reçu de dépôt en Chine
+                </li>
+                <li class="mb-2">
+                    <i class="fas fa-user text-primary me-2"></i>
+                    Dans votre espace client personnel
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Section d'aide -->
+<div class="help-section">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h4 class="mb-3">
+                <i class="fas fa-life-ring text-primary me-2"></i>
+                Besoin d'aide ?
+            </h4>
+            <p class="mb-0">
+                Si vous ne trouvez pas votre numéro de suivi ou si vous rencontrez des difficultés, 
+                notre équipe est là pour vous aider. Contactez-nous via WhatsApp ou par téléphone.
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="https://wa.me/223XXXXXXXX" class="btn btn-success btn-lg me-2" target="_blank">
+                <i class="fab fa-whatsapp me-2"></i>WhatsApp
+            </a>
+            <a href="tel:+223XXXXXXXX" class="btn btn-primary btn-lg">
+                <i class="fas fa-phone me-2"></i>Appeler
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Raccourcis pour clients connectés -->
+{% if user.is_authenticated %}
+<div class="mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-user-circle text-primary me-2"></i>
+                        Raccourcis client
+                    </h5>
+                    <p class="card-text text-muted">Accès rapide à vos fonctionnalités client</p>
+                    
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'client_app:mes_colis' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-box me-2"></i>Mes Colis
+                        </a>
+                        <a href="{% url 'client_app:dashboard' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                        <a href="{% url 'client_app:notifications' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-bell me-2"></i>Notifications
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function handleSearch(event) {
+    event.preventDefault();
+    
+    const numeroSuivi = document.getElementById('numero_suivi').value.trim().toUpperCase();
+    
+    // Validation du format
+    const regex = /^TS[A-Z0-9]{8}$/;
+    if (!regex.test(numeroSuivi)) {
+        alert('Format invalide. Le numéro doit commencer par "TS" suivi de 8 caractères (lettres et chiffres).');
+        return false;
+    }
+    
+    // Redirection vers la page de détail du suivi
+    window.location.href = `/client/suivi/${numeroSuivi}/`;
+    return false;
+}
+
+// Auto-formatting du numéro de suivi
+document.getElementById('numero_suivi').addEventListener('input', function(e) {
+    let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    // S'assurer que ça commence par TS
+    if (value.length > 0 && !value.startsWith('TS')) {
+        if (value.startsWith('T')) {
+            value = 'TS' + value.substring(1);
+        } else {
+            value = 'TS' + value;
+        }
+    }
+    
+    // Limiter à 10 caractères (TS + 8)
+    if (value.length > 10) {
+        value = value.substring(0, 10);
+    }
+    
+    e.target.value = value;
+});
+
+// Animation au focus
+document.getElementById('numero_suivi').addEventListener('focus', function(e) {
+    e.target.parentElement.style.transform = 'scale(1.02)';
+});
+
+document.getElementById('numero_suivi').addEventListener('blur', function(e) {
+    e.target.parentElement.style.transform = 'scale(1)';
+});
+</script>
+{% endblock %}

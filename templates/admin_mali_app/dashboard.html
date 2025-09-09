@@ -1,0 +1,472 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- En-tête du dashboard -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-dark fw-bold mb-1">Dashboard Admin Mali</h1>
+            <p class="text-muted mb-0">Vue d'ensemble des opérations - {{ today|date:"d F Y" }}</p>
+        </div>
+    </div>
+
+    <!-- === STATISTIQUES PRINCIPALES === -->
+    <div class="row g-4 mb-4">
+        <!-- Transferts d'argent -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #ff6b35, #f7931e);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-2 opacity-75">Transferts d'Argent</h6>
+                            <h3 class="mb-0 fw-bold">{{ transferts_stats.total }}</h3>
+                            <small class="opacity-75">Total des transferts</small>
+                        </div>
+                        <div class="fs-2 opacity-75">
+                            <i class="fas fa-money-bill-transfer"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="opacity-75">Aujourd'hui: {{ transferts_stats.aujourd_hui }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Colis -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-2 opacity-75">Total Colis</h6>
+                            <h3 class="mb-0 fw-bold">{{ colis_stats.total_colis }}</h3>
+                            <small class="opacity-75">Tous statuts confondus</small>
+                        </div>
+                        <div class="fs-2 opacity-75">
+                            <i class="fas fa-boxes"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="opacity-75">Livrés: {{ colis_stats.livres }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Montant Total FCFA -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #dc3545, #fd7e14);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-2 opacity-75">Montant Total</h6>
+                            <h3 class="mb-0 fw-bold">{{ montants_transferts.total_fcfa|floatformat:0|default:"0" }}</h3>
+                            <small class="opacity-75">FCFA transférés</small>
+                        </div>
+                        <div class="fs-2 opacity-75">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="opacity-75">Ce mois: {{ montants_transferts.ce_mois_fcfa|floatformat:0|default:"0" }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agents Actifs -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #6f42c1, #e83e8c);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-2 opacity-75">Agents Actifs</h6>
+                            <h3 class="mb-0 fw-bold">{{ agents_stats.agents_mali_actifs }}</h3>
+                            <small class="opacity-75">Agents Mali actifs</small>
+                        </div>
+                        <div class="fs-2 opacity-75">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="opacity-75">Chine: {{ agents_stats.agents_chine_actifs }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === STATISTIQUES DÉTAILLÉES DES COLIS === -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 text-dark fw-bold">
+                        <i class="fas fa-boxes me-2"></i>Statistiques des Colis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <!-- Colis par statut -->
+                        <div class="col-lg-4">
+                            <h6 class="fw-bold text-muted mb-3">Par Statut</h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">En attente</span>
+                                        <span class="badge bg-warning">{{ colis_stats.en_attente }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Reçus Chine</span>
+                                        <span class="badge bg-info">{{ colis_stats.receptionnes_chine }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">En transit</span>
+                                        <span class="badge bg-primary">{{ colis_stats.en_transit }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Arrivés Mali</span>
+                                        <span class="badge bg-secondary">{{ colis_stats.arrives_mali }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Livrés</span>
+                                        <span class="badge bg-success">{{ colis_stats.livres }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Perdus</span>
+                                        <span class="badge bg-danger">{{ colis_stats.perdus }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Colis par mode de paiement -->
+                        <div class="col-lg-4">
+                            <h6 class="fw-bold text-muted mb-3">Par Mode de Paiement</h6>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Payés en Chine</span>
+                                        <span class="badge bg-success">{{ colis_stats.payes_chine }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Payés au Mali</span>
+                                        <span class="badge bg-info">{{ colis_stats.payes_mali }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Non payés</span>
+                                        <span class="badge bg-warning">{{ colis_stats.non_payes }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Colis par type de transport -->
+                        <div class="col-lg-4">
+                            <h6 class="fw-bold text-muted mb-3">Par Type de Transport</h6>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Cargo</span>
+                                        <span class="badge bg-primary">{{ colis_stats.cargo }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Express</span>
+                                        <span class="badge bg-danger">{{ colis_stats.express }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                        <span class="small">Bateau</span>
+                                        <span class="badge bg-info">{{ colis_stats.bateau }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === VALEURS FINANCIÈRES ET LOTS === -->
+    <div class="row g-4 mb-4">
+        <!-- Valeurs des colis -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 text-dark fw-bold">
+                        <i class="fas fa-chart-line me-2"></i>Valeurs Financières des Colis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-success mb-1">{{ valeurs_colis.valeur_totale|floatformat:0|default:"0" }}</h4>
+                                <small class="text-muted">Valeur Totale FCFA</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-info mb-1">{{ valeurs_colis.valeur_stock_chine|floatformat:0|default:"0" }}</h4>
+                                <small class="text-muted">Stock en Chine</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-warning mb-1">{{ valeurs_colis.valeur_transit|floatformat:0|default:"0" }}</h4>
+                                <small class="text-muted">En Transit</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-primary mb-1">{{ valeurs_colis.valeur_arrives_mali|floatformat:0|default:"0" }}</h4>
+                                <small class="text-muted">Arrivés Mali</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques des lots -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 text-dark fw-bold">
+                        <i class="fas fa-shipping-fast me-2"></i>Statistiques des Lots
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-primary mb-1">{{ lots_stats.total_lots }}</h4>
+                                <small class="text-muted">Total Lots</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-success mb-1">{{ lots_stats.ouverts }}</h4>
+                                <small class="text-muted">Ouverts</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-warning mb-1">{{ lots_stats.en_transit }}</h4>
+                                <small class="text-muted">En Transit</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h4 class="text-info mb-1">{{ lots_stats.arrives }}</h4>
+                                <small class="text-muted">Arrivés</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === MÉTRIQUES DE PERFORMANCE === -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 text-dark fw-bold">
+                        <i class="fas fa-tachometer-alt me-2"></i>Indicateurs de Performance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-lg-3 col-md-6">
+                            <div class="text-center">
+                                <div class="progress mb-3" style="height: 10px;">
+                                    <div class="progress-bar bg-success" style="width: {{ performance_metrics.taux_livraison }}%"></div>
+                                </div>
+                                <h4 class="text-success">{{ performance_metrics.taux_livraison }}%</h4>
+                                <small class="text-muted">Taux de Livraison</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="text-center">
+                                <div class="progress mb-3" style="height: 10px;">
+                                    <div class="progress-bar bg-info" style="width: {{ performance_metrics.taux_paiement_chine }}%"></div>
+                                </div>
+                                <h4 class="text-info">{{ performance_metrics.taux_paiement_chine }}%</h4>
+                                <small class="text-muted">Paiement Chine</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="text-center">
+                                <div class="progress mb-3" style="height: 10px;">
+                                    <div class="progress-bar bg-warning" style="width: {{ performance_metrics.taux_reussite_transferts }}%"></div>
+                                </div>
+                                <h4 class="text-warning">{{ performance_metrics.taux_reussite_transferts }}%</h4>
+                                <small class="text-muted">Transferts Réussis</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="text-center">
+                                <div class="progress mb-3" style="height: 10px;">
+                                    <div class="progress-bar bg-primary" style="width: {{ performance_metrics.ratio_lots_en_transit }}%"></div>
+                                </div>
+                                <h4 class="text-primary">{{ performance_metrics.ratio_lots_en_transit }}%</h4>
+                                <small class="text-muted">Lots en Transit</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === ACTIVITÉS RÉCENTES === -->
+    <div class="row g-4">
+        <!-- Transferts récents -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 text-dark fw-bold">
+                        <i class="fas fa-clock me-2"></i>Transferts Récents
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% for transfert in transferts_recents %}
+                    <div class="d-flex align-items-center p-3 border-bottom">
+                        <div class="flex-shrink-0">
+                            <div class="avatar-sm rounded-circle bg-orange-light d-flex align-items-center justify-content-center">
+                                <i class="fas fa-money-bill-transfer text-orange"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1 text-dark">{{ transfert.montant_fcfa|floatformat:0 }} FCFA</h6>
+                            <p class="text-muted mb-0 small">{{ transfert.destinataire_nom }}</p>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-{{ transfert.statut|default:'secondary' }}">
+                                {{ transfert.get_statut_display }}
+                            </span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-3 text-center text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p class="mb-0">Aucun transfert récent</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Lots récents -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 text-dark fw-bold">
+                        <i class="fas fa-shipping-fast me-2"></i>Lots en Transit
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% for lot in lots_recents %}
+                    <div class="d-flex align-items-center p-3 border-bottom">
+                        <div class="flex-shrink-0">
+                            <div class="avatar-sm rounded-circle bg-primary-light d-flex align-items-center justify-content-center">
+                                <i class="fas fa-box text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1 text-dark">Lot #{{ lot.numero_lot }}</h6>
+                            <p class="text-muted mb-0 small">{{ lot.get_statut_display }}</p>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">{{ lot.date_expedition|date:"d/m" }}</small>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-3 text-center text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p class="mb-0">Aucun lot en transit</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Colis récents livrés -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 text-dark fw-bold">
+                        <i class="fas fa-check-circle me-2"></i>Colis Livrés
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% for colis in colis_recents %}
+                    <div class="d-flex align-items-center p-3 border-bottom">
+                        <div class="flex-shrink-0">
+                            <div class="avatar-sm rounded-circle bg-success-light d-flex align-items-center justify-content-center">
+                                <i class="fas fa-check text-success"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1 text-dark">{{ colis.numero_suivi }}</h6>
+                            <p class="text-muted mb-0 small">{{ colis.client.user.first_name }} {{ colis.client.user.last_name }}</p>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">{{ colis.date_modification|date:"d/m" }}</small>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-3 text-center text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p class="mb-0">Aucun colis livré récemment</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-orange-light {
+    background-color: rgba(255, 107, 53, 0.1);
+}
+.text-orange {
+    color: #ff6b35;
+}
+.bg-primary-light {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+.bg-success-light {
+    background-color: rgba(40, 167, 69, 0.1);
+}
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+}
+</style>
+{% endblock %}

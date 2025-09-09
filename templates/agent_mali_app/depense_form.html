@@ -1,0 +1,191 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo Mali{% endblock %}
+
+{% block content %}
+<!-- Header avec navigation -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">{{ title }}</h2>
+        <p class="text-muted mb-0">Modifier les informations de la dépense</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:depenses' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour aux dépenses
+        </a>
+    </div>
+</div>
+
+<!-- Formulaire de modification -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-pencil me-2"></i>
+                    Modifier la dépense
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="libelle" class="form-label">Description de la dépense *</label>
+                            <input type="text" class="form-control" id="libelle" name="libelle" 
+                                   value="{{ depense.libelle }}" required
+                                   placeholder="Ex: Carburant pour livraison">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="type_depense" class="form-label">Catégorie *</label>
+                            <select class="form-select" id="type_depense" name="type_depense" required>
+                                {% for choice_value, choice_label in type_choices %}
+                                    <option value="{{ choice_value }}" 
+                                            {% if depense.type_depense == choice_value %}selected{% endif %}>
+                                        {{ choice_label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="montant" class="form-label">Montant (CFA) *</label>
+                            <input type="number" class="form-control" id="montant" name="montant" 
+                                   value="{{ depense.montant }}" required step="0.01" min="0"
+                                   placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="date_depense" class="form-label">Date de la dépense *</label>
+                            <input type="date" class="form-control" id="date_depense" name="date_depense" 
+                                   value="{{ depense.date_depense|date:'Y-m-d' }}" required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="justificatif" class="form-label">Justificatif (Facultatif)</label>
+                            <input type="file" class="form-control" id="justificatif" name="justificatif"
+                                   accept=".pdf,.jpg,.jpeg,.png">
+                            {% if depense.justificatif %}
+                                <div class="form-text">
+                                    <a href="{{ depense.justificatif.url }}" target="_blank" class="text-primary">
+                                        <i class="bi bi-file-earmark"></i> Voir le justificatif actuel
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes additionnelles</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"
+                                  placeholder="Notes ou observations sur cette dépense...">{{ depense.notes }}</textarea>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'agent_mali:depenses' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Annuler
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Sauvegarder les modifications
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Informations actuelles -->
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-info-circle"></i> Informations actuelles
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">MONTANT ACTUEL</small>
+                    <div class="h5 text-danger">{{ depense.montant|floatformat:0 }} CFA</div>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">CATÉGORIE</small>
+                    <div>
+                        <span class="badge bg-primary">{{ depense.get_type_depense_display }}</span>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">DATE ORIGINALE</small>
+                    <div>{{ depense.date_depense|date:"d/m/Y" }}</div>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">CRÉÉE LE</small>
+                    <div>{{ depense.date_creation|date:"d/m/Y à H:i" }}</div>
+                </div>
+                
+                {% if depense.date_modification %}
+                <div class="mb-3">
+                    <small class="text-muted">MODIFIÉE LE</small>
+                    <div>{{ depense.date_modification|date:"d/m/Y à H:i" }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="card shadow mt-3">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-gear"></i> Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
+                        <i class="bi bi-trash"></i> Supprimer cette dépense
+                    </button>
+                    
+                    {% if depense.justificatif %}
+                    <a href="{{ depense.justificatif.url }}" target="_blank" class="btn btn-outline-info">
+                        <i class="bi bi-file-earmark"></i> Voir le justificatif
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function confirmDelete() {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette dépense ?\n\nCette action est irréversible.')) {
+            // Créer un formulaire pour la suppression
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "agent_mali:depense_delete" depense.id %}';
+            
+            // Ajouter le token CSRF
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,418 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ title }}</h2>
+        {% if lot %}
+            <p class="text-muted mb-0">Ajouter un colis au lot {{ lot.numero_lot }}</p>
+        {% else %}
+            <p class="text-muted mb-0">Modifier les informations du colis</p>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        {% if lot %}
+            <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="action-btn-outline">
+                <i class="bi bi-arrow-left"></i>
+                Retour au lot
+            </a>
+        {% else %}
+            <a href="{% url 'agent_chine:colis_list' %}" class="action-btn-outline">
+                <i class="bi bi-arrow-left"></i>
+                Liste des colis
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="post" class="needs-validation" novalidate id="colisForm">
+            {% csrf_token %}
+            
+            <div class="row">
+                <!-- Colonne gauche : Informations client -->
+                <div class="col-lg-6 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-person"></i>
+                                Informations du client
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <!-- Recherche client existant -->
+                            <div class="mb-3">
+                                <label for="client_search" class="form-label">
+                                    Rechercher un client existant
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="client_search" 
+                                           placeholder="Nom, téléphone...">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="searchClient()">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    Tapez le nom ou téléphone pour rechercher un client existant
+                                </div>
+                            </div>
+
+                            <div class="text-center my-3">
+                                <small class="text-muted">--- OU ---</small>
+                            </div>
+
+                            <!-- Création nouveau client -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="client_prenom" class="form-label">
+                                        Prénom <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="client_prenom" 
+                                           name="client_prenom" required>
+                                    <div class="invalid-feedback">
+                                        Veuillez saisir le prénom du client.
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="client_nom" class="form-label">
+                                        Nom <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="client_nom" 
+                                           name="client_nom" required>
+                                    <div class="invalid-feedback">
+                                        Veuillez saisir le nom du client.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="client_telephone" class="form-label">
+                                        Téléphone <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-phone"></i>
+                                        </span>
+                                        <input type="tel" class="form-control" id="client_telephone" 
+                                               name="client_telephone" 
+                                               placeholder="+223 XX XX XX XX"
+                                               pattern="^(\+223|00223|223)?[0-9]{8}$" required>
+                                        <div class="invalid-feedback">
+                                            Numéro de téléphone invalide.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="client_pays" class="form-label">
+                                        Pays de destination <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select" id="client_pays" name="client_pays" required>
+                                        <option value="">Sélectionnez un pays</option>
+                                        <option value="ML" selected>Mali</option>
+                                        <option value="SN">Sénégal</option>
+                                        <option value="CI">Côte d'Ivoire</option>
+                                        <option value="BF">Burkina Faso</option>
+                                        <option value="NE">Niger</option>
+                                        <option value="GN">Guinée</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="client_adresse" class="form-label">
+                                    Adresse de livraison <span class="text-danger">*</span>
+                                </label>
+                                <textarea class="form-control" id="client_adresse" name="client_adresse" 
+                                          rows="2" required
+                                          placeholder="Adresse complète pour la livraison"></textarea>
+                                <div class="invalid-feedback">
+                                    Veuillez saisir l'adresse de livraison.
+                                </div>
+                            </div>
+
+                            <!-- Client sélectionné (caché par défaut) -->
+                            <div id="selected_client" class="alert alert-info" style="display: none;">
+                                <h6><i class="bi bi-person-check"></i> Client sélectionné</h6>
+                                <div id="selected_client_info"></div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="clearClientSelection()">
+                                    Changer de client
+                                </button>
+                                <input type="hidden" id="selected_client_id" name="client_id">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Colonne droite : Détails du colis -->
+                <div class="col-lg-6 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-box-seam"></i>
+                                Détails du colis
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <!-- Dimensions -->
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label class="form-label">
+                                        Dimensions (cm) <span class="text-danger">*</span>
+                                    </label>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="longueur" 
+                                               name="longueur" placeholder="L" step="0.1" min="0" required>
+                                        <span class="input-group-text">cm</span>
+                                    </div>
+                                    <small class="form-text">Longueur</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="largeur" 
+                                               name="largeur" placeholder="l" step="0.1" min="0" required>
+                                        <span class="input-group-text">cm</span>
+                                    </div>
+                                    <small class="form-text">Largeur</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="hauteur" 
+                                               name="hauteur" placeholder="h" step="0.1" min="0" required>
+                                        <span class="input-group-text">cm</span>
+                                    </div>
+                                    <small class="form-text">Hauteur</small>
+                                </div>
+                            </div>
+
+                            <!-- Poids -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="poids" class="form-label">
+                                        Poids <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-weight"></i>
+                                        </span>
+                                        <input type="number" class="form-control" id="poids" 
+                                               name="poids" step="0.1" min="0" required>
+                                        <span class="input-group-text">kg</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="mode_paiement" class="form-label">
+                                        Mode de paiement
+                                    </label>
+                                    <select class="form-select" id="mode_paiement" name="mode_paiement">
+                                        <option value="non_paye">Non payé</option>
+                                        <option value="paye_chine">Payé en Chine</option>
+                                        <option value="paye_mali">Payé au Mali</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="mb-3">
+                                <label for="description" class="form-label">
+                                    Description du contenu
+                                </label>
+                                <textarea class="form-control" id="description" name="description" 
+                                          rows="2" 
+                                          placeholder="Décrivez le contenu du colis (optionnel)"></textarea>
+                            </div>
+
+                            <!-- Aperçu prix calculé -->
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="bi bi-calculator"></i> Prix estimé
+                                    </h6>
+                                    <div id="prix_calcule">
+                                        <span class="text-muted">Saisissez les dimensions et le poids pour calculer</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="calculatePrice()">
+                                        <i class="bi bi-arrow-clockwise"></i> Recalculer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="modern-card">
+                <div class="modern-card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if lot %}
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle"></i>
+                                    Le colis sera ajouté au lot {{ lot.numero_lot }} ({{ lot.get_statut_display }})
+                                </small>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            {% if lot %}
+                                <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="action-btn-outline">
+                                    <i class="bi bi-x-circle"></i>
+                                    Annuler
+                                </a>
+                            {% else %}
+                                <a href="{% url 'agent_chine:colis_list' %}" class="action-btn-outline">
+                                    <i class="bi bi-x-circle"></i>
+                                    Annuler
+                                </a>
+                            {% endif %}
+                            <button type="submit" class="action-btn">
+                                <i class="bi bi-check-circle"></i>
+                                {{ submit_text }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let selectedClientId = null;
+
+// Calcul automatique du prix
+function calculatePrice() {
+    const longueur = parseFloat(document.getElementById('longueur').value) || 0;
+    const largeur = parseFloat(document.getElementById('largeur').value) || 0;
+    const hauteur = parseFloat(document.getElementById('hauteur').value) || 0;
+    const poids = parseFloat(document.getElementById('poids').value) || 0;
+    const pays = document.getElementById('client_pays').value || 'ML';
+
+    if (longueur && largeur && hauteur && poids) {
+        // Appel API pour calculer le prix
+        fetch('{% url "agent_chine:calculate_price_api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                longueur: longueur,
+                largeur: largeur,
+                hauteur: hauteur,
+                poids: poids,
+                pays_destination: pays
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const volume = data.volume_m3.toFixed(4);
+                const prix = data.prix.toLocaleString('fr-FR');
+                document.getElementById('prix_calcule').innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <span>Volume: <strong>${volume} m³</strong></span>
+                        <span class="text-success fw-bold">${prix} FCFA</span>
+                    </div>
+                `;
+            } else {
+                document.getElementById('prix_calcule').innerHTML = `
+                    <span class="text-danger">Erreur: ${data.error}</span>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('prix_calcule').innerHTML = `
+                <span class="text-warning">Erreur de calcul</span>
+            `;
+        });
+    }
+}
+
+// Recherche client
+function searchClient() {
+    const searchTerm = document.getElementById('client_search').value;
+    if (!searchTerm) {
+        alert('Veuillez saisir un terme de recherche');
+        return;
+    }
+
+    // Recherche simple - redirection vers liste clients
+    window.location.href = `{% url 'agent_chine:client_list' %}?search=${encodeURIComponent(searchTerm)}`;
+}
+
+// Sélectionner un client
+function selectClient(clientData) {
+    selectedClientId = clientData.id;
+    document.getElementById('selected_client_id').value = clientData.id;
+    document.getElementById('selected_client_info').innerHTML = `
+        <strong>${clientData.name}</strong><br>
+        <small>Tél: ${clientData.telephone} | Pays: ${clientData.pays}</small>
+    `;
+    document.getElementById('selected_client').style.display = 'block';
+    
+    // Cacher les champs de création
+    document.querySelectorAll('#client_prenom, #client_nom, #client_telephone, #client_pays, #client_adresse').forEach(field => {
+        field.required = false;
+        field.parentElement.style.display = 'none';
+    });
+}
+
+// Effacer sélection client
+function clearClientSelection() {
+    selectedClientId = null;
+    document.getElementById('selected_client_id').value = '';
+    document.getElementById('selected_client').style.display = 'none';
+    
+    // Réafficher les champs de création
+    document.querySelectorAll('#client_prenom, #client_nom, #client_telephone, #client_pays, #client_adresse').forEach(field => {
+        field.required = true;
+        field.parentElement.style.display = 'block';
+    });
+}
+
+// Auto-calcul sur changement
+document.addEventListener('DOMContentLoaded', function() {
+    // Écouteurs pour calcul automatique
+    ['longueur', 'largeur', 'hauteur', 'poids', 'client_pays'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', function() {
+            setTimeout(calculatePrice, 500); // Délai pour éviter trop d'appels
+        });
+    });
+
+    // Validation formulaire
+    const form = document.getElementById('colisForm');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+
+    // Auto-format téléphone
+    document.getElementById('client_telephone')?.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.startsWith('223') && value.length > 3) {
+            value = '+' + value;
+        }
+        if (value.startsWith('+223') && value.length > 4) {
+            const formatted = value.replace(/(\+223)(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+            e.target.value = formatted;
+        } else {
+            e.target.value = value;
+        }
+    });
+});
+</script>
+{% endblock %}

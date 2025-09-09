@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Connexion - TS Air Cargo{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+    }
+    
+    .login-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        padding: 2rem;
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+    }
+    
+    .logo {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        background: #667eea;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    
+    .login-title {
+        color: #333;
+        margin-bottom: 0.5rem;
+        font-size: 1.8rem;
+        font-weight: 600;
+    }
+    
+    .login-subtitle {
+        color: #666;
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e1e5e9;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: border-color 0.3s ease;
+        box-sizing: border-box;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .btn-login {
+        width: 100%;
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+        margin-top: 1rem;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .error-messages {
+        background: #fee;
+        border: 1px solid #fcc;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+    
+    .error-messages ul {
+        margin: 0;
+        padding-left: 1.2rem;
+        color: #c33;
+    }
+    
+    .role-info {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    .role-badge {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="logo">
+            TS
+        </div>
+        
+        <h1 class="login-title">Connexion</h1>
+        <p class="login-subtitle">Accédez à votre espace TS Air Cargo</p>
+        
+        {% if role %}
+            <div class="role-info">
+                <div class="role-badge">{{ role|title }}</div>
+                <div>Connexion en tant que {{ role|title }}</div>
+            </div>
+        {% endif %}
+        
+        {% if form.errors or error %}
+            <div class="error-messages">
+                {% if error %}
+                    <p>{{ error }}</p>
+                {% endif %}
+                {% if form.errors %}
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    {% endfor %}
+                {% endif %}
+                {% if form.non_field_errors %}
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        {% endif %}
+        
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% if role %}
+                <input type="hidden" name="role" value="{{ role }}">
+            {% endif %}
+            
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}" class="form-label">
+                    Numéro de téléphone
+                </label>
+                {{ form.phone_number }}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}" class="form-label">
+                    Mot de passe
+                </label>
+                {{ form.password }}
+            </div>
+            
+            <button type="submit" class="btn-login">
+                Se connecter
+            </button>
+        </form>
+        
+        <div style="margin-top: 2rem; font-size: 0.8rem; color: #666;">
+            <p>Besoin d'aide ? Contactez notre support</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Améliorer l'expérience utilisateur
+document.addEventListener('DOMContentLoaded', function() {
+    // Ajouter la classe form-control aux champs du formulaire
+    const inputs = document.querySelectorAll('input[type="text"], input[type="password"]');
+    inputs.forEach(input => {
+        input.classList.add('form-control');
+        
+        // Placeholder pour le téléphone
+        if (input.name === 'username') {
+            input.placeholder = 'Ex: 99281899 ou 22399281899';
+        } else if (input.name === 'password') {
+            input.placeholder = 'Votre mot de passe';
+        }
+    });
+    
+    // Focus automatique sur le premier champ
+    const firstInput = document.querySelector('input[type="text"]');
+    if (firstInput) {
+        firstInput.focus();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-user-times"></i> Confirmation de Suppression</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-warning"></i>
+                    <strong>Attention !</strong> Cette action est irréversible et supprimera définitivement le compte de cet agent.
+                </div>
+                
+                <p>Êtes-vous sûr de vouloir supprimer l'agent suivant ?</p>
+                
+                <div class="bg-light p-4 rounded mb-4">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <div class="user-avatar mx-auto mb-3" style="width: 80px; height: 80px; background: var(--primary-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: white; font-size: 2rem;">
+                                {{ agent.get_full_name|slice:":2"|upper|default:"AG" }}
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <h5>{{ agent.get_full_name|default:agent.username }}</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Email:</strong><br>
+                                    {{ agent.email }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Téléphone:</strong><br>
+                                    {{ agent.phone_number|default:"Non renseigné" }}
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <strong>Type:</strong><br>
+                                    {% if agent.is_agent_mali %}
+                                        <span class="badge bg-primary">Agent Mali</span>
+                                    {% elif agent.is_agent_chine %}
+                                        <span class="badge bg-success">Agent Chine</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Statut:</strong><br>
+                                    {% if agent.is_active %}
+                                        <span class="badge bg-success">Actif</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactif</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <strong>Membre depuis:</strong><br>
+                                    {{ agent.date_joined|date:"d/m/Y" }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Dernière connexion:</strong><br>
+                                    {% if agent.last_login %}
+                                        {{ agent.last_login|date:"d/m/Y à H:i" }}
+                                    {% else %}
+                                        <em class="text-muted">Jamais connecté</em>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Note importante :</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Tous les transferts associés à cet agent seront conservés mais l'agent ne pourra plus se connecter</li>
+                        <li>L'historique des actions de cet agent restera visible dans le système</li>
+                        <li>Cette action ne peut pas être annulée</li>
+                    </ul>
+                </div>
+                
+                <form method="post" class="d-flex justify-content-between">
+                    {% csrf_token %}
+                    <a href="{% url 'admin_mali_app:agents' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Annuler
+                    </a>
+                    
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Êtes-vous absolument certain de vouloir supprimer cet agent ?\\n\\nCette action est irréversible.')">
+                        <i class="fas fa-user-times"></i> Confirmer la Suppression
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

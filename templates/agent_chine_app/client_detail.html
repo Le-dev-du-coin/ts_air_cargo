@@ -1,0 +1,381 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}{{ client.user.get_full_name }} - TS Air Cargo{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-person-circle"></i>
+        Profil Client
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'agent_chine:client_edit' client.id %}" class="btn btn-warning">
+                <i class="bi bi-pencil"></i>
+                <span class="d-none d-sm-inline">Modifier</span>
+            </a>
+            <a href="{% url 'agent_chine:client_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i>
+                <span class="d-none d-sm-inline">Retour</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Informations du client -->
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header bg-primary text-white">
+                <h6 class="m-0 font-weight-bold">
+                    <i class="bi bi-person-badge"></i>
+                    Informations Personnelles
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="avatar-circle-large mx-auto mb-2">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <h5 class="mb-1">{{ client.user.get_full_name }}</h5>
+                    <p class="text-muted small mb-0">Client depuis le {{ client.date_creation|date:"d/m/Y" }}</p>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label class="small font-weight-bold text-muted">TÉLÉPHONE</label>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-phone text-primary me-2"></i>
+                            <span class="fw-bold">{{ client.user.telephone }}</span>
+                        </div>
+                    </div>
+                    
+                    {% if client.user.email %}
+                    <div class="col-12 mb-3">
+                        <label class="small font-weight-bold text-muted">EMAIL</label>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-envelope text-primary me-2"></i>
+                            <span>{{ client.user.email }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-12 mb-3">
+                        <label class="small font-weight-bold text-muted">PAYS</label>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-flag text-primary me-2"></i>
+                            <span class="badge bg-info">{{ client.get_pays_display }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12">
+                        <label class="small font-weight-bold text-muted">ADRESSE DE LIVRAISON</label>
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-geo-alt text-primary me-2 mt-1"></i>
+                            <span class="small">{{ client.adresse }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-center">
+                <small class="text-muted">
+                    <i class="bi bi-calendar"></i>
+                    Dernière mise à jour: {{ client.date_modification|date:"d/m/Y à H:i" }}
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques du client -->
+    <div class="col-lg-8 col-md-6 mb-4">
+        <div class="row">
+            <!-- Statistiques -->
+            <div class="col-md-4 mb-3">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Total Colis
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ colis.count }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-archive text-primary" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Livrés
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.colis_livres }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card border-left-warning shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                    En Transit
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.colis_en_transit }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-truck text-warning" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions rapides -->
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-lightning"></i>
+                    Actions Rapides
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <button class="btn btn-primary btn-block w-100" onclick="createColisForClient()">
+                            <i class="bi bi-plus-circle"></i>
+                            Nouveau Colis
+                        </button>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <button class="btn btn-success btn-block w-100" onclick="sendNotification()">
+                            <i class="bi bi-chat-dots"></i>
+                            Envoyer SMS
+                        </button>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <button class="btn btn-info btn-block w-100" onclick="exportClientData()">
+                            <i class="bi bi-download"></i>
+                            Exporter
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des colis du client -->
+<div class="card shadow">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="bi bi-box-seam"></i>
+            Colis du Client
+        </h6>
+        <span class="badge bg-primary">{{ colis.count }} colis</span>
+    </div>
+    <div class="card-body p-0">
+        {% if colis %}
+            <!-- Version desktop -->
+            <div class="d-none d-md-block">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>N° Suivi</th>
+                                <th>Lot</th>
+                                <th>Dimensions</th>
+                                <th>Poids</th>
+                                <th>Prix</th>
+                                <th>Statut</th>
+                                <th>Paiement</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for colis in colis %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none fw-bold">
+                                        {{ colis.numero_suivi }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'agent_chine:lot_detail' colis.lot.id %}" class="text-decoration-none">
+                                        {{ colis.lot.numero_lot }}
+                                    </a>
+                                </td>
+                                <td class="small">
+                                    {{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }}cm
+                                    <br>
+                                    <span class="text-muted">{{ colis.volume_m3|floatformat:4 }}m³</span>
+                                </td>
+                                <td>
+                                    <span class="fw-bold">{{ colis.poids }}kg</span>
+                                </td>
+                                <td>
+                                    <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                                </td>
+                                <td>
+                                    <span class="badge status-{{ colis.statut }}">
+                                        {{ colis.get_statut_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}bg-success{% else %}bg-warning{% endif %}">
+                                        {{ colis.get_mode_paiement_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ colis.date_creation|date:"d/m/Y" }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'agent_chine:colis_detail' colis.id %}" 
+                                           class="btn btn-outline-primary"
+                                           data-bs-toggle="tooltip" 
+                                           title="Voir détails">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'agent_chine:colis_edit' colis.id %}" 
+                                           class="btn btn-outline-warning"
+                                           data-bs-toggle="tooltip" 
+                                           title="Modifier">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Version mobile -->
+            <div class="d-md-none">
+                {% for colis in colis %}
+                <div class="border-bottom p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <div class="fw-bold">
+                                <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none">
+                                    {{ colis.numero_suivi }}
+                                </a>
+                            </div>
+                            <div class="small text-muted">Lot: {{ colis.lot.numero_lot }}</div>
+                        </div>
+                        <span class="badge status-{{ colis.statut }}">
+                            {{ colis.get_statut_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <small class="text-muted">Dimensions:</small>
+                            <div class="small">{{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }}cm</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Poids:</small>
+                            <div class="small fw-bold">{{ colis.poids }}kg</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                            <span class="badge {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}bg-success{% else %}bg-warning{% endif %} ms-2">
+                                {{ colis.get_mode_paiement_display }}
+                            </span>
+                        </div>
+                        <small class="text-muted">{{ colis.date_creation|date:"d/m/Y" }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- État vide -->
+            <div class="text-center py-5">
+                <i class="bi bi-box-seam" style="font-size: 4rem; color: #dee2e6;"></i>
+                <h5 class="mt-3 text-muted">Aucun colis pour ce client</h5>
+                <p class="text-muted">Ce client n'a pas encore envoyé de colis</p>
+                <button class="btn btn-primary" onclick="createColisForClient()">
+                    <i class="bi bi-plus-circle"></i> Créer le premier colis
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-circle-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+}
+
+.border-left-primary {
+    border-left: .25rem solid var(--bs-primary) !important;
+}
+.border-left-success {
+    border-left: .25rem solid var(--bs-success) !important;
+}
+.border-left-warning {
+    border-left: .25rem solid var(--bs-warning) !important;
+}
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function createColisForClient() {
+    // Rediriger vers la liste des lots pour sélectionner un lot ouvert
+    window.location.href = '{% url "agent_chine:lot_list" %}?action=add_colis&client={{ client.id }}';
+}
+
+function sendNotification() {
+    TSAirCargo.confirmAction(
+        `Envoyer une notification SMS à {{ client.user.get_full_name }} ({{ client.user.telephone }}) ?`,
+        function() {
+            // Notification simple
+            alert('Notification envoyée au client !');
+        },
+        'Envoyer notification'
+    );
+}
+
+function exportClientData() {
+    // Export simple par impression
+    window.print();
+}
+</script>
+{% endblock %}

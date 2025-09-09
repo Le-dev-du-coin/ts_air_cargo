@@ -1,0 +1,346 @@
+{% extends "client_app/base_client.html" %}
+
+{% block title %}Mes Notifications - TS Air Cargo{% endblock %}
+
+{% block extra_head %}
+<style>
+    .notification-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 15px;
+        transition: all 0.3s;
+    }
+    
+    .notification-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .notification-card.unread {
+        border-left: 4px solid #007bff;
+        background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+    }
+    
+    .notification-card.read {
+        opacity: 0.8;
+    }
+    
+    .notification-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: white;
+    }
+    
+    .notification-colis {
+        background: linear-gradient(135deg, #28a745, #20c997);
+    }
+    
+    .notification-lot {
+        background: linear-gradient(135deg, #007bff, #6610f2);
+    }
+    
+    .notification-system {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+    }
+    
+    .notification-default {
+        background: linear-gradient(135deg, #6c757d, #495057);
+    }
+    
+    .notification-meta {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .mark-read-btn {
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .notification-card:hover .mark-read-btn {
+        opacity: 1;
+    }
+    
+    .filter-tabs {
+        background: white;
+        border-radius: 15px;
+        padding: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .filter-tab {
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: none;
+        background: transparent;
+        color: #6c757d;
+        transition: all 0.3s;
+        margin: 0 5px;
+    }
+    
+    .filter-tab.active {
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        color: white;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: #e9ecef;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-bell text-primary"></i>
+            Mes Notifications
+        </h1>
+        <p class="text-muted">Restez informé de l'évolution de vos colis</p>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="filter-tabs">
+    <div class="d-flex justify-content-center">
+        <button class="filter-tab active" onclick="filterNotifications('all')">
+            <i class="fas fa-list me-2"></i>Toutes
+        </button>
+        <button class="filter-tab" onclick="filterNotifications('unread')">
+            <i class="fas fa-envelope me-2"></i>Non lues
+        </button>
+        <button class="filter-tab" onclick="filterNotifications('colis')">
+            <i class="fas fa-box me-2"></i>Colis
+        </button>
+        <button class="filter-tab" onclick="filterNotifications('lot')">
+            <i class="fas fa-truck me-2"></i>Lots
+        </button>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-end">
+            <button class="btn btn-outline-primary me-2" onclick="markAllAsRead()">
+                <i class="fas fa-check-double me-2"></i>Marquer toutes comme lues
+            </button>
+            <button class="btn btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt me-2"></i>Actualiser
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des notifications -->
+{% if notifications %}
+    <div id="notifications-container">
+        {% for notification in notifications %}
+        <div class="notification-card {% if notification.statut == 'envoye' %}unread{% else %}read{% endif %}" 
+             data-category="{{ notification.categorie }}" data-status="{{ notification.statut }}">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <div class="notification-icon 
+                            {% if notification.colis_reference %}notification-colis
+                            {% elif notification.lot_reference %}notification-lot
+                            {% elif notification.categorie == 'system' %}notification-system
+                            {% else %}notification-default{% endif %}">
+                            {% if notification.colis_reference %}
+                                <i class="fas fa-box"></i>
+                            {% elif notification.lot_reference %}
+                                <i class="fas fa-truck"></i>
+                            {% elif notification.categorie == 'system' %}
+                                <i class="fas fa-cog"></i>
+                            {% else %}
+                                <i class="fas fa-bell"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col">
+                        <h6 class="mb-1 {% if notification.statut == 'envoye' %}fw-bold{% endif %}">
+                            {{ notification.titre }}
+                        </h6>
+                        <p class="mb-1 text-muted">{{ notification.message|truncatechars:100 }}</p>
+                        
+                        <div class="notification-meta">
+                            <i class="fas fa-clock me-1"></i>
+                            {{ notification.date_creation|timesince }} 
+                            
+                            {% if notification.colis_reference %}
+                                | <i class="fas fa-box me-1"></i>{{ notification.colis_reference.numero_suivi }}
+                            {% endif %}
+                            
+                            {% if notification.lot_reference %}
+                                | <i class="fas fa-truck me-1"></i>{{ notification.lot_reference.numero_lot }}
+                            {% endif %}
+                            
+                            {% if notification.statut == 'envoye' %}
+                                | <span class="badge bg-primary">Non lu</span>
+                            {% else %}
+                                | <span class="badge bg-secondary">Lu</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-auto">
+                        {% if notification.statut == 'envoye' %}
+                        <button class="btn btn-sm btn-outline-primary mark-read-btn" 
+                                onclick="markAsRead({{ notification.id }})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        {% endif %}
+                        
+                        {% if notification.colis_reference %}
+                        <a href="{% url 'client_app:colis_detail' notification.colis_reference.id %}" 
+                           class="btn btn-sm btn-primary ms-2">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <nav aria-label="Pagination des notifications">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+    
+{% else %}
+    <div class="empty-state">
+        <i class="fas fa-bell-slash"></i>
+        <h4 class="text-muted mb-3">Aucune notification</h4>
+        <p class="text-muted">Vous n'avez pas encore reçu de notifications.</p>
+        <a href="{% url 'client_app:dashboard' %}" class="btn btn-primary">
+            <i class="fas fa-home me-2"></i>Retour au dashboard
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Marquer une notification comme lue
+function markAsRead(notificationId) {
+    fetch(`/client/notifications/${notificationId}/mark-read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erreur lors du marquage de la notification');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion');
+    });
+}
+
+// Marquer toutes les notifications comme lues
+function markAllAsRead() {
+    if (confirm('Marquer toutes les notifications comme lues ?')) {
+        // Cette fonctionnalité nécessiterait une nouvelle vue
+        alert('Fonctionnalité à implémenter');
+    }
+}
+
+// Filtrer les notifications
+function filterNotifications(filter) {
+    // Mettre à jour l'UI des tabs
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Filtrer les notifications
+    const notifications = document.querySelectorAll('.notification-card');
+    
+    notifications.forEach(notification => {
+        const category = notification.dataset.category;
+        const status = notification.dataset.status;
+        
+        let show = false;
+        
+        switch(filter) {
+            case 'all':
+                show = true;
+                break;
+            case 'unread':
+                show = status === 'envoye';
+                break;
+            case 'colis':
+                show = category.includes('colis');
+                break;
+            case 'lot':
+                show = category.includes('lot');
+                break;
+        }
+        
+        notification.style.display = show ? 'block' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,387 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}Lot {{ lot.numero_lot }} - TS Air Cargo{% endblock %}
+{% block page_title %}Détails du Lot{% endblock %}
+
+{% block content %}
+<!-- En-tête avec actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Lot {{ lot.numero_lot }}</h2>
+        <p class="text-muted mb-0">Créé le {{ lot.date_creation|date:"d/m/Y à H:i" }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if lot.statut == 'ouvert' %}
+        <a href="{% url 'agent_chine:lot_close' lot.id %}" class="action-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+            <i class="bi bi-lock"></i>
+            Fermer le lot
+        </a>
+        {% elif lot.statut == 'ferme' %}
+        <a href="{% url 'agent_chine:lot_expedite' lot.id %}" class="action-btn" style="background: linear-gradient(135deg, #10b981, #059669);">
+            <i class="bi bi-send"></i>
+            Expédier
+        </a>
+        {% endif %}
+        <a href="{% url 'agent_chine:lot_list' %}" class="action-btn-outline">
+            <i class="bi bi-arrow-left"></i>
+            Retour
+        </a>
+    </div>
+</div>
+
+<!-- Informations principales -->
+<div class="row mb-4">
+    <!-- Détails du lot -->
+    <div class="col-lg-4 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ lot.numero_lot }}</h3>
+                    <p class="stat-label">Numéro de lot</p>
+                    <div class="stat-change">
+                        <span class="status-badge status-{{ lot.statut }}">
+                            {{ lot.get_statut_display }}
+                        </span>
+                    </div>
+                </div>
+                <i class="stat-icon bi bi-box-seam"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques colis -->
+    <div class="col-lg-4 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ stats.total_colis }}</h3>
+                    <p class="stat-label">Colis dans le lot</p>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i>
+                        {{ stats.total_poids|floatformat:1 }} kg total
+                    </div>
+                </div>
+                <i class="stat-icon bi bi-archive"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prix total -->
+    <div class="col-lg-4 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ stats.total_prix|floatformat:0 }}</h3>
+                    <p class="stat-label">Prix total (FCFA)</p>
+                    {% if lot.prix_transport %}
+                    <div class="stat-change">
+                        <i class="bi bi-truck"></i>
+                        Transport: {{ lot.prix_transport|floatformat:0 }} FCFA
+                    </div>
+                    {% endif %}
+                </div>
+                <i class="stat-icon bi bi-currency-exchange"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Informations détaillées -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-4 equal-height">
+        <div class="modern-card info-card">
+            <div class="modern-card-header">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-info-circle"></i>
+                    Informations du lot
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <label class="small fw-bold text-muted">STATUT</label>
+                        <div>
+                            <span class="status-badge status-{{ lot.statut }}">
+                                {{ lot.get_statut_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <label class="small fw-bold text-muted">AGENT CRÉATEUR</label>
+                        <div>
+                            {% if lot.agent_createur %}
+                                {{ lot.agent_createur.get_full_name }}
+                            {% else %}
+                                <span class="text-muted">Non défini</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <label class="small fw-bold text-muted">DATE CRÉATION</label>
+                        <div>{{ lot.date_creation|date:"d/m/Y à H:i" }}</div>
+                    </div>
+                    {% if lot.date_fermeture %}
+                    <div class="col-6 mb-3">
+                        <label class="small fw-bold text-muted">DATE FERMETURE</label>
+                        <div>{{ lot.date_fermeture|date:"d/m/Y à H:i" }}</div>
+                    </div>
+                    {% endif %}
+                    {% if lot.date_expedition %}
+                    <div class="col-6 mb-3">
+                        <label class="small fw-bold text-muted">DATE EXPÉDITION</label>
+                        <div>{{ lot.date_expedition|date:"d/m/Y à H:i" }}</div>
+                    </div>
+                    {% endif %}
+                    {% if lot.prix_transport %}
+                    <div class="col-6 mb-3">
+                        <label class="small fw-bold text-muted">PRIX TRANSPORT</label>
+                        <div class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} FCFA</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4 equal-height">
+        <div class="modern-card action-card">
+            <div class="modern-card-header">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-lightning"></i>
+                    Actions rapides
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row">
+                    {% if lot.statut == 'ouvert' %}
+                    <div class="col-12 mb-2">
+                        <a href="{% url 'agent_chine:colis_create' lot.id %}" class="btn btn-primary w-100">
+                            <i class="bi bi-plus-circle"></i>
+                            Ajouter un colis
+                        </a>
+                    </div>
+                    <div class="col-12 mb-2">
+                        <a href="{% url 'agent_chine:lot_close' lot.id %}" class="btn btn-warning w-100">
+                            <i class="bi bi-lock"></i>
+                            Fermer le lot
+                        </a>
+                    </div>
+                    {% elif lot.statut == 'ferme' %}
+                    <div class="col-12 mb-2">
+                        <a href="{% url 'agent_chine:lot_expedite' lot.id %}" class="btn btn-success w-100">
+                            <i class="bi bi-send"></i>
+                            Expédier le lot
+                        </a>
+                    </div>
+                    {% endif %}
+                    <div class="col-12 mb-2">
+                        <button class="btn btn-info w-100" onclick="exportLot()">
+                            <i class="bi bi-download"></i>
+                            Exporter la liste
+                        </button>
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-outline-secondary w-100" onclick="printLot()">
+                            <i class="bi bi-printer"></i>
+                            Imprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des colis -->
+<div class="modern-card">
+    <div class="modern-card-header d-flex justify-content-between align-items-center">
+        <h5 class="modern-card-title">
+            <i class="bi bi-box-seam"></i>
+            Colis du lot
+        </h5>
+        <div class="d-flex gap-2">
+            <span class="status-badge status-ouvert">{{ colis.count }} colis</span>
+            {% if lot.statut == 'ouvert' %}
+            <a href="{% url 'agent_chine:colis_create' lot.id %}" class="action-btn">
+                <i class="bi bi-plus"></i>
+                Ajouter
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="modern-card-body p-0">
+        {% if colis %}
+            <!-- Desktop -->
+            <div class="d-none d-md-block">
+                <div class="table-modern">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>N° Suivi</th>
+                                <th>Client</th>
+                                <th>Dimensions</th>
+                                <th>Poids</th>
+                                <th>Prix</th>
+                                <th>Statut</th>
+                                <th>Paiement</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for colis in colis %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none fw-bold">
+                                        {{ colis.numero_suivi }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div>
+                                        <div class="fw-bold">{{ colis.client.user.get_full_name }}</div>
+                                        <div class="small text-muted">{{ colis.client.user.telephone }}</div>
+                                    </div>
+                                </td>
+                                <td class="small">
+                                    {{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }}cm
+                                    <br>
+                                    <span class="text-muted">{{ colis.volume_m3|floatformat:4 }}m³</span>
+                                </td>
+                                <td>
+                                    <span class="fw-bold">{{ colis.poids }}kg</span>
+                                </td>
+                                <td>
+                                    <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ colis.statut }}">
+                                        {{ colis.get_statut_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}bg-success{% else %}bg-warning{% endif %}">
+                                        {{ colis.get_mode_paiement_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'agent_chine:colis_detail' colis.id %}" 
+                                           class="btn btn-outline-primary"
+                                           data-bs-toggle="tooltip" 
+                                           title="Voir détails">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if lot.statut == 'ouvert' %}
+                                        <a href="{% url 'agent_chine:colis_edit' colis.id %}" 
+                                           class="btn btn-outline-warning"
+                                           data-bs-toggle="tooltip" 
+                                           title="Modifier">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-outline-danger" 
+                                                onclick="confirmDeleteColis('{% url 'agent_chine:colis_delete' colis.id %}', '{{ colis.numero_suivi }}')"
+                                                data-bs-toggle="tooltip" 
+                                                title="Supprimer">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile -->
+            <div class="d-md-none">
+                {% for colis in colis %}
+                <div class="border-bottom p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1">
+                                <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none">
+                                    {{ colis.numero_suivi }}
+                                </a>
+                            </h6>
+                            <div class="small text-muted">{{ colis.client.user.get_full_name }}</div>
+                        </div>
+                        <span class="status-badge status-{{ colis.statut }}">
+                            {{ colis.get_statut_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <small class="text-muted">Dimensions:</small>
+                            <div class="small">{{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }}cm</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Poids:</small>
+                            <div class="small fw-bold">{{ colis.poids }}kg</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            {% if lot.statut == 'ouvert' %}
+                            <a href="{% url 'agent_chine:colis_edit' colis.id %}" class="btn btn-sm btn-warning">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- État vide -->
+            <div class="text-center py-5">
+                <i class="bi bi-box-seam" style="font-size: 4rem; color: #dee2e6;"></i>
+                <h5 class="mt-3 text-muted">Aucun colis dans ce lot</h5>
+                <p class="text-muted">Commencez par ajouter des colis à ce lot</p>
+                {% if lot.statut == 'ouvert' %}
+                <a href="{% url 'agent_chine:colis_create' lot.id %}" class="action-btn">
+                    <i class="bi bi-plus-circle"></i>
+                    Ajouter le premier colis
+                </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDeleteColis(url, numeroSuivi) {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer le colis "${numeroSuivi}" ?\n\nCette action est irréversible.`)) {
+        window.location.href = url;
+    }
+}
+
+function exportLot() {
+    // Export simple en impression
+    window.print();
+}
+
+function printLot() {
+    // Impression de la page actuelle
+    window.print();
+}
+
+// Initialiser les tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

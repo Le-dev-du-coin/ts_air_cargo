@@ -1,0 +1,374 @@
+{% extends "client_app/base_client.html" %}
+
+{% block title %}Mes Colis - TS Air Cargo{% endblock %}
+
+{% block extra_head %}
+<style>
+    .filter-card {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 3px solid transparent;
+    }
+    
+    .filter-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
+    }
+    
+    .filter-card.active {
+        border-color: #ffc107;
+        box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
+    }
+    
+    .filter-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .filter-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .colis-grid-item {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    
+    .colis-grid-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .colis-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+    
+    .colis-image:hover {
+        transform: scale(1.05);
+    }
+    
+    .no-image {
+        height: 200px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        font-size: 3rem;
+    }
+    
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .status-receptionne_chine {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-en_transit, .status-expedie {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    
+    .status-arrive {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-livre {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+    
+    .status-perdu {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .modal-img {
+        max-width: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+    }
+    
+    .search-filters {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-box text-primary"></i>
+            Mes Colis
+        </h1>
+        <p class="text-muted">Gérez et consultez tous vos colis avec leurs images</p>
+    </div>
+</div>
+
+<!-- Filtres statistiques -->
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="filter-card {% if not statut_filter %}active{% endif %}" 
+             onclick="filterBy('')">
+            <div class="filter-number">{{ stats_filters.tous }}</div>
+            <div class="filter-label">Tous</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="filter-card {% if statut_filter == 'receptionne_chine' %}active{% endif %}" 
+             onclick="filterBy('receptionne_chine')">
+            <div class="filter-number">{{ stats_filters.receptionne_chine }}</div>
+            <div class="filter-label">En Chine</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="filter-card {% if statut_filter == 'en_transit' %}active{% endif %}" 
+             onclick="filterBy('en_transit')">
+            <div class="filter-number">{{ stats_filters.en_transit }}</div>
+            <div class="filter-label">En Transit</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="filter-card {% if statut_filter == 'arrive' %}active{% endif %}" 
+             onclick="filterBy('arrive')">
+            <div class="filter-number">{{ stats_filters.arrive }}</div>
+            <div class="filter-label">Arrivés</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="filter-card {% if statut_filter == 'livre' %}active{% endif %}" 
+             onclick="filterBy('livre')">
+            <div class="filter-number">{{ stats_filters.livre }}</div>
+            <div class="filter-label">Livrés</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="text-center">
+            <a href="{% url 'client_app:suivi_colis' %}" class="btn btn-success">
+                <i class="fas fa-search me-1"></i>
+                Suivre un colis
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres de recherche -->
+<div class="search-filters">
+    <form method="get" class="row g-3">
+        <div class="col-md-4">
+            <label for="search" class="form-label">Rechercher</label>
+            <input type="text" class="form-control" id="search" name="search" 
+                   value="{{ search_query }}" placeholder="Numéro de suivi, description...">
+        </div>
+        <div class="col-md-3">
+            <label for="date_debut" class="form-label">Date début</label>
+            <input type="date" class="form-control" id="date_debut" name="date_debut" 
+                   value="{{ date_debut }}">
+        </div>
+        <div class="col-md-3">
+            <label for="date_fin" class="form-label">Date fin</label>
+            <input type="date" class="form-control" id="date_fin" name="date_fin" 
+                   value="{{ date_fin }}">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary me-2">
+                <i class="fas fa-search"></i>
+            </button>
+            <a href="{% url 'client_app:mes_colis' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-times"></i>
+            </a>
+        </div>
+        <!-- Champ caché pour maintenir le filtre de statut -->
+        {% if statut_filter %}
+        <input type="hidden" name="statut" value="{{ statut_filter }}">
+        {% endif %}
+    </form>
+</div>
+
+<!-- Grille des colis -->
+{% if colis %}
+<div class="row">
+    {% for colis in colis %}
+    <div class="col-md-4 col-lg-3">
+        <div class="card colis-grid-item">
+            <div class="position-relative">
+                {% if colis.image %}
+                    <img src="{{ colis.image.url }}" alt="Colis {{ colis.numero_suivi }}" 
+                         class="colis-image" data-bs-toggle="modal" data-bs-target="#imageModal" 
+                         data-image-src="{{ colis.image.url }}" data-image-title="{{ colis.numero_suivi }}">
+                {% else %}
+                    <div class="no-image">
+                        <i class="fas fa-box"></i>
+                    </div>
+                {% endif %}
+                <div class="position-absolute top-0 end-0 m-2">
+                    <span class="status-badge status-{{ colis.statut }}">
+                        {{ colis.get_statut_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <h6 class="card-title mb-2">{{ colis.numero_suivi }}</h6>
+                <p class="card-text text-muted small mb-2">
+                    {{ colis.description|truncatechars:60 }}
+                </p>
+                <div class="row text-center small text-muted mb-3">
+                    <div class="col-6">
+                        <i class="fas fa-weight-hanging"></i>
+                        {{ colis.poids }} kg
+                    </div>
+                    <div class="col-6">
+                        <i class="fas fa-money-bill-wave"></i>
+                        {{ colis.prix_calcule|floatformat:0 }} CFA
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        Lot: {{ colis.lot.numero_lot }}
+                    </small>
+                    <a href="{% url 'client_app:colis_detail' colis.id %}" 
+                       class="btn btn-primary btn-sm">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="row mt-4">
+    <div class="col-12">
+        <nav aria-label="Pagination des colis">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="text-center py-5">
+    <i class="fas fa-box-open fa-5x text-muted mb-4"></i>
+    <h4 class="text-muted mb-3">Aucun colis trouvé</h4>
+    <p class="text-muted">
+        {% if search_query or statut_filter or date_debut or date_fin %}
+            Essayez de modifier vos critères de recherche.
+        {% else %}
+            Vous n'avez pas encore de colis enregistrés.
+        {% endif %}
+    </p>
+    {% if search_query or statut_filter or date_debut or date_fin %}
+    <a href="{% url 'client_app:mes_colis' %}" class="btn btn-primary">
+        <i class="fas fa-times me-2"></i>Effacer les filtres
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Modal pour agrandir les images -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Image du colis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-1">
+                <img src="" alt="Image du colis" class="modal-img" id="modalImage">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Script pour gérer l'ouverture des images en modal
+$('#imageModal').on('show.bs.modal', function (event) {
+    var button = $(event.relatedTarget);
+    var imageSrc = button.data('image-src');
+    var imageTitle = button.data('image-title');
+    
+    var modal = $(this);
+    modal.find('#modalImage').attr('src', imageSrc);
+    modal.find('.modal-title').text('Colis ' + imageTitle);
+});
+
+// Fonction pour filtrer par statut
+function filterBy(statut) {
+    var url = new URL(window.location.href);
+    if (statut) {
+        url.searchParams.set('statut', statut);
+    } else {
+        url.searchParams.delete('statut');
+    }
+    // Supprimer la page pour revenir à la page 1
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

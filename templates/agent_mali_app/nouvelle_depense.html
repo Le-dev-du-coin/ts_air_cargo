@@ -1,0 +1,366 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+
+{% block title %}Nouvelle Dépense - TS Air Cargo Mali{% endblock %}
+
+{% block content %}
+<!-- Header avec navigation -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Nouvelle Dépense</h2>
+        <p class="text-muted mb-0">Enregistrer une nouvelle dépense opérationnelle</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:depenses' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Formulaire de nouvelle dépense -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Informations de la Dépense
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="depenseForm">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="date" class="form-label">Date de la dépense <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="date" name="date_depense" 
+                                       value="{% now 'Y-m-d' %}" required>
+                                <div class="form-text">Date à laquelle la dépense a été effectuée</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="montant" class="form-label">Montant (CFA) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="montant" name="montant" 
+                                       min="0" step="100" required placeholder="Ex: 5000">
+                                <div class="form-text">Montant exact de la dépense</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="categorie" class="form-label">Catégorie <span class="text-danger">*</span></label>
+                            <select class="form-select" id="categorie" name="type_depense" required>
+                                    <option value="">Sélectionner une catégorie</option>
+                                    <option value="transport">Transport et déplacement</option>
+                                    <option value="personnel">Personnel et main d'œuvre</option>
+                                    <option value="materiel">Matériel et équipement</option>
+                                    <option value="communication">Communication (téléphone, internet)</option>
+                                    <option value="fournitures">Fournitures de bureau</option>
+                                    <option value="entretien">Entretien et maintenance</option>
+                                    <option value="carburant">Carburant</option>
+                                    <option value="repas">Repas et restauration</option>
+                                    <option value="autre">Autre</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="mode_paiement" class="form-label">Mode de paiement</label>
+                                <select class="form-select" id="mode_paiement" name="mode_paiement">
+                                    <option value="especes">Espèces</option>
+                                    <option value="mobile_money">Mobile Money</option>
+                                    <option value="virement">Virement bancaire</option>
+                                    <option value="cheque">Chèque</option>
+                                    <option value="autre">Autre</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="description" name="libelle" 
+                               required placeholder="Ex: Carburant pour livraisons du 15/01">
+                        <div class="form-text">Description courte et précise de la dépense</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="commentaire" class="form-label">Commentaire détaillé</label>
+                        <textarea class="form-control" id="commentaire" name="notes" rows="4" 
+                                  placeholder="Détails supplémentaires, contexte, justification..."></textarea>
+                        <div class="form-text">Informations complémentaires sur cette dépense</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="justificatif" class="form-label">Justificatif (facultatif)</label>
+                        <input type="file" class="form-control" id="justificatif" name="justificatif" 
+                               accept=".pdf,.jpg,.jpeg,.png,.gif">
+                        <div class="form-text">
+                            Reçu, facture ou photo du justificatif. Formats acceptés: PDF, JPG, PNG, GIF (max 5MB)
+                        </div>
+                    </div>
+                    
+                    <!-- Preview du fichier -->
+                    <div id="filePreview" class="mb-3" style="display: none;">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>Aperçu du justificatif :</h6>
+                                <div id="previewContent"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="confirmer_montant" required>
+                        <label class="form-check-label" for="confirmer_montant">
+                            <strong>Je confirme que le montant saisi est correct</strong>
+                            <div class="small text-muted">Cette information sera utilisée pour les rapports financiers</div>
+                        </label>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> Enregistrer la dépense
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="saveAndAddAnother()">
+                            <i class="bi bi-plus-circle"></i> Enregistrer et ajouter une autre
+                        </button>
+                        <a href="{% url 'agent_mali:depenses' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Annuler
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar avec conseils et statistiques -->
+    <div class="col-lg-4">
+        <!-- Conseils -->
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h6 class="m-0 text-primary">
+                    <i class="bi bi-lightbulb me-2"></i>Conseils pour bien enregistrer
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check text-success me-2"></i>
+                        <small>Soyez précis dans la description</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check text-success me-2"></i>
+                        <small>Choisissez la bonne catégorie</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check text-success me-2"></i>
+                        <small>Ajoutez un justificatif si possible</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check text-success me-2"></i>
+                        <small>Vérifiez le montant avant validation</small>
+                    </li>
+                    <li>
+                        <i class="bi bi-check text-success me-2"></i>
+                        <small>Enregistrez rapidement après la dépense</small>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Statistiques rapides -->
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h6 class="m-0 text-primary">
+                    <i class="bi bi-graph-up me-2"></i>Vos dépenses ce mois
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <div class="h4 text-danger">{{ total_mois_actuel|floatformat:0 }} CFA</div>
+                    <div class="small text-muted">Total dépensé ce mois</div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="h6 text-primary">{{ nombre_depenses_mois }}</div>
+                        <div class="small text-muted">Dépenses</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="h6 text-warning">{{ moyenne_depense_mois|floatformat:0 }}</div>
+                        <div class="small text-muted">Moyenne</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dépenses récentes -->
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 text-primary">
+                    <i class="bi bi-clock-history me-2"></i>Dernières dépenses
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if dernieres_depenses %}
+                    {% for depense in dernieres_depenses %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <div class="fw-semibold small">{{ depense.description|truncatechars:25 }}</div>
+                                <div class="text-muted small">{{ depense.date|date:"d/m" }}</div>
+                            </div>
+                            <div class="text-danger fw-bold small">{{ depense.montant|floatformat:0 }}</div>
+                        </div>
+                        {% if not forloop.last %}<hr class="my-2">{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted small mb-0">Aucune dépense récente</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Preview du fichier uploadé
+    document.getElementById('justificatif').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const preview = document.getElementById('filePreview');
+        const previewContent = document.getElementById('previewContent');
+        
+        if (file) {
+            preview.style.display = 'block';
+            
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewContent.innerHTML = `
+                        <img src="${e.target.result}" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                        <div class="mt-2 small text-muted">${file.name} (${(file.size / 1024).toFixed(1)} KB)</div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewContent.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-file-earmark-pdf text-danger me-2" style="font-size: 2rem;"></i>
+                        <div>
+                            <div class="fw-semibold">${file.name}</div>
+                            <div class="small text-muted">${(file.size / 1024).toFixed(1)} KB • ${file.type || 'Type inconnu'}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            preview.style.display = 'none';
+        }
+    });
+    
+    // Validation du montant
+    document.getElementById('montant').addEventListener('input', function(e) {
+        const montant = parseFloat(e.target.value);
+        if (montant > 100000) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Montant élevé',
+                text: `Le montant saisi est élevé (${montant.toLocaleString()} CFA). Veuillez vérifier.`,
+                confirmButtonText: 'Vérifié',
+                confirmButtonColor: '#f59e0b'
+            }).then(() => {
+                e.target.focus();
+            });
+        }
+    });
+    
+    // Fonction pour enregistrer et ajouter une autre dépense
+    function saveAndAddAnother() {
+        const form = document.getElementById('depenseForm');
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'save_and_add_another';
+        input.value = '1';
+        form.appendChild(input);
+        form.submit();
+    }
+    
+    // Auto-completion de la description basée sur la catégorie
+    document.getElementById('categorie').addEventListener('change', function(e) {
+        const descriptionField = document.getElementById('description');
+        const suggestions = {
+            'transport': 'Transport pour livraisons',
+            'personnel': 'Paiement personnel',
+            'materiel': 'Achat matériel',
+            'communication': 'Facture téléphone/internet',
+            'fournitures': 'Fournitures de bureau',
+            'entretien': 'Entretien véhicule/matériel',
+            'carburant': 'Carburant véhicule',
+            'repas': 'Repas équipe'
+        };
+        
+        if (suggestions[e.target.value] && !descriptionField.value) {
+            descriptionField.placeholder = suggestions[e.target.value];
+        }
+    });
+    
+    // Validation du formulaire
+    document.getElementById('depenseForm').addEventListener('submit', function(e) {
+        const montant = document.getElementById('montant').value;
+        const description = document.getElementById('description').value;
+        const categorie = document.getElementById('categorie').value;
+        const confirmer = document.getElementById('confirmer_montant').checked;
+        
+        if (!montant || !description || !categorie) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'error',
+                title: 'Champs manquants',
+                text: 'Veuillez remplir tous les champs obligatoires.',
+                confirmButtonText: 'Corriger',
+                confirmButtonColor: '#dc3545'
+            });
+            return false;
+        }
+        
+        if (!confirmer) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Confirmation requise',
+                text: 'Veuillez confirmer que le montant est correct en cochant la case.',
+                confirmButtonText: 'Compris',
+                confirmButtonColor: '#f59e0b'
+            });
+            return false;
+        }
+        
+        if (parseFloat(montant) <= 0) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'error',
+                title: 'Montant invalide',
+                text: 'Le montant doit être supérieur à 0.',
+                confirmButtonText: 'Corriger',
+                confirmButtonColor: '#dc3545'
+            });
+            return false;
+        }
+    });
+    
+    // Focus automatique sur le montant après sélection de catégorie
+    document.getElementById('categorie').addEventListener('change', function() {
+        if (this.value) {
+            document.getElementById('montant').focus();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,956 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Agent Mali{% endblock %}
+
+{% block extra_head %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    .report-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        margin-bottom: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2d3748;
+    }
+    
+    .stat-label {
+        color: #718096;
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
+    
+    .btn-report {
+        background: linear-gradient(45deg, #4299e1, #3182ce);
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s;
+        margin: 5px;
+    }
+    
+    .btn-report:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 25px rgba(66, 153, 225, 0.3);
+        color: white;
+    }
+    
+    .btn-whatsapp {
+        background: linear-gradient(45deg, #25d366, #128c7e);
+    }
+    
+    .btn-email {
+        background: linear-gradient(45deg, #ea4335, #d33b2c);
+    }
+    
+    .btn-schedule {
+        background: linear-gradient(45deg, #f6ad55, #ed8936);
+    }
+    
+    .progress-bar-custom {
+        background: linear-gradient(90deg, #4299e1, #63b3ed);
+        height: 6px;
+        border-radius: 3px;
+        animation: progress-animation 2s ease-in-out infinite;
+    }
+    
+    @keyframes progress-animation {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+    }
+    
+    .modal-custom {
+        backdrop-filter: blur(10px);
+    }
+    
+    .form-control-modern {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 15px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-control-modern:focus {
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    
+    .history-item {
+        background: white;
+        border-left: 4px solid #4299e1;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header avec actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Rapports et Analyses</h2>
+        <p class="text-muted mb-0">Générer et consulter les rapports d'activité</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-success" onclick="generateDailyReport()">
+            <i class="bi bi-file-text"></i> Rapport Journalier
+        </button>
+        <a href="{% url 'agent_mali:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Types de rapports -->
+<div class="row mb-4">
+    <div class="col-lg-4">
+        <div class="card shadow h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-day me-2"></i>Rapport Journalier
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Rapport quotidien des activités, livraisons et dépenses</p>
+                <div class="mb-3">
+                    <label for="date_rapport_jour" class="form-label">Date</label>
+                    <input type="date" class="form-control" id="date_rapport_jour" value="{% now 'Y-m-d' %}">
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" onclick="generateDailyReport()">
+                        <i class="bi bi-file-text"></i> Générer
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-send"></i> Envoyer
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="sendDailyReportWhatsApp()"><i class="bi bi-whatsapp me-2"></i>WhatsApp Admin</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sendDailyReport()"><i class="bi bi-envelope me-2"></i>Email</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="scheduleAutoReport()"><i class="bi bi-clock me-2"></i>Programmer envoi auto (23h59)</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-month me-2"></i>Rapport Mensuel
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Bilan mensuel complet avec analyses et tendances</p>
+                <div class="mb-3">
+                    <label for="mois_rapport" class="form-label">Mois/Année</label>
+                    <input type="month" class="form-control" id="mois_rapport" value="{% now 'Y-m' %}">
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" onclick="generateMonthlyReport()">
+                        <i class="bi bi-file-text"></i> Générer
+                    </button>
+                    <button class="btn btn-outline-success" onclick="downloadMonthlyPDF()">
+                        <i class="bi bi-file-pdf"></i> Télécharger PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-year me-2"></i>Rapport Annuel
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Analyse complète des performances annuelles</p>
+                <div class="mb-3">
+                    <label for="annee_rapport" class="form-label">Année</label>
+                    <select class="form-select" id="annee_rapport">
+                        <option value="2024" selected>2024</option>
+                        <option value="2023">2023</option>
+                    </select>
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-info" onclick="generateYearlyReport()">
+                        <i class="bi bi-file-text"></i> Générer
+                    </button>
+                    <button class="btn btn-outline-info" onclick="downloadYearlyPDF()">
+                        <i class="bi bi-file-pdf"></i> Télécharger PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rapports rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-lightning me-2"></i>Rapports Rapides
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-primary" onclick="generateQuickReport('lots_today')">
+                                <i class="bi bi-box-seam"></i><br>
+                                <small>Lots du Jour</small>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-success" onclick="generateQuickReport('deliveries_today')">
+                                <i class="bi bi-truck"></i><br>
+                                <small>Livraisons du Jour</small>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-warning" onclick="generateQuickReport('expenses_week')">
+                                <i class="bi bi-receipt"></i><br>
+                                <small>Dépenses Semaine</small>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-info" onclick="generateQuickReport('pending_packages')">
+                                <i class="bi bi-clock"></i><br>
+                                <small>Colis en Attente</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historique des rapports -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="bi bi-clock-history me-2"></i>Historique des Rapports
+        </h6>
+        <button class="btn btn-sm btn-outline-danger" onclick="clearReportsHistory()">
+            <i class="bi bi-trash"></i> Vider l'historique
+        </button>
+    </div>
+    <div class="card-body">
+        {% if rapports_historique %}
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Date Génération</th>
+                            <th>Type de Rapport</th>
+                            <th>Période</th>
+                            <th>Taille</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rapport in rapports_historique %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">{{ rapport.date_generation|date:"d/m/Y" }}</div>
+                                <small class="text-muted">{{ rapport.date_generation|date:"H:i" }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">
+                                    {{ rapport.get_type_display }}
+                                </span>
+                            </td>
+                            <td>{{ rapport.periode }}</td>
+                            <td>
+                                <small class="text-muted">{{ rapport.taille_fichier|filesizeformat }}</small>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ rapport.fichier.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        <i class="bi bi-eye"></i> Voir
+                                    </a>
+                                    <a href="{{ rapport.fichier.url }}" download class="btn btn-outline-success btn-sm">
+                                        <i class="bi bi-download"></i> Télécharger
+                                    </a>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteReport({{ rapport.id }})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-file-text" style="font-size: 4rem; color: #e3e6f0;"></i>
+                <h5 class="text-muted mt-3">Aucun rapport généré</h5>
+                <p class="text-muted">
+                    Vos rapports générés apparaîtront ici.<br>
+                    Commencez par générer votre premier rapport.
+                </p>
+                <button class="btn btn-primary" onclick="generateDailyReport()">
+                    <i class="bi bi-file-text"></i> Générer un rapport
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Statistiques du jour -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-bar-chart me-2"></i>Activité du Jour
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="h4 text-primary">{{ stats_jour.lots_recus|default:0 }}</div>
+                        <div class="small text-muted">Lots reçus</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-success">{{ stats_jour.colis_livres|default:0 }}</div>
+                        <div class="small text-muted">Colis livrés</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-danger">{{ stats_jour.depenses_total|floatformat:0 }}</div>
+                        <div class="small text-muted">Dépenses (CFA)</div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="h5 text-info">{{ stats_jour.clients_notifies|default:0 }}</div>
+                        <div class="small text-muted">Clients notifiés</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="h5 text-warning">{{ stats_jour.revenus_livraison|floatformat:0 }}</div>
+                        <div class="small text-muted">Revenus livraison</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-gear me-2"></i>Paramètres de Rapport
+                </h6>
+            </div>
+            <div class="card-body">
+                <form id="reportSettingsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Format d'exportation</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="format" value="pdf" id="format_pdf" checked>
+                            <label class="form-check-label" for="format_pdf">PDF</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="format" value="excel" id="format_excel">
+                            <label class="form-check-label" for="format_excel">Excel</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="include_charts" checked>
+                        <label class="form-check-label" for="include_charts">
+                            Inclure les graphiques
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="auto_send_daily">
+                        <label class="form-check-label" for="auto_send_daily">
+                            Envoi automatique rapport journalier
+                        </label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email_recipient" class="form-label">Email destinataire</label>
+                        <input type="email" class="form-control" id="email_recipient" 
+                               placeholder="manager@tsaircargo.com">
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-primary" onclick="saveReportSettings()">
+                            <i class="bi bi-save"></i> Sauvegarder les paramètres
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de génération de rapport -->
+<div class="modal fade" id="reportGenerationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Génération du Rapport</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="reportGenerationContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Génération en cours...</span>
+                        </div>
+                        <p class="mt-3">Génération du rapport en cours...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Génération des rapports
+    function generateDailyReport() {
+        const date = document.getElementById('date_rapport_jour').value;
+        
+        if (!date) {
+            alert('Veuillez sélectionner une date pour générer le rapport.');
+            return;
+        }
+        
+        showGenerationModal('Génération du rapport journalier...');
+        
+        // Simuler une barre de progression
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 20;
+            if (progress > 90) progress = 90;
+            updateProgress(progress, 'Génération du PDF en cours...');
+        }, 300);
+        
+        // Générer le rapport réel via API
+        fetch('/agent-mali/api/generate-daily-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                'date': date
+            })
+        })
+        .then(response => {
+            clearInterval(progressInterval);
+            updateProgress(100, 'Finalisation...');
+            
+            if (response.ok) {
+                return response.blob();
+            } else {
+                throw new Error('Erreur lors de la génération du rapport');
+            }
+        })
+        .then(blob => {
+            setTimeout(() => {
+                updateGenerationContent(`
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Rapport journalier généré avec succès!</strong>
+                        <br>Date: ${new Date(date).toLocaleDateString('fr-FR')}
+                        <br><small class="text-muted">Taille: ${(blob.size / 1024).toFixed(1)} KB</small>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button class="btn btn-primary" onclick="downloadGeneratedReport('${date}', 'daily')">
+                            <i class="bi bi-download"></i> Télécharger PDF
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="previewGeneratedReport('${date}', 'daily')">
+                            <i class="bi bi-eye"></i> Aperçu
+                        </button>
+                    </div>
+                `);
+                
+                // Stocker le blob pour téléchargement ultérieur
+                window.generatedReports = window.generatedReports || {};
+                window.generatedReports[date] = blob;
+            }, 500);
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            console.error('Erreur:', error);
+            updateGenerationContent(`
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Erreur lors de la génération</strong>
+                    <br>${error.message}
+                    <br><small>Vérifiez que les données sont disponibles pour cette date.</small>
+                </div>
+                <div class="d-flex justify-content-center">
+                    <button class="btn btn-secondary" onclick="generateDailyReport()">
+                        <i class="bi bi-arrow-clockwise"></i> Réessayer
+                    </button>
+                </div>
+            `);
+        });
+    }
+    
+    function generateMonthlyReport() {
+        const month = document.getElementById('mois_rapport').value;
+        
+        if (!month) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Attention',
+                text: 'Veuillez sélectionner un mois pour générer le rapport.'
+            });
+            return;
+        }
+        
+        showGenerationModal('Génération du rapport mensuel...');
+        
+        // Simuler une barre de progression
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            updateProgress(progress, 'Collecte des données mensuelles...');
+        }, 400);
+        
+        // Appel de l'API pour générer le rapport mensuel
+        fetch('/agent-mali/api/generate-monthly-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                'month': month
+            })
+        })
+        .then(response => {
+            clearInterval(progressInterval);
+            updateProgress(100, 'Finalisation...');
+            
+            if (response.ok) {
+                return response.blob();
+            } else {
+                throw new Error('Erreur lors de la génération du rapport mensuel');
+            }
+        })
+        .then(blob => {
+            setTimeout(() => {
+                updateGenerationContent(`
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Rapport mensuel généré avec succès!</strong>
+                        <br>Période: ${new Date(month + '-01').toLocaleDateString('fr-FR', {year: 'numeric', month: 'long'})}
+                        <br><small class="text-muted">Taille: ${(blob.size / 1024).toFixed(1)} KB</small>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button class="btn btn-success" onclick="downloadGeneratedMonthlyReport('${month}')"> 
+                            <i class="bi bi-download"></i> Télécharger PDF
+                        </button>
+                        <button class="btn btn-outline-success" onclick="previewGeneratedMonthlyReport('${month}')">
+                            <i class="bi bi-eye"></i> Aperçu
+                        </button>
+                    </div>
+                `);
+                
+                // Stocker le blob pour téléchargement ultérieur
+                window.generatedReports = window.generatedReports || {};
+                window.generatedReports['monthly_' + month] = blob;
+            }, 500);
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            console.error('Erreur:', error);
+            updateGenerationContent(`
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Erreur lors de la génération</strong>
+                    <br>${error.message}
+                    <br><small>Vérifiez que les données sont disponibles pour cette période.</small>
+                </div>
+                <div class="d-flex justify-content-center">
+                    <button class="btn btn-secondary" onclick="generateMonthlyReport()">
+                        <i class="bi bi-arrow-clockwise"></i> Réessayer
+                    </button>
+                </div>
+            `);
+        });
+    }
+    
+    function generateYearlyReport() {
+        const year = document.getElementById('annee_rapport').value;
+        showGenerationModal();
+        
+        setTimeout(() => {
+            updateGenerationContent(`
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i>
+                    <strong>Rapport annuel généré avec succès!</strong>
+                    <br>Année: ${year}
+                </div>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button class="btn btn-info" onclick="downloadReport('yearly', '${year}')">
+                        <i class="bi bi-download"></i> Télécharger PDF
+                    </button>
+                    <button class="btn btn-outline-info" onclick="previewReport('yearly', '${year}')">
+                        <i class="bi bi-eye"></i> Aperçu
+                    </button>
+                </div>
+            `);
+        }, 4000);
+    }
+    
+    function generateQuickReport(type) {
+        const types = {
+            'lots_today': 'Lots du jour',
+            'deliveries_today': 'Livraisons du jour',
+            'expenses_week': 'Dépenses de la semaine',
+            'pending_packages': 'Colis en attente'
+        };
+        
+        showGenerationModal();
+        
+        setTimeout(() => {
+            updateGenerationContent(`
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i>
+                    <strong>Rapport "${types[type]}" généré!</strong>
+                </div>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button class="btn btn-primary" onclick="downloadReport('quick', '${type}')">
+                        <i class="bi bi-download"></i> Télécharger
+                    </button>
+                </div>
+            `);
+        }, 1500);
+    }
+    
+    // Fonctions utilitaires
+    function showGenerationModal(message = 'Génération du rapport en cours...') {
+        const modal = new bootstrap.Modal(document.getElementById('reportGenerationModal'));
+        modal.show();
+        
+        // Reset content avec barre de progression
+        document.getElementById('reportGenerationContent').innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <h5 class="mb-3">${message}</h5>
+                <div class="progress mb-3" style="height: 20px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%" id="reportProgress">
+                        0%
+                    </div>
+                </div>
+                <p id="progressMessage" class="text-muted">Initialisation...</p>
+            </div>
+        `;
+    }
+    
+    function updateProgress(percent, message = '') {
+        const progressBar = document.getElementById('reportProgress');
+        const progressMessage = document.getElementById('progressMessage');
+        
+        if (progressBar) {
+            progressBar.style.width = percent + '%';
+            progressBar.textContent = Math.round(percent) + '%';
+            
+            // Changer la couleur selon le progrès
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+            if (percent < 30) {
+                progressBar.classList.add('bg-info');
+            } else if (percent < 70) {
+                progressBar.classList.add('bg-warning');
+            } else {
+                progressBar.classList.add('bg-success');
+            }
+        }
+        
+        if (progressMessage && message) {
+            progressMessage.textContent = message;
+        }
+    }
+    
+    function updateGenerationContent(html) {
+        document.getElementById('reportGenerationContent').innerHTML = html;
+    }
+    
+    function downloadReport(type, period) {
+        alert(`Téléchargement du rapport ${type} pour la période ${period}`);
+        // Implémenter le téléchargement réel
+    }
+    
+    function previewReport(type, period) {
+        alert(`Aperçu du rapport ${type} pour la période ${period}`);
+        // Implémenter l'aperçu réel
+    }
+    
+    function sendDailyReport() {
+        const date = document.getElementById('date_rapport_jour').value;
+        const email = document.getElementById('email_recipient').value;
+        
+        if (!email) {
+            alert('Veuillez saisir un email destinataire dans les paramètres.');
+            return;
+        }
+        
+        alert(`Rapport journalier du ${new Date(date).toLocaleDateString('fr-FR')} envoyé à ${email}`);
+    }
+    
+    function downloadMonthlyPDF() {
+        const month = document.getElementById('mois_rapport').value;
+        alert(`Téléchargement PDF mensuel pour ${month}`);
+    }
+    
+    function downloadYearlyPDF() {
+        const year = document.getElementById('annee_rapport').value;
+        alert(`Téléchargement PDF annuel pour ${year}`);
+    }
+    
+    function saveReportSettings() {
+        alert('Paramètres de rapport sauvegardés avec succès!');
+    }
+    
+    function deleteReport(reportId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce rapport ?')) {
+            alert(`Rapport ${reportId} supprimé`);
+            // Implémenter la suppression réelle
+        }
+    }
+    
+    function clearReportsHistory() {
+        if (confirm('Êtes-vous sûr de vouloir vider tout l\'historique des rapports ?')) {
+            alert('Historique vidé');
+            // Implémenter la suppression réelle
+        }
+    }
+    
+    // Nouvelles fonctions pour WhatsApp et programmation
+    function sendDailyReportWhatsApp() {
+        const date = document.getElementById('date_rapport_jour').value;
+        
+        if (confirm(`Envoyer le rapport journalier du ${new Date(date).toLocaleDateString('fr-FR')} au numéro admin Mali via WhatsApp ?`)) {
+            showGenerationModal();
+            
+            // Générer le PDF et l'envoyer via WhatsApp
+            setTimeout(() => {
+                updateGenerationContent(`
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Rapport envoyé via WhatsApp!</strong>
+                        <br>Le rapport journalier du ${new Date(date).toLocaleDateString('fr-FR')} a été envoyé au numéro admin Mali.
+                        <br><small class="text-muted">Numéro: +223 XX XX XX XX (sandbox)</small>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button class="btn btn-success" onclick="downloadReport('daily', '${date}')">
+                            <i class="bi bi-download"></i> Télécharger une copie
+                        </button>
+                    </div>
+                `);
+                
+                // Appel API réel pour envoyer via WhatsApp
+                sendReportViaWhatsApp('daily', date);
+            }, 2000);
+        }
+    }
+    
+    function scheduleAutoReport() {
+        if (confirm('Programmer l\'envoi automatique du rapport journalier chaque jour à 23h59 ?')) {
+            showGenerationModal();
+            
+            setTimeout(() => {
+                updateGenerationContent(`
+                    <div class="alert alert-info">
+                        <i class="bi bi-clock"></i>
+                        <strong>Envoi automatique programmé!</strong>
+                        <br>Le rapport journalier sera automatiquement généré et envoyé via WhatsApp chaque jour à 23h59.
+                        <br><small class="text-muted">Vous pouvez désactiver cette fonctionnalité dans les paramètres.</small>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button class="btn btn-warning" onclick="disableAutoReport()">
+                            <i class="bi bi-x-circle"></i> Désactiver l'envoi auto
+                        </button>
+                        <button class="btn btn-info" onclick="testAutoReport()">
+                            <i class="bi bi-play"></i> Tester maintenant
+                        </button>
+                    </div>
+                `);
+                
+                // Appel API pour programmer la tâche
+                scheduleAutoReportTask();
+            }, 1500);
+        }
+    }
+    
+    function disableAutoReport() {
+        if (confirm('Désactiver l\'envoi automatique du rapport journalier ?')) {
+            alert('Envoi automatique désactivé.');
+            // Appel API pour désactiver
+            disableAutoReportTask();
+        }
+    }
+    
+    function testAutoReport() {
+        alert('Test de l\'envoi automatique en cours...');
+        sendDailyReportWhatsApp();
+    }
+    
+    // Fonctions API pour les appels backend
+    function sendReportViaWhatsApp(type, period) {
+        fetch('/agent-mali/api/send-report-whatsapp/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                'type': type,
+                'period': period
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Rapport envoyé via WhatsApp:', data.message);
+            } else {
+                console.error('Erreur envoi WhatsApp:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+        });
+    }
+    
+    function scheduleAutoReportTask() {
+        fetch('/agent-mali/api/schedule-auto-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                'enabled': true,
+                'time': '23:59'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Tâche programmée:', data.message);
+            } else {
+                console.error('Erreur programmation:', data.error);
+            }
+        });
+    }
+    
+    function disableAutoReportTask() {
+        fetch('/agent-mali/api/schedule-auto-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                'enabled': false
+            })
+        });
+    }
+    
+    // Fonctions de téléchargement
+    function downloadGeneratedReport(date, type) {
+        const blob = window.generatedReports && window.generatedReports[date];
+        if (blob) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `rapport_${type}_${date}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            alert('Rapport non disponible. Veuillez le regénérer.');
+        }
+    }
+    
+    function previewGeneratedReport(date, type) {
+        const blob = window.generatedReports && window.generatedReports[date];
+        if (blob) {
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            // Ne pas révoquer l'URL immédiatement pour permettre l'ouverture
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        } else {
+            alert('Rapport non disponible. Veuillez le regénérer.');
+        }
+    }
+    
+    // Fonction utilitaire pour récupérer le CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

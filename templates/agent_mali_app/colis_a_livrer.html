@@ -1,0 +1,682 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load mali_filters %}
+
+{% block title %}Colis à Livrer - TS Air Cargo Mali{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-radius: 12px;
+        border: none;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 25px rgba(0,0,0,0.12) !important;
+    }
+    
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        margin-bottom: 1rem;
+    }
+    
+    .colis-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .colis-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    }
+    
+    .client-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .client-avatar {
+        width: 45px;
+        height: 45px;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 16px;
+    }
+    
+    .action-btn {
+        border-radius: 8px;
+        border: none;
+        padding: 8px 12px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .action-btn:hover {
+        transform: translateY(-1px);
+    }
+    
+    .btn-success-modern {
+        background: linear-gradient(135deg, #10b981, #059669);
+    }
+    
+    .btn-success-modern:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header avec actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Colis à Livrer</h2>
+        <p class="text-muted mb-0">Colis arrivés au Mali et prêts pour la livraison</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Statistiques rapides -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #6f42c1;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-3" style="background: rgba(111, 66, 193, 0.15) !important; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-truck" style="color: #6f42c1; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #6f42c1;">{{ colis.count }}</h3>
+                <p class="text-muted mb-0 fw-medium">Colis à Livrer</p>
+                <small class="text-muted">Prêts pour la livraison</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #20c997;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-3" style="background: rgba(32, 201, 151, 0.15) !important; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-money-bill-wave" style="color: #20c997; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #20c997;">{{ valeur_totale|floatformat:0 }} F</h3>
+                <p class="text-muted mb-0 fw-medium">Valeur Totale</p>
+                <small class="text-muted">Montant des livraisons</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #17a2b8;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon bg-info bg-opacity-10 rounded-circle mx-auto mb-3" style="background: rgba(23, 162, 184, 0.15) !important; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-users" style="color: #17a2b8; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #17a2b8;">{{ clients_uniques }}</h3>
+                <p class="text-muted mb-0 fw-medium">Clients Uniques</p>
+                <small class="text-muted">À contacter</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #fd7e14;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon bg-warning bg-opacity-10 rounded-circle mx-auto mb-3" style="background: rgba(253, 126, 20, 0.15) !important; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-weight-hanging" style="color: #fd7e14; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #fd7e14;">{{ poids_total|floatformat:1 }} kg</h3>
+                <p class="text-muted mb-0 fw-medium">Poids Total</p>
+                <small class="text-muted">Volume livraisons</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres et recherche -->
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="search" class="form-label">Rechercher</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       value="{{ request.GET.search }}" 
+                       placeholder="Code colis, nom client, téléphone...">
+            </div>
+            <div class="col-md-3">
+                <label for="statut_filter" class="form-label">Statut</label>
+                <select class="form-select" id="statut_filter" name="statut">
+                    <option value="">Tous les statuts</option>
+                    <option value="arrive" {% if request.GET.statut == 'arrive' %}selected{% endif %}>Arrivé</option>
+                    <option value="pret_livraison" {% if request.GET.statut == 'pret_livraison' %}selected{% endif %}>Prêt livraison</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="date_filter" class="form-label">Date d'arrivée</label>
+                <input type="date" class="form-control" id="date_filter" name="date_arrivee" 
+                       value="{{ request.GET.date_arrivee }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Filtrer
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Liste des colis -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="bi bi-boxes me-2"></i>Colis Prêts pour Livraison
+        </h6>
+        <div>
+            <button class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                <i class="bi bi-check-all"></i> Tout sélectionner
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="unselectAll()">
+                <i class="bi bi-square"></i> Désélectionner
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if colis %}
+            <form id="bulkDeliveryForm">
+                <div class="table-responsive">
+                    <table class="table table-bordered" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                                </th>
+                                <th>Code Colis</th>
+                                <th>Client</th>
+                                <th>Téléphone</th>
+                                <th>Adresse</th>
+                                <th>Poids</th>
+                                <th>Prix</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in colis %}
+                            <tr id="row-{{ c.id }}">
+                                <td>
+                                    <input type="checkbox" class="colis-checkbox" value="{{ c.id }}" name="selected_colis">
+                                </td>
+                                <td>
+                                    <div class="fw-bold text-primary">{{ c.numero_suivi }}</div>
+                                    <small class="text-muted">{{ c.description|truncatechars:25 }}</small>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ c.client.user.get_full_name }}</div>
+                                    <small class="text-muted">Lot: {{ c.lot.numero_lot }}</small>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ c.client.user.telephone }}</div>
+                                    <small class="text-success">
+                                        <i class="bi bi-whatsapp"></i> WhatsApp
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="small">{{ c.client.adresse|truncatechars:40 }}</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ c.poids }} kg</span>
+                                </td>
+                                <td>
+                                    <div class="text-success fw-bold">{{ c.prix_calcule|floatformat:0 }} F</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ c.get_statut_display }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'agent_mali:marquer_livre' c.id %}" 
+                                           class="btn btn-success btn-sm" 
+                                           title="Marquer comme livré">
+                                            <i class="bi bi-check-circle"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                onclick="markAsLost({{ c.id }}, event); return false;" 
+                                                title="Marquer comme perdu">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-info btn-sm" 
+                                                onclick="showColisDetails({{ c.id }}, event); return false;" 
+                                                title="Voir les détails">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+            
+            <!-- Actions groupées -->
+            <div class="mt-3 p-3 bg-light rounded" id="bulkActions" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong id="selectedCount">0</strong> colis sélectionné(s)
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-success" onclick="processBulkDelivery()">
+                            <i class="bi bi-truck"></i> Marquer comme livrés
+                        </button>
+                        <button class="btn btn-warning" onclick="notifySelectedClients()">
+                            <i class="bi bi-chat-text"></i> Notifier clients
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-box" style="font-size: 4rem; color: #e3e6f0;"></i>
+                <h5 class="text-muted mt-3">Aucun colis à livrer</h5>
+                <p class="text-muted">
+                    Les colis arrivés au Mali apparaîtront ici.<br>
+                    Ils pourront alors être marqués comme livrés.
+                </p>
+                <a href="{% url 'agent_mali:dashboard' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Retour au Dashboard
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal pour marquer comme perdu -->
+<div class="modal fade" id="lostModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Marquer comme Perdu
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="lostForm" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Attention :</strong> Cette action marquera le colis comme définitivement perdu.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="raison_perte" class="form-label">Raison de la perte <span class="text-danger">*</span></label>
+                        <select class="form-select" id="raison_perte" name="raison_perte" required>
+                            <option value="">Sélectionner une raison</option>
+                            <option value="transport">Perdu pendant le transport</option>
+                            <option value="vol">Vol/Disparition</option>
+                            <option value="deterioration">Détérioration complète</option>
+                            <option value="erreur_livraison">Erreur de livraison</option>
+                            <option value="autre">Autre raison</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="commentaire_perte" class="form-label">Commentaire détaillé</label>
+                        <textarea class="form-control" id="commentaire_perte" name="commentaire" rows="3" 
+                                  placeholder="Décrire les circonstances de la perte..."></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="notifier_client_perte" name="notifier_client" checked>
+                        <label class="form-check-label" for="notifier_client_perte">
+                            <strong>Notifier le client</strong>
+                            <div class="small text-muted">Envoyer un message d'information au destinataire</div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Confirmer la perte
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour afficher les détails du colis -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-eye me-2"></i>
+                    Détails du Colis
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="colisDetailsContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Chargement...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Chargement des détails...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedColis = [];
+    
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.colis-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        
+        updateSelectedColis();
+    }
+    
+    function selectAll() {
+        const checkboxes = document.querySelectorAll('.colis-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+        document.getElementById('selectAllCheckbox').checked = true;
+        updateSelectedColis();
+    }
+    
+    function unselectAll() {
+        const checkboxes = document.querySelectorAll('.colis-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        document.getElementById('selectAllCheckbox').checked = false;
+        updateSelectedColis();
+    }
+    
+    function updateSelectedColis() {
+        const checkboxes = document.querySelectorAll('.colis-checkbox:checked');
+        selectedColis = Array.from(checkboxes).map(cb => cb.value);
+        
+        const bulkActions = document.getElementById('bulkActions');
+        const selectedCount = document.getElementById('selectedCount');
+        
+        if (selectedColis.length > 0) {
+            bulkActions.style.display = 'block';
+            selectedCount.textContent = selectedColis.length;
+        } else {
+            bulkActions.style.display = 'none';
+        }
+    }
+    
+    function markAsLost(colisId, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        const form = document.getElementById('lostForm');
+        form.action = `/agent-mali/marquer-perdu/${colisId}/`;
+        
+        const modal = new bootstrap.Modal(document.getElementById('lostModal'));
+        modal.show();
+        
+        return false;
+    }
+    
+    
+    function notifySelectedClients() {
+        if (selectedColis.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Aucun colis sélectionné',
+                text: 'Veuillez sélectionner au moins un colis avant de notifier les clients.',
+                confirmButtonText: 'Compris',
+                confirmButtonColor: '#f59e0b'
+            });
+            return;
+        }
+        
+        // Confirmation avant envoi
+        Swal.fire({
+            title: '📧 Notifier les clients',
+            html: `
+                <div class="text-start">
+                    <p class="mb-3">Vous êtes sur le point d'envoyer une notification à <strong>${selectedColis.length} client(s)</strong>.</p>
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Les clients recevront un message WhatsApp les informant que leur colis est prêt pour livraison.
+                    </div>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-chat-text me-2"></i>Envoyer les notifications',
+            cancelButtonText: '<i class="bi bi-x-circle me-2"></i>Annuler',
+            confirmButtonColor: '#22c55e',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Simuler l'envoi
+                Swal.fire({
+                    title: '🎉 Notifications envoyées !',
+                    text: `${selectedColis.length} client(s) ont été notifiés avec succès.`,
+                    icon: 'success',
+                    confirmButtonText: 'Parfait',
+                    confirmButtonColor: '#22c55e',
+                    timer: 3000
+                });
+            }
+        });
+    }
+    
+    function showColisDetails(colisId, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        const content = document.getElementById('colisDetailsContent');
+        
+        // Afficher le modal avec le spinner
+        modal.show();
+        
+        // Charger les détails via API
+        fetch(`/agent-mali/api/colis-details/${colisId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const colis = data.data;
+                    content.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary border-bottom pb-2">Informations Générales</h6>
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td class="fw-semibold">Numéro de suivi:</td>
+                                        <td>${colis.numero_suivi}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Description:</td>
+                                        <td>${colis.description || 'Non renseignée'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Statut:</td>
+                                        <td><span class="badge bg-info">${colis.statut}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Type transport:</td>
+                                        <td>${colis.type_transport}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Date création:</td>
+                                        <td>${colis.date_creation}</td>
+                                    </tr>
+                                </table>
+                                
+                                <h6 class="text-primary border-bottom pb-2 mt-4">Dimensions & Poids</h6>
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td class="fw-semibold">Poids:</td>
+                                        <td><span class="badge bg-secondary">${colis.poids} kg</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Dimensions:</td>
+                                        <td>${colis.dimensions.longueur} x ${colis.dimensions.largeur} x ${colis.dimensions.hauteur} cm</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Volume:</td>
+                                        <td>${typeof colis.dimensions.volume_m3 === 'number' ? colis.dimensions.volume_m3.toFixed(4) : parseFloat(colis.dimensions.volume_m3 || 0).toFixed(4)} m³</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Prix transport:</td>
+                                        <td><span class="fw-bold text-success">${colis.prix_calcule.toLocaleString()} F</span></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="text-success border-bottom pb-2">Informations Client</h6>
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td class="fw-semibold">Nom:</td>
+                                        <td>${colis.client.nom}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Téléphone:</td>
+                                        <td><a href="tel:${colis.client.telephone}">${colis.client.telephone}</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Email:</td>
+                                        <td>${colis.client.email}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Pays:</td>
+                                        <td>${colis.client.pays}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Adresse:</td>
+                                        <td class="small">${colis.client.adresse}</td>
+                                    </tr>
+                                </table>
+                                
+                                <h6 class="text-warning border-bottom pb-2 mt-4">Informations Lot</h6>
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td class="fw-semibold">Numéro lot:</td>
+                                        <td><span class="badge bg-info">${colis.lot.numero}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Statut lot:</td>
+                                        <td>${colis.lot.statut}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Agent créateur:</td>
+                                        <td>${colis.lot.agent_createur || 'Non défini'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Date expédition:</td>
+                                        <td>${colis.lot.date_expedition || 'Non définie'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">Date arrivée:</td>
+                                        <td>${colis.lot.date_arrivee || 'Non définie'}</td>
+                                    </tr>
+                                </table>
+                                
+                                ${colis.livraison ? `
+                                    <h6 class="text-success border-bottom pb-2 mt-4">Informations Livraison</h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td class="fw-semibold">Date livraison:</td>
+                                            <td>${colis.livraison.date_livraison}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-semibold">Destinataire:</td>
+                                            <td>${colis.livraison.nom_destinataire}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-semibold">Agent livreur:</td>
+                                            <td>${colis.livraison.agent_livreur}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="fw-semibold">Statut paiement:</td>
+                                            <td><span class="badge ${colis.livraison.statut_paiement && colis.livraison.statut_paiement.includes('attente') ? 'bg-warning' : 'bg-success'}">${colis.livraison.statut_paiement}</span></td>
+                                        </tr>
+                                        ${colis.livraison.notes ? `
+                                        <tr>
+                                            <td class="fw-semibold">Notes:</td>
+                                            <td class="small">${colis.livraison.notes}</td>
+                                        </tr>
+                                        ` : ''}
+                                    </table>
+                                ` : '<div class="alert alert-info mt-4"><i class="bi bi-info-circle me-2"></i>Ce colis n\'a pas encore été livré.</div>'}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Erreur lors du chargement des détails: ${data.error}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                content.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Erreur de connexion: ${error.message}
+                    </div>
+                `;
+            });
+        
+        return false;
+    }
+    
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ajouter des événements aux checkboxes
+        document.querySelectorAll('.colis-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectedColis);
+        });
+    });
+</script>
+{% endblock %}

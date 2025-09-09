@@ -1,0 +1,89 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Mali{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .transfer-form {
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+    
+    .btn-submit {
+        background: var(--primary-color);
+        color: #fff;
+        font-weight: 600;
+        border-radius: 10px;
+    }
+    
+    .btn-submit:hover {
+        background: var(--secondary-color);
+        color: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="transfer-form">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="montant_fcfa" class="form-label">Montant en FCFA</label>
+                    <input type="number" name="montant_fcfa" class="form-control" id="montant_fcfa" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="methode_transfert" class="form-label">Méthode de Transfert</label>
+                    <select name="methode_transfert" class="form-select" id="methode_transfert" required>
+                        <option value="virement_bancaire">Virement bancaire</option>
+                        <option value="western_union">Western Union</option>
+                        <option value="moneygram">MoneyGram</option>
+                        <option value="orange_money">Orange Money</option>
+                        <option value="moov_money">Moov Money</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="destinataire_nom" class="form-label">Nom du Destinataire</label>
+                    <input type="text" name="destinataire_nom" class="form-control" id="destinataire_nom" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="destinataire_telephone" class="form-label">Téléphone du Destinataire</label>
+                    <input type="tel" name="destinataire_telephone" class="form-control" id="destinataire_telephone" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="destinataire_adresse" class="form-label">Adresse du Destinataire</label>
+                    <textarea name="destinataire_adresse" class="form-control" id="destinataire_adresse" rows="3" required></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label for="motif_transfert" class="form-label">Motif du Transfert</label>
+                    <textarea name="motif_transfert" class="form-control" id="motif_transfert" rows="3" required></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-submit w-100">Enregistrer</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

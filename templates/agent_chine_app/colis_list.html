@@ -1,0 +1,323 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}Liste des Colis - TS Air Cargo{% endblock %}
+{% block page_title %}Gestion des Colis{% endblock %}
+
+{% block content %}
+<!-- En-tête avec bouton d'action -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Gestion des Colis</h2>
+        <p class="text-muted mb-0">Suivez tous vos colis en cours d'expédition</p>
+    </div>
+    <a href="{% url 'agent_chine:lot_list' %}" class="action-btn">
+        <i class="bi bi-box"></i>
+        Voir les lots
+    </a>
+</div>
+
+<!-- Filtres -->
+<div class="modern-card mb-4">
+    <div class="modern-card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="statut" class="form-label">Filtrer par statut</label>
+                <select class="form-select" name="statut" id="statut">
+                    <option value="">Tous les statuts</option>
+                    {% for value, label in statut_choices %}
+                    <option value="{{ value }}" {% if statut_filter == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="search" class="form-label">Rechercher</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       placeholder="N° suivi, client..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filtrer
+                </button>
+                <a href="{% url 'agent_chine:colis_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise me-1"></i>
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statistiques rapides -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3 equal-height">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ colis.count }}</h3>
+                    <p class="stat-label">Total Colis</p>
+                </div>
+                <i class="stat-icon bi bi-archive"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3 equal-height">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ colis|length }}</h3>
+                    <p class="stat-label">Réceptionnés</p>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i>
+                        En Chine
+                    </div>
+                </div>
+                <i class="stat-icon bi bi-check-circle"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3 equal-height">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">0</h3>
+                    <p class="stat-label">En Transit</p>
+                    <div class="stat-change">
+                        <i class="bi bi-truck"></i>
+                        Vers le Mali
+                    </div>
+                </div>
+                <i class="stat-icon bi bi-truck"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3 equal-height">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">0</h3>
+                    <p class="stat-label">Livrés</p>
+                    <div class="stat-change positive">
+                        <i class="bi bi-check-circle"></i>
+                        Au Mali
+                    </div>
+                </div>
+                <i class="stat-icon bi bi-award"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des colis -->
+<div class="modern-card">
+    <div class="modern-card-header">
+        <h5 class="modern-card-title">
+            <i class="bi bi-archive"></i>
+            Liste des Colis
+            {% if statut_filter %}
+            <small class="text-muted">- {{ statut_filter|capfirst }}</small>
+            {% endif %}
+        </h5>
+        <span class="status-badge status-ouvert">{{ colis.count }} colis</span>
+    </div>
+    <div class="modern-card-body p-0">
+        {% if colis %}
+            <!-- Desktop -->
+            <div class="d-none d-lg-block">
+                <div class="table-modern">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>N° Suivi</th>
+                                <th>Client</th>
+                                <th>Lot</th>
+                                <th>Dimensions</th>
+                                <th>Poids</th>
+                                <th>Prix</th>
+                                <th>Statut</th>
+                                <th>Paiement</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for colis in colis %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none fw-bold">
+                                        {{ colis.numero_suivi }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div>
+                                        <div class="fw-bold">{{ colis.client.user.get_full_name }}</div>
+                                        <div class="small text-muted">{{ colis.client.user.telephone }}</div>
+                                    </div>
+                                    <a href="{% url 'agent_chine:client_detail' colis.client.id %}" class="small text-primary">
+                                        Voir profil
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'agent_chine:lot_detail' colis.lot.id %}" class="text-decoration-none">
+                                        <span class="badge bg-secondary">{{ colis.lot.numero_lot }}</span>
+                                    </a>
+                                </td>
+                                <td class="small">
+                                    {{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }}cm
+                                    <br>
+                                    <span class="text-muted">{{ colis.volume_m3|floatformat:4 }}m³</span>
+                                </td>
+                                <td>
+                                    <span class="fw-bold">{{ colis.poids }}kg</span>
+                                </td>
+                                <td>
+                                    <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ colis.statut }}">
+                                        {{ colis.get_statut_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}bg-success{% else %}bg-warning{% endif %}">
+                                        {{ colis.get_mode_paiement_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ colis.date_creation|date:"d/m/Y" }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'agent_chine:colis_detail' colis.id %}" 
+                                           class="btn btn-outline-primary"
+                                           data-bs-toggle="tooltip" 
+                                           title="Voir détails">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if colis.lot.statut == 'ouvert' %}
+                                        <a href="{% url 'agent_chine:colis_edit' colis.id %}" 
+                                           class="btn btn-outline-warning"
+                                           data-bs-toggle="tooltip" 
+                                           title="Modifier">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% endif %}
+                                        <button type="button" 
+                                                class="btn btn-outline-info" 
+                                                onclick="trackColis('{{ colis.numero_suivi }}')"
+                                                data-bs-toggle="tooltip" 
+                                                title="Suivre le colis">
+                                            <i class="bi bi-geo-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile -->
+            <div class="d-lg-none">
+                {% for colis in colis %}
+                <div class="border-bottom p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1">
+                                <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none">
+                                    {{ colis.numero_suivi }}
+                                </a>
+                            </h6>
+                            <div class="small text-muted">{{ colis.client.user.get_full_name }}</div>
+                            <div class="small">
+                                <span class="badge bg-secondary">{{ colis.lot.numero_lot }}</span>
+                            </div>
+                        </div>
+                        <span class="status-badge status-{{ colis.statut }}">
+                            {{ colis.get_statut_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <small class="text-muted">Dimensions:</small>
+                            <div class="small">{{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }}cm</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Poids:</small>
+                            <div class="small fw-bold">{{ colis.poids }}kg</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                        <span class="badge {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}bg-success{% else %}bg-warning{% endif %}">
+                            {{ colis.get_mode_paiement_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-eye"></i> Détails
+                        </a>
+                        {% if colis.lot.statut == 'ouvert' %}
+                        <a href="{% url 'agent_chine:colis_edit' colis.id %}" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i> Modifier
+                        </a>
+                        {% endif %}
+                        <button class="btn btn-sm btn-info" onclick="trackColis('{{ colis.numero_suivi }}')">
+                            <i class="bi bi-geo-alt"></i> Suivre
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- État vide -->
+            <div class="text-center py-5">
+                <i class="bi bi-archive" style="font-size: 4rem; color: #dee2e6;"></i>
+                <h5 class="mt-3 text-muted">
+                    {% if statut_filter %}
+                        Aucun colis trouvé avec ce statut
+                    {% else %}
+                        Aucun colis enregistré
+                    {% endif %}
+                </h5>
+                {% if not statut_filter %}
+                    <p class="text-muted">Les colis sont ajoutés dans les lots ouverts</p>
+                    <a href="{% url 'agent_chine:lot_list' %}" class="action-btn">
+                        <i class="bi bi-box"></i>
+                        Voir les lots
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function trackColis(numeroSuivi) {
+    // Suivi simple - message informatif
+    alert(`Suivi du colis ${numeroSuivi}\n\nConsultez les détails du lot pour voir le statut.`);
+}
+
+// Initialiser les tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Auto-submit formulaire sur changement de filtre
+document.getElementById('statut')?.addEventListener('change', function() {
+    this.form.submit();
+});
+</script>
+{% endblock %}

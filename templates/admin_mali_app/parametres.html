@@ -1,0 +1,345 @@
+{% extends 'components/base_admin_mali.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header de la page -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-cogs text-warning me-2"></i>{{ title }}
+        </h1>
+    </div>
+
+    <div class="row">
+        <!-- Paramètres généraux -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-warning text-dark">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-cog me-2"></i>Paramètres Généraux
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="companyName" class="form-label">Nom de l'entreprise</label>
+                            <input type="text" class="form-control" id="companyName" value="TS Air Cargo">
+                        </div>
+                        <div class="mb-3">
+                            <label for="companyEmail" class="form-label">Email de contact</label>
+                            <input type="email" class="form-control" id="companyEmail" value="contact@tsaircargo.com">
+                        </div>
+                        <div class="mb-3">
+                            <label for="companyPhone" class="form-label">Téléphone</label>
+                            <input type="tel" class="form-control" id="companyPhone" value="+223 XX XX XX XX">
+                        </div>
+                        <div class="mb-3">
+                            <label for="companyAddress" class="form-label">Adresse</label>
+                            <textarea class="form-control" id="companyAddress" rows="3">Bamako, Mali</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save me-1"></i>Sauvegarder
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Paramètres de notification -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-bell me-2"></i>Paramètres de Notification
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                            <label class="form-check-label" for="emailNotifications">
+                                Notifications par email
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="smsNotifications">
+                            <label class="form-check-label" for="smsNotifications">
+                                Notifications par SMS
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="whatsappNotifications" checked>
+                            <label class="form-check-label" for="whatsappNotifications">
+                                Notifications WhatsApp
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="dailyReports" checked>
+                            <label class="form-check-label" for="dailyReports">
+                                Rapports quotidiens automatiques
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-save me-1"></i>Sauvegarder
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Paramètres financiers -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-success text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-money-bill me-2"></i>Paramètres Financiers
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="defaultCurrency" class="form-label">Devise par défaut</label>
+                            <select class="form-select" id="defaultCurrency">
+                                <option value="CFA" selected>CFA (Franc CFA)</option>
+                                <option value="USD">USD (Dollar Américain)</option>
+                                <option value="EUR">EUR (Euro)</option>
+                                <option value="CNY">CNY (Yuan Chinois)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="exchangeRate" class="form-label">Taux de change CFA/Yuan</label>
+                            <input type="number" step="0.01" class="form-control" id="exchangeRate" value="85.50">
+                            <div class="form-text">Taux de change utilisé pour les transferts</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="transferFee" class="form-label">Frais de transfert par défaut (%)</label>
+                            <input type="number" step="0.01" class="form-control" id="transferFee" value="2.5">
+                        </div>
+                        <div class="mb-3">
+                            <label for="minTransferAmount" class="form-label">Montant minimum de transfert (CFA)</label>
+                            <input type="number" class="form-control" id="minTransferAmount" value="50000">
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>Sauvegarder
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Paramètres de sécurité -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-shield-alt me-2"></i>Paramètres de Sécurité
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="sessionTimeout" class="form-label">Délai d'expiration de session (minutes)</label>
+                            <input type="number" class="form-control" id="sessionTimeout" value="30">
+                        </div>
+                        <div class="mb-3">
+                            <label for="maxLoginAttempts" class="form-label">Tentatives de connexion maximum</label>
+                            <input type="number" class="form-control" id="maxLoginAttempts" value="5">
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="twoFactorAuth">
+                            <label class="form-check-label" for="twoFactorAuth">
+                                Authentification à deux facteurs
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="forcePasswordChange" checked>
+                            <label class="form-check-label" for="forcePasswordChange">
+                                Forcer le changement de mot de passe à la première connexion
+                            </label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="passwordExpiry" class="form-label">Expiration du mot de passe (jours)</label>
+                            <input type="number" class="form-control" id="passwordExpiry" value="90">
+                        </div>
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-save me-1"></i>Sauvegarder
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Paramètres système -->
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-secondary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-server me-2"></i>Paramètres Système
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Maintenance</h6>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="maintenanceMode">
+                                <label class="form-check-label" for="maintenanceMode">
+                                    Mode maintenance
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label for="backupFrequency" class="form-label">Fréquence de sauvegarde</label>
+                                <select class="form-select" id="backupFrequency">
+                                    <option value="daily" selected>Quotidienne</option>
+                                    <option value="weekly">Hebdomadaire</option>
+                                    <option value="monthly">Mensuelle</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Logs et Monitoring</h6>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="detailedLogs" checked>
+                                <label class="form-check-label" for="detailedLogs">
+                                    Logs détaillés
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label for="logRetention" class="form-label">Rétention des logs (jours)</label>
+                                <input type="number" class="form-control" id="logRetention" value="30">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-secondary me-2">
+                            <i class="fas fa-save me-1"></i>Sauvegarder
+                        </button>
+                        <button type="button" class="btn btn-warning me-2" onclick="exportSettings()">
+                            <i class="fas fa-download me-1"></i>Exporter la configuration
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="testConnections()">
+                            <i class="fas fa-plug me-1"></i>Tester les connexions
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section d'informations système -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-dark text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-info-circle me-2"></i>Informations Système
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center mb-3">
+                                <i class="fas fa-database fa-2x text-primary mb-2"></i>
+                                <h6>Base de Données</h6>
+                                <span class="badge bg-success">Connectée</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center mb-3">
+                                <i class="fas fa-envelope fa-2x text-warning mb-2"></i>
+                                <h6>Service Email</h6>
+                                <span class="badge bg-success">Actif</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center mb-3">
+                                <i class="fab fa-whatsapp fa-2x text-success mb-2"></i>
+                                <h6>WhatsApp</h6>
+                                <span class="badge bg-success">Connecté</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center mb-3">
+                                <i class="fas fa-sms fa-2x text-info mb-2"></i>
+                                <h6>Service SMS</h6>
+                                <span class="badge bg-warning">En attente</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Version du Système</h6>
+                            <p class="mb-1"><strong>TS Air Cargo:</strong> v2.1.0</p>
+                            <p class="mb-1"><strong>Django:</strong> 5.2.4</p>
+                            <p class="mb-1"><strong>Python:</strong> 3.13</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Dernière Sauvegarde</h6>
+                            <p class="mb-1"><strong>Date:</strong> {{ today|date:"d/m/Y H:i" }}</p>
+                            <p class="mb-1"><strong>Statut:</strong> <span class="badge bg-success">Réussie</span></p>
+                            <p class="mb-1"><strong>Taille:</strong> 245 MB</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // JavaScript pour les paramètres système
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gestion des formulaires de paramètres
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                // Logique de sauvegarde
+                showAlert('Paramètres sauvegardés avec succès!', 'success');
+            });
+        });
+    });
+
+    function exportSettings() {
+        // Logique d'exportation des paramètres
+        showAlert('Configuration exportée avec succès!', 'info');
+    }
+
+    function testConnections() {
+        // Logique de test des connexions
+        showAlert('Test des connexions en cours...', 'warning');
+        
+        setTimeout(() => {
+            showAlert('Toutes les connexions sont opérationnelles!', 'success');
+        }, 2000);
+    }
+
+    function showAlert(message, type) {
+        // Afficher une alerte Bootstrap
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insérer l'alerte en haut du container
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Supprimer automatiquement après 5 secondes
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+</script>
+{% endblock %}

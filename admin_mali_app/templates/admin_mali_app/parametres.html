@@ -1,0 +1,290 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            <strong>Configuration Système :</strong> Gérez les paramètres globaux de la plateforme TS Air Cargo.
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Paramètres Généraux -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-cog"></i> Paramètres Généraux</h5>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="company_name" class="form-label">Nom de l'entreprise</label>
+                        <input type="text" class="form-control" id="company_name" value="TS Air Cargo" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="admin_email" class="form-label">Email administrateur</label>
+                        <input type="email" class="form-control" id="admin_email" value="admin@tsaircargo.com" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="timezone" class="form-label">Fuseau horaire</label>
+                        <select class="form-select" id="timezone" disabled>
+                            <option selected>Africa/Bamako (Mali)</option>
+                            <option>Asia/Shanghai (Chine)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="currency" class="form-label">Devise par défaut</label>
+                        <input type="text" class="form-control" id="currency" value="FCFA" readonly>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-primary" disabled>
+                    <i class="fas fa-save"></i> Enregistrer (Bientôt disponible)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paramètres de Transport -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-shipping-fast"></i> Transport & Tarifs</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Taux de commission par défaut</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" value="2" readonly>
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <small class="text-muted">Appliqué aux transferts d'argent</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Frais de change (Yuan → FCFA)</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" value="85.5" readonly>
+                        <span class="input-group-text">FCFA</span>
+                    </div>
+                    <small class="text-muted">1 Yuan = 85.5 FCFA (indicatif)</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Délai de transport standard</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" value="25" readonly>
+                        <span class="input-group-text">jours</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'admin_mali_app:tarifs' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-tags"></i> Gérer les Tarifs
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <!-- Notifications -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bell"></i> Notifications</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="email_notifications" checked disabled>
+                    <label class="form-check-label" for="email_notifications">
+                        Notifications par email
+                    </label>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="sms_notifications" checked disabled>
+                    <label class="form-check-label" for="sms_notifications">
+                        Notifications SMS
+                    </label>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="whatsapp_notifications" checked disabled>
+                    <label class="form-check-label" for="whatsapp_notifications">
+                        Notifications WhatsApp
+                    </label>
+                </div>
+                <div class="mb-3">
+                    <label for="notification_frequency" class="form-label">Fréquence des rapports</label>
+                    <select class="form-select" id="notification_frequency" disabled>
+                        <option>Quotidien</option>
+                        <option selected>Hebdomadaire</option>
+                        <option>Mensuel</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sécurité -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Sécurité</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Durée de session</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" value="24" readonly>
+                        <span class="input-group-text">heures</span>
+                    </div>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="two_factor_auth" disabled>
+                    <label class="form-check-label" for="two_factor_auth">
+                        Authentification à deux facteurs
+                    </label>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="login_logging" checked disabled>
+                    <label class="form-check-label" for="login_logging">
+                        Journalisation des connexions
+                    </label>
+                </div>
+                <div class="mb-3">
+                    <label for="password_policy" class="form-label">Politique de mot de passe</label>
+                    <select class="form-select" id="password_policy" disabled>
+                        <option selected>Standard (8 caractères min)</option>
+                        <option>Renforcée (12 caractères + symboles)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <!-- Sauvegarde -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-database"></i> Sauvegarde & Maintenance</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Dernière sauvegarde</label>
+                    <p class="form-control-plaintext">Hier à 03:00</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Fréquence de sauvegarde</label>
+                    <select class="form-select" disabled>
+                        <option selected>Quotidienne</option>
+                        <option>Hebdomadaire</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Rétention des sauvegardes</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" value="30" readonly>
+                        <span class="input-group-text">jours</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-info" disabled>
+                    <i class="fas fa-download"></i> Créer Sauvegarde (Bientôt)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs & Monitoring -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Logs & Monitoring</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Niveau de log</label>
+                    <select class="form-select" disabled>
+                        <option>DEBUG</option>
+                        <option selected>INFO</option>
+                        <option>WARNING</option>
+                        <option>ERROR</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Espace disque utilisé</label>
+                    <div class="progress">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 35%">35%</div>
+                    </div>
+                    <small class="text-muted">3.5 GB / 10 GB</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Connexions actives</label>
+                    <p class="form-control-plaintext">
+                        <span class="badge bg-success">12 utilisateurs connectés</span>
+                    </p>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-warning" disabled>
+                    <i class="fas fa-file-alt"></i> Consulter les Logs (Bientôt)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-tools"></i> Zone de Développement</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">
+                    <strong>Note :</strong> Cette page de paramètres est actuellement en développement. 
+                    Les fonctionnalités avancées seront disponibles dans une future mise à jour.
+                </p>
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6>Fonctionnalités disponibles :</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Gestion des transferts</li>
+                            <li><i class="fas fa-check text-success"></i> Gestion des agents</li>
+                            <li><i class="fas fa-check text-success"></i> Rapports financiers</li>
+                            <li><i class="fas fa-check text-success"></i> Dashboard complet</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>En cours de développement :</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-clock text-warning"></i> Configuration avancée</li>
+                            <li><i class="fas fa-clock text-warning"></i> Système de sauvegarde</li>
+                            <li><i class="fas fa-clock text-warning"></i> Monitoring temps réel</li>
+                            <li><i class="fas fa-clock text-warning"></i> Logs détaillés</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Prochaines versions :</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-plus text-info"></i> API REST complète</li>
+                            <li><i class="fas fa-plus text-info"></i> Application mobile</li>
+                            <li><i class="fas fa-plus text-info"></i> Intégrations tierces</li>
+                            <li><i class="fas fa-plus text-info"></i> BI avancé</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

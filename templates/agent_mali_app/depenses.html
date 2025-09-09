@@ -1,0 +1,678 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load mali_filters %}
+
+{% block title %}Gestion des Dépenses - TS Air Cargo Mali{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-radius: 12px;
+        border: none;
+        overflow: hidden;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 25px rgba(0,0,0,0.12) !important;
+    }
+    
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        margin-bottom: 1rem;
+    }
+    
+    .expense-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .expense-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    }
+    
+    .btn-modern {
+        border-radius: 8px;
+        border: none;
+        padding: 8px 16px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .btn-modern:hover {
+        transform: translateY(-1px);
+    }
+    
+    .badge-modern {
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .chart-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+    }
+    
+    .filter-card {
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header avec actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Gestion des Dépenses</h2>
+        <p class="text-muted mb-0">Suivi et gestion des dépenses opérationnelles</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:nouvelle_depense' %}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Nouvelle Dépense
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-download"></i> Exporter
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportDepenses('excel')"><i class="bi bi-file-earmark-excel me-2"></i>Excel (.xlsx)</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportDepenses('pdf')"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportDepenses('csv')"><i class="bi bi-file-earmark-text me-2"></i>CSV</a></li>
+            </ul>
+        </div>
+        <a href="{% url 'agent_mali:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Statistiques des dépenses -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #dc3545;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon rounded-circle mx-auto mb-3" style="background: rgba(220, 53, 69, 0.15); width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-calendar-alt" style="color: #dc3545; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #dc3545;">{{ total_mois|floatformat:0 }} F</h3>
+                <p class="text-muted mb-0 fw-medium">Dépenses du Mois</p>
+                <small class="text-muted">Total mensuel</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #fd7e14;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon rounded-circle mx-auto mb-3" style="background: rgba(253, 126, 20, 0.15); width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-calendar-week" style="color: #fd7e14; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #fd7e14;">{{ total_semaine|floatformat:0 }} F</h3>
+                <p class="text-muted mb-0 fw-medium">Dépenses Semaine</p>
+                <small class="text-muted">7 derniers jours</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #6610f2;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon rounded-circle mx-auto mb-3" style="background: rgba(102, 16, 242, 0.15); width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-receipt" style="color: #6610f2; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #6610f2;">{{ page_obj.paginator.count|default:depenses.count }}</h3>
+                <p class="text-muted mb-0 fw-medium">Nombre Dépenses</p>
+                <small class="text-muted">Total enregistré</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #20c997;">
+            <div class="card-body text-center p-4">
+                <div class="stats-icon rounded-circle mx-auto mb-3" style="background: rgba(32, 201, 151, 0.15); width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-chart-line" style="color: #20c997; font-size: 1.8rem;"></i>
+                </div>
+                <h3 class="h2 fw-bold mb-2" style="color: #20c997;">{{ moyenne_journaliere|floatformat:0 }} F</h3>
+                <p class="text-muted mb-0 fw-medium">Moyenne Jour</p>
+                <small class="text-muted">Sur 30 derniers jours</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres et recherche -->
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="search" class="form-label">Rechercher</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       value="{{ request.GET.search }}" 
+                       placeholder="Description, montant...">
+            </div>
+            <div class="col-md-2">
+                <label for="categorie_filter" class="form-label">Catégorie</label>
+                <select class="form-select" id="categorie_filter" name="categorie">
+                    <option value="">Toutes</option>
+                    <option value="transport" {% if request.GET.categorie == 'transport' %}selected{% endif %}>Transport</option>
+                    <option value="personnel" {% if request.GET.categorie == 'personnel' %}selected{% endif %}>Personnel</option>
+                    <option value="materiel" {% if request.GET.categorie == 'materiel' %}selected{% endif %}>Matériel</option>
+                    <option value="communication" {% if request.GET.categorie == 'communication' %}selected{% endif %}>Communication</option>
+                    <option value="autre" {% if request.GET.categorie == 'autre' %}selected{% endif %}>Autre</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="date_debut" class="form-label">Date début</label>
+                <input type="date" class="form-control" id="date_debut" name="date_debut" 
+                       value="{{ request.GET.date_debut }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_fin" class="form-label">Date fin</label>
+                <input type="date" class="form-control" id="date_fin" name="date_fin" 
+                       value="{{ request.GET.date_fin }}">
+            </div>
+            <div class="col-md-2">
+                <label for="montant_min" class="form-label">Montant min</label>
+                <input type="number" class="form-control" id="montant_min" name="montant_min" 
+                       value="{{ request.GET.montant_min }}" placeholder="0">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Graphique des dépenses (placeholder) -->
+<div class="row mb-4">
+    <div class="col-xl-8">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-bar-chart me-2"></i>Évolution des Dépenses
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="depensesChart" width="100%" height="30"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-pie-chart me-2"></i>Répartition par Catégorie
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie pt-4 pb-2">
+                    <canvas id="categoriesChart" width="100%" height="50"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des dépenses -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="bi bi-list-ul me-2"></i>Liste des Dépenses
+        </h6>
+        <div>
+            <button class="btn btn-sm btn-outline-primary" onclick="selectAllDepenses()">
+                <i class="bi bi-check-all"></i> Tout sélectionner
+            </button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteSelected()" id="deleteBtn" style="display: none;">
+                <i class="bi bi-trash"></i> Supprimer sélectionnées
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if depenses %}
+            <div class="table-responsive">
+                <table id="depenses-table" class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th width="30">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAllDepenses()">
+                            </th>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Catégorie</th>
+                            <th>Montant</th>
+                            <th>Justificatif</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for depense in depenses %}
+                        <tr id="depense-row-{{ depense.id }}">
+                            <td>
+                                <input type="checkbox" class="depense-checkbox" value="{{ depense.id }}" onchange="updateDeleteButton()">
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ depense.date_depense|date:"d/m/Y" }}</div>
+                                <small class="text-muted">{{ depense.date_creation|date:"H:i" }}</small>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ depense.libelle }}</div>
+                                {% if depense.notes %}
+                                    <small class="text-muted">{{ depense.notes|truncatechars:50 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">
+                                    {{ depense.get_type_depense_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-danger">{{ depense.montant|floatformat:0 }} CFA</div>
+                            </td>
+                            <td>
+                                {% if depense.justificatif %}
+                                    <a href="{{ depense.justificatif.url }}" target="_blank" class="btn btn-outline-info btn-sm">
+                                        <i class="bi bi-file-earmark"></i> Voir
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">Non fourni</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-outline-primary btn-sm" 
+                                            onclick="editDepense({{ depense.id }})" 
+                                            title="Modifier">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-outline-info btn-sm" 
+                                            onclick="showDepenseDetails({{ depense.id }})" 
+                                            title="Détails">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="deleteDepense({{ depense.id }})" 
+                                            title="Supprimer">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if is_paginated %}
+                <nav aria-label="Pagination des dépenses">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">Premier</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Précédent</a>
+                            </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Suivant</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Dernier</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+            
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-receipt" style="font-size: 4rem; color: #e3e6f0;"></i>
+                <h5 class="text-muted mt-3">Aucune dépense enregistrée</h5>
+                <p class="text-muted">
+                    Commencez par ajouter votre première dépense.<br>
+                    Cela vous aidera à suivre vos coûts opérationnels.
+                </p>
+                <a href="{% url 'agent_mali:nouvelle_depense' %}" class="btn btn-success">
+                    <i class="bi bi-plus-circle"></i> Ajouter une dépense
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal pour les détails d'une dépense -->
+<div class="modal fade" id="depenseDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de la Dépense</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="depenseDetailsContent">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Chargement...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let selectedDepenses = [];
+    
+    // Gestion de la sélection multiple
+    function toggleSelectAllDepenses() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.depense-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        
+        updateDeleteButton();
+    }
+    
+    function selectAllDepenses() {
+        const checkboxes = document.querySelectorAll('.depense-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+        document.getElementById('selectAllCheckbox').checked = true;
+        updateDeleteButton();
+    }
+    
+    function updateDeleteButton() {
+        const checkboxes = document.querySelectorAll('.depense-checkbox:checked');
+        const deleteBtn = document.getElementById('deleteBtn');
+        
+        if (checkboxes.length > 0) {
+            deleteBtn.style.display = 'inline-block';
+            selectedDepenses = Array.from(checkboxes).map(cb => cb.value);
+        } else {
+            deleteBtn.style.display = 'none';
+            selectedDepenses = [];
+        }
+    }
+    
+    // Actions sur les dépenses
+    function editDepense(depenseId) {
+        window.location.href = `{% url 'agent_mali:depense_edit' 0 %}`.replace('0', depenseId);
+    }
+    
+    function deleteDepense(depenseId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette dépense ?')) {
+            // Créer un formulaire pour la suppression
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{% url 'agent_mali:depense_delete' 0 %}`.replace('0', depenseId);
+            
+            // Ajouter le token CSRF
+            const csrfToken = '{{ csrf_token }}';
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+    
+    function deleteSelected() {
+        if (selectedDepenses.length === 0) {
+            alert('Veuillez sélectionner au moins une dépense.');
+            return;
+        }
+        
+        if (confirm(`Êtes-vous sûr de vouloir supprimer ${selectedDepenses.length} dépense(s) ?`)) {
+            // Implémenter la suppression groupée
+            alert('Fonctionnalité en cours de développement');
+        }
+    }
+    
+    function showDepenseDetails(depenseId) {
+        // Rediriger vers la page de détails de la dépense
+        window.location.href = `{% url 'agent_mali:depense_detail' 0 %}`.replace('0', depenseId);
+    }
+    
+    function exportDepenses(format = 'csv') {
+        // Récupérer toutes les dépenses visibles
+        const rows = document.querySelectorAll('#depenses-table tbody tr');
+        
+        if (rows.length === 0) {
+            alert('Aucune dépense à exporter');
+            return;
+        }
+        
+        if (format === 'pdf') {
+            exportToPDF();
+            return;
+        }
+        
+        // Extraire les données du tableau
+        const data = [];
+        const headers = ['Date', 'Description', 'Catégorie', 'Montant (CFA)', 'Notes'];
+        
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 6) {
+                const date = cells[1].querySelector('.fw-semibold').textContent.trim();
+                const description = cells[2].querySelector('.fw-semibold').textContent.trim();
+                const categorie = cells[3].querySelector('.badge').textContent.trim();
+                const montant = cells[4].querySelector('.fw-bold').textContent.replace(' CFA', '').trim();
+                const notes = cells[2].querySelector('small') ? cells[2].querySelector('small').textContent.trim() : '';
+                
+                data.push([date, description, categorie, montant, notes]);
+            }
+        });
+        
+        if (format === 'excel') {
+            exportToExcel(headers, data);
+        } else {
+            exportToCSV(headers, data);
+        }
+    }
+    
+    function exportToCSV(headers, data) {
+        let csvContent = headers.join(',') + '\n';
+        data.forEach(row => {
+            const csvRow = row.map(cell => `"${cell}"`).join(',');
+            csvContent += csvRow + '\n';
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        downloadFile(blob, `depenses_${new Date().toISOString().split('T')[0]}.csv`);
+    }
+    
+    function exportToExcel(headers, data) {
+        // Créer un workbook et une worksheet
+        const ws_data = [headers, ...data];
+        
+        // Convertir en format Excel
+        let csvContent = '\uFEFF'; // BOM pour UTF-8
+        ws_data.forEach(row => {
+            csvContent += row.map(cell => `"${cell}"`).join('\t') + '\n';
+        });
+        
+        const blob = new Blob([csvContent], { 
+            type: 'application/vnd.ms-excel;charset=utf-8;' 
+        });
+        downloadFile(blob, `depenses_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+    
+    function exportToPDF() {
+        // Utiliser la bibliothèque jsPDF pour créer le PDF
+        if (typeof window.jsPDF === 'undefined') {
+            alert('Chargement de la bibliothèque PDF en cours...');
+            loadJsPDF(() => generatePDF());
+            return;
+        }
+        generatePDF();
+    }
+    
+    function loadJsPDF(callback) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = callback;
+        document.head.appendChild(script);
+    }
+    
+    function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Titre
+        doc.setFontSize(18);
+        doc.text('Rapport des Dépenses - TS Air Cargo Mali', 20, 20);
+        
+        // Date de génération
+        doc.setFontSize(12);
+        doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')}`, 20, 30);
+        
+        // Statistiques
+        doc.text('Résumé:', 20, 45);
+        doc.text(`Total des dépenses: {{ total_mois|floatformat:0 }} CFA`, 20, 55);
+        doc.text(`Nombre de dépenses: {{ depenses.count }}`, 20, 65);
+        
+        // Tableau des dépenses
+        const rows = document.querySelectorAll('#depenses-table tbody tr');
+        let yPosition = 80;
+        
+        // En-têtes
+        doc.setFontSize(10);
+        doc.text('Date', 20, yPosition);
+        doc.text('Description', 50, yPosition);
+        doc.text('Catégorie', 120, yPosition);
+        doc.text('Montant', 160, yPosition);
+        yPosition += 10;
+        
+        // Ligne de séparation
+        doc.line(20, yPosition - 5, 190, yPosition - 5);
+        
+        // Données
+        rows.forEach((row, index) => {
+            if (yPosition > 270) { // Nouvelle page si nécessaire
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 6) {
+                const date = cells[1].querySelector('.fw-semibold').textContent.trim();
+                const description = cells[2].querySelector('.fw-semibold').textContent.trim().substring(0, 25);
+                const categorie = cells[3].querySelector('.badge').textContent.trim();
+                const montant = cells[4].querySelector('.fw-bold').textContent.trim();
+                
+                doc.text(date, 20, yPosition);
+                doc.text(description, 50, yPosition);
+                doc.text(categorie, 120, yPosition);
+                doc.text(montant, 160, yPosition);
+                yPosition += 8;
+            }
+        });
+        
+        // Sauvegarder le PDF
+        doc.save(`depenses_${new Date().toISOString().split('T')[0]}.pdf`);
+    }
+    
+    function downloadFile(blob, filename) {
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            alert('Votre navigateur ne supporte pas le téléchargement de fichiers');
+        }
+    }
+    
+    // Graphiques (placeholder)
+    document.addEventListener('DOMContentLoaded', function() {
+        // Graphique temporel des dépenses
+        const ctx1 = document.getElementById('depensesChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun'],
+                datasets: [{
+                    label: 'Dépenses (CFA)',
+                    data: [12000, 19000, 15000, 25000, 22000, 30000],
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        // Graphique camembert des catégories
+        const ctx2 = document.getElementById('categoriesChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: ['Transport', 'Personnel', 'Matériel', 'Communication', 'Autre'],
+                datasets: [{
+                    data: [30, 25, 20, 15, 10],
+                    backgroundColor: [
+                        '#FF6384',
+                        '#36A2EB',
+                        '#FFCE56',
+                        '#4BC0C0',
+                        '#9966FF'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    });
+</script>
+{% endblock %}

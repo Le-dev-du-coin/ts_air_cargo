@@ -1,0 +1,420 @@
+{% extends 'client_app/base_client.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo{% endblock %}
+
+{% block page_title %}Paramètres{% endblock %}
+
+{% block extra_head %}
+<style>
+    body {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f0f4f8 100%) !important;
+        min-height: 100vh;
+    }
+    
+    .settings-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .settings-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 35px;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        margin-bottom: 25px;
+        backdrop-filter: blur(10px);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .settings-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    .settings-header {
+        text-align: center;
+        margin-bottom: 45px;
+    }
+    
+    .settings-header h1 {
+        color: #1f2937;
+        font-weight: 700;
+        margin-bottom: 15px;
+        font-size: 2.2rem;
+    }
+    
+    .settings-header p {
+        color: #6b7280;
+        font-size: 1.1rem;
+        font-weight: 400;
+    }
+    
+    .notification-section {
+        margin-bottom: 40px;
+    }
+    
+    .section-title {
+        color: #667eea;
+        font-weight: 700;
+        font-size: 1.4rem;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    
+    .section-title i {
+        margin-right: 12px;
+        width: 24px;
+        font-size: 1.3rem;
+    }
+    
+    .notification-option {
+        background: rgba(248, 250, 252, 0.8);
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 20px;
+        transition: all 0.4s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .notification-option::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.05), transparent);
+        transition: left 0.6s;
+    }
+    
+    .notification-option:hover {
+        border-color: #667eea;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .notification-option:hover::before {
+        left: 100%;
+    }
+    
+    .notification-option.active {
+        border-color: #667eea;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+        transform: translateY(-1px);
+    }
+    
+    .form-check {
+        display: flex;
+        align-items: center;
+        margin: 0;
+    }
+    
+    .form-check-input {
+        width: 22px;
+        height: 22px;
+        margin-right: 18px;
+        cursor: pointer;
+        border: 2px solid #cbd5e1;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+    }
+    
+    .form-check-input:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    }
+    
+    .form-check-input:focus {
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        border-color: #667eea;
+    }
+    
+    .form-check-label {
+        margin: 0;
+        cursor: pointer;
+        flex: 1;
+    }
+    
+    .option-title {
+        font-weight: 700;
+        color: #1f2937;
+        font-size: 1.15rem;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .option-description {
+        color: #6b7280;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        font-weight: 400;
+    }
+    
+    .exclusivity-warning {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        font-size: 0.98rem;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.25);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .exclusivity-warning::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%);
+        background-size: 20px 20px;
+        opacity: 0.3;
+    }
+    
+    .exclusivity-warning i {
+        margin-right: 12px;
+        font-size: 1.3rem;
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .btn-save-settings {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 18px 45px;
+        border-radius: 15px;
+        font-weight: 700;
+        font-size: 1.15rem;
+        cursor: pointer;
+        transition: all 0.4s ease;
+        width: 100%;
+        margin-top: 25px;
+        position: relative;
+        overflow: hidden;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .btn-save-settings::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.6s;
+    }
+    
+    .btn-save-settings:hover::before {
+        left: 100%;
+    }
+    
+    .btn-save-settings:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-save-settings:active {
+        transform: translateY(-1px);
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        color: #6b7280;
+        text-decoration: none;
+        margin-bottom: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        padding: 10px 15px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    
+    .back-link:hover {
+        color: #667eea;
+        text-decoration: none;
+        background: rgba(255, 255, 255, 0.95);
+        border-color: #667eea;
+        transform: translateX(-3px);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
+    }
+    
+    .back-link i {
+        margin-right: 10px;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="settings-container">
+        <!-- Lien de retour -->
+        <a href="{% url 'client_app:dashboard' %}" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Retour au dashboard
+        </a>
+        
+        <!-- En-tête -->
+        <div class="settings-header">
+            <h1>
+                <i class="fas fa-cog text-primary me-2"></i>
+                Paramètres
+            </h1>
+            <p>Gérez vos préférences de notification et personnalisez votre expérience</p>
+        </div>
+        
+        <!-- Formulaire -->
+        <div class="settings-card">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                <!-- Section Notifications -->
+                <div class="notification-section">
+                    <div class="section-title">
+                        <i class="fas fa-bell"></i>
+                        Préférences de notification
+                    </div>
+                    
+                    <!-- Avertissement d'exclusivité -->
+                    <div class="exclusivity-warning">
+                        <i class="fas fa-info-circle"></i>
+                        <div>
+                            <strong>Règle d'exclusivité :</strong> Si vous activez les notifications in-app, 
+                            vous ne pouvez choisir qu'un seul mode supplémentaire (WhatsApp OU SMS).
+                        </div>
+                    </div>
+                    
+                    <!-- Option In-App -->
+                    <div class="notification-option {{ settings.notifications_in_app|yesno:'active,' }}">
+                        <div class="form-check">
+                            <input type="checkbox" 
+                                   class="form-check-input" 
+                                   id="notifications_in_app" 
+                                   name="notifications_in_app" 
+                                   {% if settings.notifications_in_app %}checked{% endif %}>
+                            <label class="form-check-label" for="notifications_in_app">
+                                <div class="option-title">
+                                    <i class="fas fa-desktop me-2 text-primary"></i>
+                                    Notifications In-App
+                                </div>
+                                <div class="option-description">
+                                    Recevez des notifications directement dans l'application web lorsque vous êtes connecté.
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Option WhatsApp -->
+                    <div class="notification-option {{ settings.notifications_whatsapp|yesno:'active,' }}">
+                        <div class="form-check">
+                            <input type="checkbox" 
+                                   class="form-check-input" 
+                                   id="notifications_whatsapp" 
+                                   name="notifications_whatsapp" 
+                                   {% if settings.notifications_whatsapp %}checked{% endif %}>
+                            <label class="form-check-label" for="notifications_whatsapp">
+                                <div class="option-title">
+                                    <i class="fab fa-whatsapp me-2 text-success"></i>
+                                    Notifications WhatsApp
+                                </div>
+                                <div class="option-description">
+                                    Recevez des mises à jour sur vos colis directement sur WhatsApp.
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Option SMS -->
+                    <div class="notification-option {{ settings.notifications_sms|yesno:'active,' }}">
+                        <div class="form-check">
+                            <input type="checkbox" 
+                                   class="form-check-input" 
+                                   id="notifications_sms" 
+                                   name="notifications_sms" 
+                                   {% if settings.notifications_sms %}checked{% endif %}>
+                            <label class="form-check-label" for="notifications_sms">
+                                <div class="option-title">
+                                    <i class="fas fa-sms me-2 text-warning"></i>
+                                    Notifications SMS
+                                </div>
+                                <div class="option-description">
+                                    Recevez des alertes par SMS sur votre téléphone mobile.
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bouton de sauvegarde -->
+                <button type="submit" class="btn-save-settings">
+                    <i class="fas fa-save me-2"></i>
+                    Sauvegarder les paramètres
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gérer l'apparence visuelle des options
+    const checkboxes = document.querySelectorAll('.form-check-input');
+    const options = document.querySelectorAll('.notification-option');
+    
+    checkboxes.forEach((checkbox, index) => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                options[index].classList.add('active');
+            } else {
+                options[index].classList.remove('active');
+            }
+        });
+        
+        // Clic sur l'option pour toggle le checkbox
+        options[index].addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox' && e.target.tagName !== 'LABEL') {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+    
+    // Animation du formulaire
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const submitBtn = form.querySelector('.btn-save-settings');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sauvegarde en cours...';
+            submitBtn.disabled = true;
+        });
+    }
+});
+</script>
+{% endblock %}

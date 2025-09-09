@@ -1,0 +1,440 @@
+{% extends 'agent_chine_app/base.html' %}
+{% load static %}
+
+{% block title %}{{ title|default:'Créer un colis' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.client-info-card {
+    background: #f8f9fa;
+    border-left: 4px solid #28a745;
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 5px;
+}
+.client-exists {
+    border-left-color: #007bff;
+}
+.client-new {
+    border-left-color: #ffc107;
+}
+.notification-alert {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-box"></i> {{ title|default:'Créer un colis' }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Étape 1: Informations Client -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">📱 Informations Client</h6>
+                            
+                            <div class="form-group">
+                                <label for="client_telephone">Numéro de téléphone *</label>
+                                <div class="input-group">
+                                    <input type="tel" 
+                                           class="form-control" 
+                                           id="client_telephone" 
+                                           name="client_telephone"
+                                           placeholder="+223 76 12 34 56"
+                                           required>
+                                    <div class="input-group-append">
+                                        <button class="btn btn-outline-secondary" 
+                                                type="button" 
+                                                id="check_client_btn">
+                                            <i class="fas fa-search"></i> Vérifier
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">
+                                    Saisissez le numéro pour vérifier si le client existe déjà
+                                </small>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="client_first_name">Prénom *</label>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="client_first_name" 
+                                           name="client_first_name"
+                                           required>
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="client_last_name">Nom *</label>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="client_last_name" 
+                                           name="client_last_name"
+                                           required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="client_email">Email (optionnel)</label>
+                                <input type="email" 
+                                       class="form-control" 
+                                       id="client_email" 
+                                       name="client_email"
+                                       placeholder="exemple@email.com">
+                            </div>
+
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="notify_client" 
+                                       name="notify_client"
+                                       checked>
+                                <label class="form-check-label" for="notify_client">
+                                    Envoyer les identifiants par WhatsApp (si nouveau compte)
+                                </label>
+                            </div>
+
+                            <!-- Zone d'affichage des informations client -->
+                            <div id="client_info_display" style="display: none;"></div>
+                        </div>
+
+                        <!-- Étape 2: Informations Colis -->
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">📦 Informations Colis</h6>
+                            
+                            <div class="form-group">
+                                <label for="description">Description du colis *</label>
+                                <textarea class="form-control" 
+                                          id="description" 
+                                          name="description"
+                                          rows="3" 
+                                          required
+                                          placeholder="Ex: Vêtements, chaussures, électronique..."></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="poids">Poids (kg) *</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="poids" 
+                                           name="poids"
+                                           step="0.1" 
+                                           min="0"
+                                           required>
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="valeur">Valeur (CFA)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="valeur" 
+                                           name="valeur"
+                                           min="0">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                    <label for="longueur">Longueur (cm)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="longueur" 
+                                           name="longueur"
+                                           min="0">
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <label for="largeur">Largeur (cm)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="largeur" 
+                                           name="largeur"
+                                           min="0">
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <label for="hauteur">Hauteur (cm)</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="hauteur" 
+                                           name="hauteur"
+                                           min="0">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="mode_paiement">Mode de paiement</label>
+                                <select class="form-control" id="mode_paiement" name="mode_paiement">
+                                    <option value="paye_chine">Payé en Chine</option>
+                                    <option value="paye_mali">Payé au Mali</option>
+                                    <option value="partiel">Paiement partiel</option>
+                                </select>
+                            </div>
+
+                            <div class="alert alert-info" id="price_display" style="display: none;">
+                                <strong>Prix calculé :</strong> <span id="calculated_price">0</span> CFA
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'agent_chine_app:lot_detail' lot_id %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left"></i> Annuler
+                                </a>
+                                <button type="button" class="btn btn-primary" id="create_colis_btn">
+                                    <i class="fas fa-save"></i> Créer le colis
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmation</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm_message"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="confirm_create_btn">Confirmer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    let currentClient = null;
+    let clientExists = false;
+
+    // Vérifier si client existe
+    $('#check_client_btn').click(function() {
+        const telephone = $('#client_telephone').val().trim();
+        if (!telephone) {
+            alert('Veuillez saisir un numéro de téléphone');
+            return;
+        }
+
+        // Affichage du loader
+        $(this).html('<i class="fas fa-spinner fa-spin"></i> Vérification...');
+        $(this).prop('disabled', true);
+
+        $.get('{% url "agent_chine_app:check_client_exists_api" %}', {telephone: telephone})
+        .done(function(response) {
+            $('#client_info_display').show();
+            
+            if (response.exists) {
+                // Client existant
+                clientExists = true;
+                currentClient = response.client;
+                
+                $('#client_info_display').html(`
+                    <div class="client-info-card client-exists">
+                        <h6><i class="fas fa-user-check text-primary"></i> Client existant</h6>
+                        <p><strong>${response.client.name}</strong></p>
+                        <p><i class="fas fa-phone"></i> ${response.client.telephone}</p>
+                        <p><i class="fas fa-envelope"></i> ${response.client.email || 'Aucun email'}</p>
+                        <small class="text-muted">Inscrit le: ${new Date(response.client.date_joined).toLocaleDateString()}</small>
+                        <br>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="resendCredentials(${response.client.id})">
+                            <i class="fas fa-paper-plane"></i> Renvoyer identifiants
+                        </button>
+                    </div>
+                `);
+                
+                // Pré-remplir les champs
+                $('#client_first_name').val(response.client.name.split(' ')[0]);
+                $('#client_last_name').val(response.client.name.split(' ').slice(1).join(' '));
+                $('#client_email').val(response.client.email || '');
+                
+            } else {
+                // Nouveau client
+                clientExists = false;
+                currentClient = null;
+                
+                $('#client_info_display').html(`
+                    <div class="client-info-card client-new">
+                        <h6><i class="fas fa-user-plus text-warning"></i> Nouveau client</h6>
+                        <p>Ce numéro n'est pas encore enregistré.</p>
+                        <p>Un compte sera créé automatiquement avec les informations saisies.</p>
+                        <div class="notification-alert">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Note :</strong> Les identifiants de connexion seront envoyés automatiquement par WhatsApp au client.
+                        </div>
+                    </div>
+                `);
+            }
+        })
+        .fail(function(xhr) {
+            const error = xhr.responseJSON?.error || 'Erreur lors de la vérification';
+            alert('Erreur: ' + error);
+        })
+        .always(function() {
+            $('#check_client_btn').html('<i class="fas fa-search"></i> Vérifier');
+            $('#check_client_btn').prop('disabled', false);
+        });
+    });
+
+    // Calculer le prix automatiquement
+    $('#poids, #longueur, #largeur, #hauteur').on('input', function() {
+        calculatePrice();
+    });
+
+    function calculatePrice() {
+        const data = {
+            poids: parseFloat($('#poids').val()) || 0,
+            longueur: parseFloat($('#longueur').val()) || 0,
+            largeur: parseFloat($('#largeur').val()) || 0,
+            hauteur: parseFloat($('#hauteur').val()) || 0,
+            pays_destination: 'ML'
+        };
+
+        if (data.poids > 0) {
+            $.post('{% url "agent_chine_app:calculate_price_api" %}', JSON.stringify(data))
+            .done(function(response) {
+                if (response.success) {
+                    $('#calculated_price').text(response.prix.toLocaleString());
+                    $('#price_display').show();
+                }
+            });
+        }
+    }
+
+    // Créer le colis
+    $('#create_colis_btn').click(function() {
+        if (!validateForm()) return;
+
+        const message = clientExists 
+            ? `Créer un colis pour le client existant: ${currentClient.name}?`
+            : `Créer un colis et un nouveau compte client pour: ${$('#client_first_name').val()} ${$('#client_last_name').val()}?`;
+            
+        $('#confirm_message').text(message);
+        $('#confirmModal').modal('show');
+    });
+
+    $('#confirm_create_btn').click(function() {
+        $('#confirmModal').modal('hide');
+        createColisWithClient();
+    });
+
+    function validateForm() {
+        const telephone = $('#client_telephone').val().trim();
+        const firstName = $('#client_first_name').val().trim();
+        const lastName = $('#client_last_name').val().trim();
+        const description = $('#description').val().trim();
+        const poids = $('#poids').val();
+
+        if (!telephone || !firstName || !lastName || !description || !poids) {
+            alert('Veuillez remplir tous les champs obligatoires (*)');
+            return false;
+        }
+
+        return true;
+    }
+
+    function createColisWithClient() {
+        const clientData = {
+            telephone: $('#client_telephone').val().trim(),
+            first_name: $('#client_first_name').val().trim(),
+            last_name: $('#client_last_name').val().trim(),
+            email: $('#client_email').val().trim(),
+            notify: $('#notify_client').is(':checked')
+        };
+
+        // D'abord créer/récupérer le client
+        $('#create_colis_btn').html('<i class="fas fa-spinner fa-spin"></i> Création en cours...');
+        $('#create_colis_btn').prop('disabled', true);
+
+        $.post('{% url "agent_chine_app:create_client_account_api" %}', JSON.stringify(clientData))
+        .done(function(response) {
+            if (response.success) {
+                // Client créé/récupéré avec succès
+                if (response.created) {
+                    showNotification('success', response.message);
+                }
+                
+                // Maintenant créer le colis (à implémenter)
+                // createColisForClient(response.client_id);
+                
+                // Pour l'instant, redirection
+                setTimeout(function() {
+                    window.location.href = '{% url "agent_chine_app:lot_detail" lot_id %}';
+                }, 2000);
+                
+            } else {
+                showNotification('error', response.error);
+                $('#create_colis_btn').html('<i class="fas fa-save"></i> Créer le colis');
+                $('#create_colis_btn').prop('disabled', false);
+            }
+        })
+        .fail(function(xhr) {
+            const error = xhr.responseJSON?.error || 'Erreur lors de la création';
+            showNotification('error', error);
+            $('#create_colis_btn').html('<i class="fas fa-save"></i> Créer le colis');
+            $('#create_colis_btn').prop('disabled', false);
+        });
+    }
+
+    function showNotification(type, message) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+        
+        const notification = $(`
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                <i class="fas ${icon}"></i> ${message}
+                <button type="button" class="close" data-dismiss="alert">
+                    <span>&times;</span>
+                </button>
+            </div>
+        `);
+        
+        $('.card-body').prepend(notification);
+    }
+});
+
+// Fonction globale pour renvoyer les identifiants
+function resendCredentials(clientId) {
+    $.post(`/agent-chine/clients/${clientId}/resend-credentials/`)
+    .done(function(response) {
+        if (response.success) {
+            alert('✅ ' + response.message);
+        } else {
+            alert('❌ ' + response.error);
+        }
+    })
+    .fail(function() {
+        alert('❌ Erreur lors de l\'envoi des identifiants');
+    });
+}
+</script>
+{% endblock %}

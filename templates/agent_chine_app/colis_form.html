@@ -1,0 +1,1034 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ title }}</h2>
+        {% if lot %}
+            <p class="text-muted mb-0">Ajouter un colis au lot {{ lot.numero_lot }}</p>
+        {% else %}
+            <p class="text-muted mb-0">Modifier les informations du colis</p>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        {% if lot %}
+            <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="action-btn-outline">
+                <i class="bi bi-arrow-left"></i>
+                Retour au lot
+            </a>
+        {% else %}
+            <a href="{% url 'agent_chine:colis_list' %}" class="action-btn-outline">
+                <i class="bi bi-arrow-left"></i>
+                Liste des colis
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-12">
+        <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate id="colisForm">
+            {% csrf_token %}
+            
+            <!-- Panneau d'informations client -->
+            <div id="client-info-panel" class="alert alert-info mb-4" style="display: none;">
+                <h6><i class="bi bi-person-check"></i> Informations Client Sélectionné</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Nom:</strong> <span id="client-name"></span><br>
+                        <strong>Téléphone:</strong> <span id="client-phone"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Pays:</strong> <span id="client-country"></span><br>
+                        <strong>Adresse:</strong> <span id="client-address"></span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="clearClientSelection()">
+                    <i class="bi bi-arrow-repeat"></i> Changer de client
+                </button>
+            </div>
+            
+            <div class="row">
+                <!-- Colonne gauche : Sélection client -->
+                <div class="col-lg-6 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-person"></i>
+                                Sélection du client
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="mb-3">
+                                <label for="client_select" class="form-label">
+                                    Client <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select client-select-searchable" id="client_select" name="client" required onchange="loadClientInfo(this.value)">
+                                    <option value="">-- Recherchez un client par nom ou téléphone --</option>
+                                    {% for client in clients %}
+                                        <option value="{{ client.id }}" 
+                                                data-name="{{ client.user.get_full_name }}"
+                                                data-phone="{{ client.user.telephone }}"
+                                                data-country="{{ client.pays_residence }}"
+                                                data-address="{{ client.adresse_complete }}">
+                                            {{ client.user.get_full_name }} - {{ client.user.telephone }} ({{ client.pays_residence }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text" id="client-search-help">
+                                    <i class="bi bi-search"></i>
+                                    <span id="search-mode-text">Tapez pour rechercher un client par nom, téléphone ou pays.</span>
+                                    <br>
+                                    <a href="{% url 'agent_chine:client_create' %}" target="_blank" class="text-decoration-none">
+                                        <i class="bi bi-plus-circle"></i> Créer un nouveau client
+                                    </a>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Veuillez sélectionner un client.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Colonne droite : Type de transport et image -->
+                <div class="col-lg-6 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-truck"></i>
+                                Transport et Photo
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="type_transport" class="form-label">
+                                        Type de transport <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select" id="type_transport" name="type_transport" required onchange="toggleTransportFields()">
+                                        <option value="cargo">Cargo (par poids)</option>
+                                        <option value="express">Express (par poids)</option>
+                                        <option value="bateau">Bateau (par dimensions)</option>
+                                    </select>
+                                    <div class="form-text">
+                                        Le type de transport détermine le mode de calcul du prix.
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="image" class="form-label">
+                                        Photo du colis <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="file" class="form-control" id="image" name="image" accept="image/*" required>
+                                    <div class="form-text">
+                                        Photo obligatoire pour identification du colis.
+                                    </div>
+                                    <div class="invalid-feedback">
+                                        Veuillez sélectionner une photo du colis.
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Prévisualisation de l'image -->
+                            <div id="image-preview" class="mt-3" style="display: none;">
+                                <img id="preview-img" src="" alt="Aperçu" class="img-thumbnail" style="max-width: 200px; max-height: 150px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dimensions et Poids (affichage conditionnel selon type transport) -->
+            <div class="row">
+                <div class="col-lg-12 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-rulers"></i>
+                                Mesures du colis
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="row">
+                                <!-- Champs de dimensions (visibles seulement pour transport par bateau) -->
+                                <div class="col-md-4 mb-3 dimension-field" style="display: none;">
+                                    <label for="longueur" class="form-label">
+                                        Longueur (cm) <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="longueur" name="longueur" 
+                                               placeholder="0.0" step="0.1" min="0">
+                                        <span class="input-group-text">cm</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3 dimension-field" style="display: none;">
+                                    <label for="largeur" class="form-label">
+                                        Largeur (cm) <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="largeur" name="largeur" 
+                                               placeholder="0.0" step="0.1" min="0">
+                                        <span class="input-group-text">cm</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3 dimension-field" style="display: none;">
+                                    <label for="hauteur" class="form-label">
+                                        Hauteur (cm) <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="hauteur" name="hauteur" 
+                                               placeholder="0.0" step="0.1" min="0">
+                                        <span class="input-group-text">cm</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Champ de poids (visible seulement pour cargo/express) -->
+                                <div class="col-md-12 mb-3 weight-field">
+                                    <label for="poids" class="form-label">
+                                        Poids (kg) <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-weight"></i>
+                                        </span>
+                                        <input type="number" class="form-control" id="poids" name="poids" 
+                                               step="0.1" min="0" required>
+                                        <span class="input-group-text">kg</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Info sur le mode de calcul -->
+                            <div class="alert alert-light">
+                                <div id="transport-info">
+                                    <i class="bi bi-info-circle"></i>
+                                    <strong>Cargo/Express:</strong> Le prix est calculé selon le poids uniquement.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Autres informations -->
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-credit-card"></i>
+                                Paiement et Statut
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="mode_paiement" class="form-label">Mode de paiement</label>
+                                    <select class="form-select" id="mode_paiement" name="mode_paiement">
+                                        <option value="non_paye">Non payé</option>
+                                        <option value="paye_chine">Payé en Chine</option>
+                                        <option value="paye_mali">Payé au Mali</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="statut" class="form-label">Statut</label>
+                                    <select class="form-select" id="statut" name="statut">
+                                        <option value="receptionne_chine" selected>Réceptionné en Chine</option>
+                                        <option value="en_transit">En Transit</option>
+                                        <option value="arrive_mali">Arrivé au Mali</option>
+                                        <option value="livre">Livré</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-calculator"></i>
+                                Prix estimé
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div id="prix_calcule" class="text-center p-3">
+                                <span class="text-muted">Sélectionnez un client et saisissez les mesures pour calculer</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="calculatePrice()">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Recalculer le prix
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="row">
+                <div class="col-lg-12 mb-4">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="bi bi-text-paragraph"></i>
+                                Description
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <label for="description" class="form-label">Description du contenu</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" 
+                                      placeholder="Décrivez le contenu du colis (optionnel)"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Champs cachés -->
+            {% if lot %}
+                <input type="hidden" name="lot" value="{{ lot.id }}">
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="modern-card">
+                <div class="modern-card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if lot %}
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle"></i>
+                                    Le colis sera ajouté au lot {{ lot.numero_lot }} ({{ lot.get_statut_display }})
+                                </small>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            {% if lot %}
+                                <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left me-1"></i>
+                                    Annuler
+                                </a>
+                            {% else %}
+                                <a href="{% url 'agent_chine:colis_list' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left me-1"></i>
+                                    Annuler
+                                </a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle me-1"></i>
+                                {{ submit_text|default:"Créer le colis" }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jQuery (requis pour Select2) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Select2 CSS et JS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<style>
+/* Styles personnalisés pour Select2 */
+.select2-container--default .select2-selection--single {
+    height: 42px;
+    padding: 6px 12px;
+    border: 1px solid #e3e6f0;
+    border-radius: 0.35rem;
+    line-height: 1.5;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #5a5c69;
+    padding-left: 0;
+    padding-right: 20px;
+    line-height: 28px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 40px;
+    right: 3px;
+}
+
+.select2-dropdown {
+    border: 1px solid #e3e6f0;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.select2-results__option {
+    padding: 8px 12px;
+}
+
+.select2-results__option--highlighted {
+    background-color: #4e73df !important;
+}
+
+.select2-search__field {
+    border: 1px solid #d1d3e2;
+    border-radius: 0.25rem;
+    padding: 6px 8px;
+}
+
+/* Styles pour les options de client */
+.client-option {
+    padding: 4px 0;
+}
+
+.client-name {
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.client-details {
+    font-size: 12px;
+}
+
+.select2-results__option .client-option:hover {
+    background-color: transparent;
+}
+
+/* Amélioration de l'apparence générale */
+.select2-container {
+    z-index: 1060; /* Pour être au-dessus des modals */
+}
+
+/* === UNIFORMISATION DES HAUTEURS DES SECTIONS === */
+/* Uniformiser la hauteur des sections du formulaire */
+.modern-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.modern-card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Section sélection client et transport/photo */
+.row:nth-of-type(2) .modern-card {
+    min-height: 280px;
+}
+
+/* Sections paiement et prix estimé */
+.row:nth-of-type(4) .modern-card {
+    min-height: 260px;
+}
+
+/* Section prix estimé - amélioration visuelle */
+#prix_calcule {
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed #e9ecef;
+    border-radius: 12px;
+    background: rgba(var(--bs-primary-rgb), 0.03);
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+#prix_calcule:has(.text-success) {
+    background: rgba(var(--bs-success-rgb), 0.08);
+    border-color: rgba(var(--bs-success-rgb), 0.4);
+}
+
+/* Harmoniser les espacements des cartes */
+.modern-card-header {
+    padding: 1.25rem 1.5rem 0.75rem;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.modern-card-body {
+    padding: 1rem 1.5rem 1.5rem;
+}
+
+/* Preview image container */
+#image-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80px;
+    margin-top: 0.75rem;
+}
+
+#preview-img {
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-width: 180px;
+    max-height: 120px;
+}
+
+/* Améliorer l'apparence des icônes de titres */
+.modern-card-title i {
+    margin-right: 0.6rem;
+    color: var(--bs-primary);
+    font-size: 1.1em;
+    vertical-align: middle;
+}
+
+/* Style pour les alerts d'info transport */
+.alert-light {
+    background-color: rgba(var(--bs-info-rgb), 0.06);
+    border-color: rgba(var(--bs-info-rgb), 0.25);
+    border-radius: 10px;
+    margin-bottom: 0;
+}
+
+/* Bouton recalculer prix */
+.btn-outline-primary {
+    border-width: 1.5px;
+    border-radius: 10px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-outline-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Section description - hauteur réduite */
+.row:nth-of-type(5) .modern-card {
+    min-height: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+    .modern-card {
+        min-height: auto !important;
+    }
+    
+    .row:nth-of-type(2) .modern-card,
+    .row:nth-of-type(4) .modern-card {
+        min-height: auto !important;
+    }
+    
+    .modern-card-body {
+        padding: 1rem;
+    }
+    
+    #prix_calcule {
+        min-height: 90px;
+    }
+}
+
+.select2-dropdown {
+    z-index: 1061;
+}
+
+/* Indicateur de recherche */
+.select2-selection__placeholder {
+    color: #6c757d !important;
+}
+
+/* Focus state */
+.select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+</style>
+</style>
+
+<script>
+// Variables globales
+let selectedClientData = null;
+
+// Charger les informations du client sélectionné
+function loadClientInfo(clientId) {
+    if (!clientId) {
+        clearClientSelection();
+        return;
+    }
+    
+    // Vérifier si on a déjà les infos (cas de la recherche AJAX)
+    const selectData = $('#client_select').select2('data')[0];
+    if (selectData && selectData.name && selectData.telephone) {
+        // Utiliser les données déjà chargées
+        selectedClientData = {
+            id: selectData.id,
+            name: selectData.name,
+            telephone: selectData.telephone,
+            pays: selectData.pays,
+            pays_display: selectData.pays_display,
+            adresse: selectData.adresse || 'Non renseignée'
+        };
+        showClientInfo(selectedClientData);
+        setTimeout(calculatePrice, 500);
+        return;
+    }
+
+    // Sinon, charger via API
+    fetch(`/agent-chine/api/clients/${clientId}/info/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectedClientData = data.client;
+                showClientInfo(data.client);
+                // Recalculer le prix avec les infos du client
+                setTimeout(calculatePrice, 500);
+            } else {
+                alert('Erreur lors du chargement des informations client: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de connexion lors du chargement des informations client.');
+        });
+}
+
+// Afficher les informations du client sélectionné
+function showClientInfo(client) {
+    document.getElementById('client-name').textContent = client.name;
+    document.getElementById('client-phone').textContent = client.telephone;
+    document.getElementById('client-country').textContent = client.pays_display;
+    document.getElementById('client-address').textContent = client.adresse;
+    document.getElementById('client-info-panel').style.display = 'block';
+}
+
+// Effacer la sélection du client
+function clearClientSelection() {
+    selectedClientData = null;
+    document.getElementById('client_select').value = '';
+    document.getElementById('client-info-panel').style.display = 'none';
+    document.getElementById('prix_calcule').innerHTML = '<span class="text-muted">Sélectionnez un client et saisissez les mesures pour calculer</span>';
+}
+
+// Basculer l'affichage des champs selon le type de transport
+function toggleTransportFields() {
+    const transportType = document.getElementById('type_transport').value;
+    const dimensionFieldsDivs = document.querySelectorAll('.dimension-field');
+    const weightFieldDiv = document.querySelector('.weight-field');
+    const dimensionFields = document.querySelectorAll('.dimension-field input');
+    const weightField = document.getElementById('poids');
+    const transportInfo = document.getElementById('transport-info');
+
+    if (transportType === 'bateau') {
+        // Pour bateau: afficher seulement les dimensions
+        dimensionFieldsDivs.forEach(div => {
+            div.style.display = 'block';
+        });
+        weightFieldDiv.style.display = 'none';
+        
+        // Rendre les dimensions obligatoires, poids optionnel
+        dimensionFields.forEach(field => field.required = true);
+        weightField.required = false;
+        
+        transportInfo.innerHTML = `
+            <i class="bi bi-info-circle"></i>
+            <strong>Transport par Bateau:</strong> Le prix est calculé selon les dimensions uniquement.
+        `;
+    } else {
+        // Pour cargo/express: afficher seulement le poids
+        dimensionFieldsDivs.forEach(div => {
+            div.style.display = 'none';
+        });
+        weightFieldDiv.style.display = 'block';
+        
+        // Rendre le poids obligatoire, dimensions optionnelles
+        dimensionFields.forEach(field => field.required = false);
+        weightField.required = true;
+        
+        const typeText = transportType === 'express' ? 'Express' : 'Cargo';
+        transportInfo.innerHTML = `
+            <i class="bi bi-info-circle"></i>
+            <strong>${typeText}:</strong> Le prix est calculé selon le poids uniquement.
+        `;
+    }
+    
+    // Recalculer le prix
+    setTimeout(calculatePrice, 300);
+}
+
+// Calcul automatique du prix
+function calculatePrice() {
+    if (!selectedClientData) {
+        document.getElementById('prix_calcule').innerHTML = '<span class="text-muted">Veuillez d\'abord sélectionner un client</span>';
+        return;
+    }
+
+    const longueur = parseFloat(document.getElementById('longueur').value) || 0;
+    const largeur = parseFloat(document.getElementById('largeur').value) || 0;
+    const hauteur = parseFloat(document.getElementById('hauteur').value) || 0;
+    const poids = parseFloat(document.getElementById('poids').value) || 0;
+    const typeTransport = document.getElementById('type_transport').value;
+
+    // Vérifier que les champs requis sont remplis selon le type de transport
+    let fieldsOk = false;
+    if (typeTransport === 'bateau') {
+        fieldsOk = longueur && largeur && hauteur;
+    } else {
+        fieldsOk = poids > 0;
+    }
+
+    if (!fieldsOk) {
+        const requiredText = typeTransport === 'bateau' ? 'les dimensions' : 'le poids';
+        document.getElementById('prix_calcule').innerHTML = `<span class="text-muted">Veuillez saisir ${requiredText} pour calculer</span>`;
+        return;
+    }
+
+    // Affichage du loading
+    document.getElementById('prix_calcule').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <small class="text-muted ms-2">Calcul en cours...</small>
+        </div>
+    `;
+
+    const requestData = {
+        longueur: longueur,
+        largeur: largeur,
+        hauteur: hauteur,
+        poids: poids,
+        type_transport: typeTransport,
+        pays_destination: selectedClientData.pays
+    };
+
+    console.log('Calcul prix - Données envoyées:', requestData);
+
+    // Appel API pour calculer le prix
+    fetch('{% url "agent_chine:calculate_price_api" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        console.log('Réponse status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Calcul prix - Réponse reçue:', data);
+        
+        if (data.success) {
+            const volume = data.volume_m3.toFixed(4);
+            const prix = data.prix.toLocaleString('fr-FR');
+            
+            let debugInfo = '';
+            if (data.debug_info && console) {
+                console.log('Debug info:', data.debug_info);
+                debugInfo = `<small class="text-muted d-block mt-1">${data.message || ''}</small>`;
+            }
+            
+            // Affichage conditionnel selon le type de transport
+            let priceDisplay = '';
+            if (typeTransport === 'bateau') {
+                // Pour bateau : afficher volume et prix
+                priceDisplay = `
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <small class="text-muted">Volume</small><br>
+                            <strong>${volume} m³</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Prix estimé</small><br>
+                            <strong class="text-success fs-5">${prix} FCFA</strong>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Pour express/cargo : afficher seulement le prix
+                priceDisplay = `
+                    <div class="text-center">
+                        <small class="text-muted">Prix estimé (par kg)</small><br>
+                        <strong class="text-success fs-4">${prix} FCFA</strong>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('prix_calcule').innerHTML = `
+                ${priceDisplay}
+                ${debugInfo}
+            `;
+        } else {
+            let errorDetails = '';
+            if (data.details) {
+                errorDetails = `<br><small class="text-muted">${data.details}</small>`;
+            }
+            
+            document.getElementById('prix_calcule').innerHTML = `
+                <div class="text-center">
+                    <span class="text-danger">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        ${data.error}
+                    </span>
+                    ${errorDetails}
+                    <br>
+                    <button type="button" class="btn btn-sm btn-outline-info mt-2" onclick="showDebugInfo()">
+                        <i class="bi bi-info-circle"></i> Debug
+                    </button>
+                </div>
+            `;
+            
+            // Stocker les infos de debug pour affichage
+            window.lastCalculationError = data;
+        }
+    })
+    .catch(error => {
+        console.error('Erreur calcul prix:', error);
+        document.getElementById('prix_calcule').innerHTML = `
+            <div class="text-center">
+                <span class="text-warning">
+                    <i class="bi bi-wifi-off"></i> 
+                    Erreur de connexion
+                </span>
+                <br>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="calculatePrice()">
+                    <i class="bi bi-arrow-clockwise"></i> Réessayer
+                </button>
+            </div>
+        `;
+    });
+}
+
+// Fonction pour afficher les informations de debug
+function showDebugInfo() {
+    if (window.lastCalculationError) {
+        const info = window.lastCalculationError;
+        let debugText = `Erreur: ${info.error}\n\n`;
+        
+        if (info.debug_info) {
+            debugText += 'Informations de debug:\n';
+            debugText += JSON.stringify(info.debug_info, null, 2);
+        }
+        
+        alert(debugText);
+    }
+}
+
+// Prévisualisation image
+function setupImagePreview() {
+    const imageInput = document.getElementById('image');
+    const preview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+
+    imageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            preview.style.display = 'none';
+        }
+    });
+}
+
+// Initialisation Select2 pour la recherche de clients
+function initializeClientSelect() {
+    const clientSelectElement = document.getElementById('client_select');
+    if (!clientSelectElement) {
+        console.error('Élément client_select non trouvé');
+        return;
+    }
+    
+    const totalClients = {% if clients %}{{ clients|length }}{% else %}0{% endif %};
+    console.log('Initialisation Select2 avec', totalClients, 'clients');
+    
+    // Configuration de base
+    let config = {
+        placeholder: '🔍 Recherchez un client par nom, téléphone ou pays...',
+        allowClear: true,
+        width: '100%',
+        language: {
+            noResults: function() {
+                return 'Aucun client trouvé. <a href="{% url "agent_chine:client_create" %}" target="_blank">Créer un nouveau client</a>';
+            },
+            searching: function() {
+                return 'Recherche en cours...';
+            },
+            inputTooShort: function() {
+                return 'Tapez au moins 2 caractères pour rechercher...';
+            },
+            loadingMore: function() {
+                return 'Chargement de plus de résultats...';
+            }
+        }
+    };
+    
+    // Si beaucoup de clients (>50), utiliser la recherche côté serveur
+    if (totalClients > 50) {
+        console.log('Utilisation de la recherche AJAX pour', totalClients, 'clients');
+        
+        config.ajax = {
+            url: '{% url "agent_chine:clients_search_api" %}',
+            dataType: 'json',
+            delay: 300,
+            data: function(params) {
+                return {
+                    q: params.term,
+                    page: params.page || 1
+                };
+            },
+            processResults: function(data, params) {
+                params.page = params.page || 1;
+                
+                return {
+                    results: data.results.map(client => {
+                        return {
+                            id: client.id,
+                            text: client.text,
+                            name: client.name,
+                            telephone: client.telephone,
+                            pays: client.pays,
+                            pays_display: client.pays_display,
+                            adresse: client.adresse
+                        };
+                    }),
+                    pagination: {
+                        more: data.pagination && data.pagination.more
+                    }
+                };
+            },
+            cache: true
+        };
+        
+        config.minimumInputLength = 2;
+    } else {
+        // Pour peu de clients, utiliser la recherche locale
+        console.log('Utilisation de la recherche locale pour', totalClients, 'clients');
+        
+        config.matcher = function(params, data) {
+            // Recherche personnalisée
+            if ($.trim(params.term) === '') {
+                return data;
+            }
+            
+            const term = params.term.toLowerCase();
+            const name = $(data.element).data('name')?.toLowerCase() || '';
+            const phone = $(data.element).data('phone')?.toLowerCase() || '';
+            const country = $(data.element).data('country')?.toLowerCase() || '';
+            
+            // Recherche dans le nom, téléphone ou pays
+            if (name.includes(term) || phone.includes(term) || country.includes(term)) {
+                return data;
+            }
+            
+            return null;
+        };
+    }
+    
+    // Templates communs
+    config.templateResult = function(option) {
+        // Pour recherche AJAX
+        if (option.name && option.telephone) {
+            return $(`
+                <div class="client-option">
+                    <div class="client-name">
+                        <i class="bi bi-person-circle text-primary"></i>
+                        <strong>${option.name}</strong>
+                    </div>
+                    <div class="client-details text-muted small">
+                        <i class="bi bi-telephone"></i> ${option.telephone} | 
+                        <i class="bi bi-geo-alt"></i> ${option.pays_display || option.pays}
+                    </div>
+                </div>
+            `);
+        }
+        
+        // Pour recherche locale
+        if (option.element && option.element.dataset.name) {
+            return $(`
+                <div class="client-option">
+                    <div class="client-name">
+                        <i class="bi bi-person-circle text-primary"></i>
+                        <strong>${option.element.dataset.name}</strong>
+                    </div>
+                    <div class="client-details text-muted small">
+                        <i class="bi bi-telephone"></i> ${option.element.dataset.phone} | 
+                        <i class="bi bi-geo-alt"></i> ${option.element.dataset.country}
+                    </div>
+                </div>
+            `);
+        }
+        
+        // Fallback
+        return option.text;
+    };
+    
+    config.templateSelection = function(option) {
+        // Pour recherche AJAX
+        if (option.name && option.telephone) {
+            return `${option.name} - ${option.telephone}`;
+        }
+        
+        // Pour recherche locale
+        if (option.element && option.element.dataset.name) {
+            return `${option.element.dataset.name} - ${option.element.dataset.phone}`;
+        }
+        
+        // Fallback
+        return option.text;
+    };
+    
+    // Initialiser Select2 avec la configuration
+    $('#client_select').select2(config);
+    
+    // Mettre à jour le texte d'aide selon le mode
+    const searchModeText = document.getElementById('search-mode-text');
+    if (totalClients > 50) {
+        searchModeText.innerHTML = `
+            <strong>Mode Recherche Avancée</strong> (${totalClients} clients) - 
+            Tapez au moins 2 caractères pour déclencher la recherche. 
+            <small class="text-muted">Recherche côté serveur avec pagination.</small>
+        `;
+    } else {
+        searchModeText.innerHTML = `
+            <strong>Recherche Locale</strong> (${totalClients} clients) - 
+            Tapez pour rechercher instantanément par nom, téléphone ou pays.
+        `;
+    }
+    
+    // Événement de changement
+    $('#client_select').on('change', function() {
+        const clientId = $(this).val();
+        loadClientInfo(clientId);
+    });
+}
+
+// Initialisation
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser Select2
+    initializeClientSelect();
+    
+    // Configuration initiale
+    toggleTransportFields();
+    setupImagePreview();
+    
+    // Écouteurs pour calcul automatique
+    ['longueur', 'largeur', 'hauteur', 'poids'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', function() {
+            setTimeout(calculatePrice, 500);
+        });
+    });
+
+    // Validation formulaire
+    const form = document.getElementById('colisForm');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+});
+</script>
+{% endblock %}

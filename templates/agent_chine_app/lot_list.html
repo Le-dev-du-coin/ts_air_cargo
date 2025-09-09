@@ -1,0 +1,214 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}Liste des Lots - TS Air Cargo{% endblock %}
+{% block page_title %}Gestion des Lots{% endblock %}
+
+{% block content %}
+<!-- En-tête avec bouton d'action -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Gestion des Lots</h2>
+        <p class="text-muted mb-0">Organisez et suivez vos envois par lots</p>
+    </div>
+    <a href="{% url 'agent_chine:lot_create' %}" class="action-btn">
+        <i class="bi bi-plus-circle"></i>
+        Nouveau Lot
+    </a>
+</div>
+
+<!-- Filtres -->
+<div class="modern-card mb-4">
+    <div class="modern-card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="statut" class="form-label">Filtrer par statut</label>
+                <select class="form-select" name="statut" id="statut">
+                    <option value="">Tous les statuts</option>
+                    {% for value, label in statut_choices %}
+                    <option value="{{ value }}" {% if statut_filter == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-8 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="bi bi-funnel me-1"></i>
+                    Filtrer
+                </button>
+                <a href="{% url 'agent_chine:lot_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise me-1"></i>
+                    Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Liste des lots -->
+<div class="modern-card">
+    <div class="modern-card-header">
+        <h5 class="modern-card-title">
+            <i class="bi bi-box"></i>
+            Liste des Lots
+            {% if statut_filter %}
+            <small class="text-muted">- {{ statut_filter|capfirst }}</small>
+            {% endif %}
+        </h5>
+        <span class="status-badge status-ouvert">{{ lots.count }} lot{{ lots.count|pluralize }}</span>
+    </div>
+    <div class="modern-card-body p-0">
+        {% if lots %}
+            <!-- Desktop -->
+            <div class="d-none d-lg-block">
+                <div class="table-modern">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>N° Lot</th>
+                                <th>Statut</th>
+                                <th>Colis</th>
+                                <th>Prix Transport</th>
+                                <th>Date Création</th>
+                                <th>Agent</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lot in lots %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="text-decoration-none fw-bold">
+                                        {{ lot.numero_lot }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ lot.statut }}">
+                                        {{ lot.get_statut_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ lot.colis.count }} colis</span>
+                                </td>
+                                <td>
+                                    {% if lot.prix_transport %}
+                                        <span class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} FCFA</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ lot.date_creation|date:"d/m/Y H:i" }}</small>
+                                </td>
+                                <td>
+                                    {% if lot.agent_createur %}
+                                        <small>{{ lot.agent_createur.get_full_name }}</small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'agent_chine:lot_detail' lot.id %}" 
+                                           class="btn btn-outline-primary"
+                                           data-bs-toggle="tooltip" 
+                                           title="Voir détails">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if lot.statut == 'ouvert' %}
+                                        <a href="{% url 'agent_chine:lot_close' lot.id %}" 
+                                           class="btn btn-outline-warning"
+                                           data-bs-toggle="tooltip" 
+                                           title="Fermer le lot">
+                                            <i class="bi bi-lock"></i>
+                                        </a>
+                                        {% elif lot.statut == 'ferme' %}
+                                        <a href="{% url 'agent_chine:lot_expedite' lot.id %}" 
+                                           class="btn btn-outline-success"
+                                           data-bs-toggle="tooltip" 
+                                           title="Expédier le lot">
+                                            <i class="bi bi-send"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile -->
+            <div class="d-lg-none">
+                {% for lot in lots %}
+                <div class="border-bottom p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1">
+                                <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="text-decoration-none">
+                                    {{ lot.numero_lot }}
+                                </a>
+                            </h6>
+                            <div class="small text-muted">{{ lot.date_creation|date:"d/m/Y H:i" }}</div>
+                        </div>
+                        <span class="status-badge status-{{ lot.statut }}">
+                            {{ lot.get_statut_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-secondary">{{ lot.colis.count }} colis</span>
+                        {% if lot.prix_transport %}
+                            <span class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} FCFA</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-eye"></i> Détails
+                        </a>
+                        {% if lot.statut == 'ouvert' %}
+                        <a href="{% url 'agent_chine:lot_close' lot.id %}" class="btn btn-sm btn-warning">
+                            <i class="bi bi-lock"></i> Fermer
+                        </a>
+                        {% elif lot.statut == 'ferme' %}
+                        <a href="{% url 'agent_chine:lot_expedite' lot.id %}" class="btn btn-sm btn-success">
+                            <i class="bi bi-send"></i> Expédier
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- État vide -->
+            <div class="text-center py-5">
+                <i class="bi bi-box" style="font-size: 4rem; color: #dee2e6;"></i>
+                <h5 class="mt-3 text-muted">
+                    {% if statut_filter %}
+                        Aucun lot trouvé avec ce statut
+                    {% else %}
+                        Aucun lot créé
+                    {% endif %}
+                </h5>
+                {% if not statut_filter %}
+                    <p class="text-muted">Créez votre premier lot pour commencer à organiser vos envois</p>
+                    <a href="{% url 'agent_chine:lot_create' %}" class="action-btn">
+                        <i class="bi bi-plus-circle"></i>
+                        Créer le premier lot
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bouton flottant mobile -->
+<div class="d-lg-none position-fixed" style="bottom: 20px; right: 20px; z-index: 1000;">
+    <a href="{% url 'agent_chine:lot_create' %}" class="btn btn-primary rounded-circle shadow" style="width: 56px; height: 56px;">
+        <i class="bi bi-plus" style="font-size: 1.5rem;"></i>
+    </a>
+</div>
+{% endblock %}

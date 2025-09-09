@@ -1,0 +1,853 @@
+{% extends 'agent_mali_app/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Agent Mali{% endblock %}
+
+{% block extra_head %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    .report-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        margin-bottom: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2d3748;
+    }
+    
+    .stat-label {
+        color: #718096;
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
+    
+    .btn-report {
+        background: linear-gradient(45deg, #4299e1, #3182ce);
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s;
+        margin: 5px;
+    }
+    
+    .btn-report:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 25px rgba(66, 153, 225, 0.3);
+        color: white;
+    }
+    
+    .btn-whatsapp {
+        background: linear-gradient(45deg, #25d366, #128c7e);
+    }
+    
+    .btn-email {
+        background: linear-gradient(45deg, #ea4335, #d33b2c);
+    }
+    
+    .btn-schedule {
+        background: linear-gradient(45deg, #f6ad55, #ed8936);
+    }
+    
+    .progress-bar-custom {
+        background: linear-gradient(90deg, #4299e1, #63b3ed);
+        height: 6px;
+        border-radius: 3px;
+        animation: progress-animation 2s ease-in-out infinite;
+    }
+    
+    @keyframes progress-animation {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+    }
+    
+    .modal-custom {
+        backdrop-filter: blur(10px);
+    }
+    
+    .form-control-modern {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 15px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-control-modern:focus {
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    
+    .history-item {
+        background: white;
+        border-left: 4px solid #4299e1;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête avec titre et statistiques du jour -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="report-card">
+                <h2 class="mb-0">📊 {{ title }}</h2>
+                <p class="mb-0 opacity-75">Générez et analysez vos rapports d'activité</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats_jour.lots_recus }}</div>
+                <div class="stat-label">📦 Lots reçus aujourd'hui</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques du jour -->
+    <div class="row mb-4">
+        <div class="col-md-2 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-number text-success">{{ stats_jour.colis_livres }}</div>
+                <div class="stat-label">🚚 Colis livrés</div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-number text-danger">{{ stats_jour.depenses_total|floatformat:0 }}</div>
+                <div class="stat-label">💸 Dépenses (CFA)</div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-number text-success">{{ stats_jour.revenus_livraison|floatformat:0 }}</div>
+                <div class="stat-label">💰 Revenus (CFA)</div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="stat-card">
+                <div class="stat-number text-info">{{ stats_jour.clients_notifies }}</div>
+                <div class="stat-label">📱 Clients notifiés</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-number {% if stats_jour.revenus_livraison > stats_jour.depenses_total %}text-success{% else %}text-warning{% endif %}">
+                    {{ stats_jour.revenus_livraison|add:stats_jour.depenses_total|add:"-"|add:stats_jour.depenses_total|floatformat:0 }}
+                </div>
+                <div class="stat-label">📊 Bénéfice net (CFA)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Génération de rapports -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📈 Génération de Rapports</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Rapports quotidiens -->
+                    <div class="mb-4">
+                        <h6 class="text-primary">📅 Rapports Quotidiens</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="daily-date" class="form-label">Sélectionner la date</label>
+                                <input type="date" id="daily-date" class="form-control form-control-modern" value="{{ today|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button class="btn btn-report" onclick="generateDailyReport()">
+                                    📊 Générer Rapport Quotidien
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rapports mensuels -->
+                    <div class="mb-4">
+                        <h6 class="text-success">📆 Rapports Mensuels</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="monthly-period" class="form-label">Sélectionner le mois</label>
+                                <input type="month" id="monthly-period" class="form-control form-control-modern" value="{{ today|date:'Y-m' }}">
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button class="btn btn-report btn-success" onclick="generateMonthlyReport()">
+                                    📊 Générer Rapport Mensuel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rapports annuels -->
+                    <div class="mb-4">
+                        <h6 class="text-warning">📅 Rapports Annuels</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="yearly-period" class="form-label">Sélectionner l'année</label>
+                                <select id="yearly-period" class="form-control form-control-modern">
+                                    <option value="{{ today|date:'Y' }}">{{ today|date:'Y' }}</option>
+                                    <option value="{{ today|date:'Y'|add:'-1' }}">{{ today|date:'Y'|add:'-1' }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button class="btn btn-report btn-warning" onclick="generateYearlyReport()">
+                                    📊 Générer Rapport Annuel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions rapides -->
+                    <div class="mb-4">
+                        <h6 class="text-info">⚡ Actions Rapides</h6>
+                        <div class="d-flex flex-wrap">
+                            <button class="btn btn-report btn-whatsapp" onclick="sendReportWhatsApp()">
+                                📱 Envoyer par WhatsApp
+                            </button>
+                            <button class="btn btn-report btn-email" onclick="sendReportEmail()">
+                                📧 Envoyer par Email
+                            </button>
+                            <button class="btn btn-report btn-schedule" onclick="scheduleAutoReport()">
+                                ⏰ Programmer Envoi Auto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historique et paramètres -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">📚 Historique des Rapports</h6>
+                </div>
+                <div class="card-body">
+                    {% if rapports_historique %}
+                        {% for rapport in rapports_historique %}
+                        <div class="history-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ rapport.type }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ rapport.date_generation|date:"d/m/Y H:i" }}</small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="downloadReport('{{ rapport.id }}')">
+                                        📥 Télécharger
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-file-alt fa-3x mb-3"></i>
+                            <p>Aucun rapport généré récemment</p>
+                            <small>Générez votre premier rapport ci-dessus</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de génération -->
+<div class="modal fade modal-custom" id="generationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">📊 Génération en cours...</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <p class="mb-3">Génération de votre rapport en cours</p>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar progress-bar-custom" role="progressbar"></div>
+                </div>
+                <small class="text-muted mt-2 d-block">Veuillez patienter...</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de programmation -->
+<div class="modal fade" id="scheduleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">⏰ Programmer l'envoi automatique</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Activer l'envoi automatique</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoReportEnabled">
+                        <label class="form-check-label" for="autoReportEnabled">
+                            Envoyer automatiquement le rapport quotidien
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="autoReportTime" class="form-label">Heure d'envoi</label>
+                    <input type="time" id="autoReportTime" class="form-control" value="23:59">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveScheduleSettings()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentReportBlob = null;
+
+// Fonction de génération de rapport quotidien
+async function generateDailyReport() {
+    const date = document.getElementById('daily-date').value;
+    
+    if (!date) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Date manquante',
+            text: 'Veuillez sélectionner une date pour le rapport',
+            confirmButtonColor: '#4299e1'
+        });
+        return;
+    }
+
+    // Afficher le modal de chargement
+    $('#generationModal').modal('show');
+
+    try {
+        const response = await fetch('/agent-mali/api/generate-daily-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ date: date })
+        });
+
+        $('#generationModal').modal('hide');
+
+        if (response.ok) {
+            const blob = await response.blob();
+            currentReportBlob = blob;
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Rapport généré !',
+                text: `Rapport quotidien du ${new Date(date).toLocaleDateString('fr-FR')} prêt`,
+                showCancelButton: true,
+                confirmButtonText: '📥 Télécharger',
+                cancelButtonText: '👁️ Aperçu',
+                confirmButtonColor: '#4299e1',
+                cancelButtonColor: '#48bb78'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    downloadCurrentReport(date);
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    previewCurrentReport();
+                }
+            });
+        } else {
+            const errorData = await response.json();
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur de génération',
+                text: errorData.error || 'Une erreur est survenue lors de la génération',
+                confirmButtonColor: '#e53e3e'
+            });
+        }
+    } catch (error) {
+        $('#generationModal').modal('hide');
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur réseau',
+            text: 'Impossible de contacter le serveur',
+            confirmButtonColor: '#e53e3e'
+        });
+    }
+}
+
+// Fonction de génération de rapport mensuel
+async function generateMonthlyReport() {
+    const month = document.getElementById('monthly-period').value;
+    
+    if (!month) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Mois manquant',
+            text: 'Veuillez sélectionner un mois pour le rapport',
+            confirmButtonColor: '#4299e1'
+        });
+        return;
+    }
+
+    // Afficher le modal de chargement
+    $('#generationModal').modal('show');
+
+    try {
+        const response = await fetch('/agent-mali/api/generate-monthly-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ month: month })
+        });
+
+        $('#generationModal').modal('hide');
+
+        if (response.ok) {
+            const blob = await response.blob();
+            currentReportBlob = blob;
+            
+            const [year, monthNum] = month.split('-');
+            const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Rapport mensuel généré !',
+                text: `Rapport mensuel de ${monthName} prêt`,
+                showCancelButton: true,
+                confirmButtonText: '📥 Télécharger',
+                cancelButtonText: '👁️ Aperçu',
+                confirmButtonColor: '#4299e1',
+                cancelButtonColor: '#48bb78'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    downloadCurrentMonthlyReport(month);
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    previewCurrentReport();
+                }
+            });
+        } else {
+            const errorData = await response.json();
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur de génération',
+                text: errorData.error || 'Une erreur est survenue lors de la génération',
+                confirmButtonColor: '#e53e3e'
+            });
+        }
+    } catch (error) {
+        $('#generationModal').modal('hide');
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur réseau',
+            text: 'Impossible de contacter le serveur',
+            confirmButtonColor: '#e53e3e'
+        });
+    }
+}
+
+// Fonction de génération de rapport annuel
+async function generateYearlyReport() {
+    const year = document.getElementById('yearly-period').value;
+    
+    if (!year) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Année manquante',
+            text: 'Veuillez sélectionner une année pour le rapport',
+            confirmButtonColor: '#4299e1'
+        });
+        return;
+    }
+
+    // Afficher le modal de chargement
+    $('#generationModal').modal('show');
+
+    try {
+        const response = await fetch('/agent-mali/api/generate-yearly-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ year: year })
+        });
+
+        $('#generationModal').modal('hide');
+
+        if (response.ok) {
+            const blob = await response.blob();
+            currentReportBlob = blob;
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Rapport annuel généré !',
+                text: `Rapport annuel ${year} prêt`,
+                showCancelButton: true,
+                confirmButtonText: '📥 Télécharger',
+                cancelButtonText: '👁️ Aperçu',
+                confirmButtonColor: '#4299e1',
+                cancelButtonColor: '#48bb78'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    downloadCurrentYearlyReport(year);
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    previewCurrentReport();
+                }
+            });
+        } else {
+            const errorData = await response.json();
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur de génération',
+                text: errorData.error || 'Une erreur est survenue lors de la génération',
+                confirmButtonColor: '#e53e3e'
+            });
+        }
+    } catch (error) {
+        $('#generationModal').modal('hide');
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur réseau',
+            text: 'Impossible de contacter le serveur',
+            confirmButtonColor: '#e53e3e'
+        });
+    }
+}
+
+// Télécharger le rapport quotidien actuel
+function downloadCurrentReport(date) {
+    if (currentReportBlob) {
+        const url = window.URL.createObjectURL(currentReportBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `rapport_quotidien_${date}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Téléchargement lancé',
+            text: 'Le rapport quotidien PDF a été téléchargé',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+}
+
+// Télécharger le rapport mensuel actuel
+function downloadCurrentMonthlyReport(month) {
+    if (currentReportBlob) {
+        const url = window.URL.createObjectURL(currentReportBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `rapport_mensuel_${month}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Téléchargement lancé',
+            text: 'Le rapport mensuel PDF a été téléchargé',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+}
+
+// Télécharger le rapport annuel actuel
+function downloadCurrentYearlyReport(year) {
+    if (currentReportBlob) {
+        const url = window.URL.createObjectURL(currentReportBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `rapport_annuel_${year}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Téléchargement lancé',
+            text: 'Le rapport annuel PDF a été téléchargé',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+}
+
+// Aperçu du rapport actuel
+function previewCurrentReport() {
+    if (currentReportBlob) {
+        const url = window.URL.createObjectURL(currentReportBlob);
+        window.open(url, '_blank');
+        
+        setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+        }, 1000);
+    }
+}
+
+// Envoyer le rapport par WhatsApp
+async function sendReportWhatsApp() {
+    const date = document.getElementById('daily-date').value;
+    
+    if (!date) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Date manquante',
+            text: 'Veuillez d\'abord générer un rapport',
+            confirmButtonColor: '#4299e1'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Envoi en cours...',
+        text: 'Envoi du rapport par WhatsApp',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const response = await fetch('/agent-mali/api/send-report-whatsapp/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ 
+                type: 'daily',
+                period: date 
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Envoyé !',
+                text: data.message,
+                confirmButtonColor: '#25d366'
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur d\'envoi',
+                text: data.error,
+                confirmButtonColor: '#e53e3e'
+            });
+        }
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur réseau',
+            text: 'Impossible d\'envoyer le rapport',
+            confirmButtonColor: '#e53e3e'
+        });
+    }
+}
+
+// Envoyer par email
+async function sendReportEmail() {
+    // Obtenir le type et la période du dernier rapport généré
+    const date = document.getElementById('daily-date').value;
+    const month = document.getElementById('monthly-period').value;
+    const year = document.getElementById('yearly-period').value;
+    
+    // Déterminer quel rapport envoyer selon le dernier généré
+    let reportType = 'daily';
+    let period = date;
+    
+    // Si aucun rapport quotidien n'est sélectionné, essayer mensuel puis annuel
+    if (!date && month) {
+        reportType = 'monthly';
+        period = month;
+    } else if (!date && !month && year) {
+        reportType = 'yearly';
+        period = year;
+    }
+    
+    if (!period) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Aucun rapport sélectionné',
+            text: 'Veuillez d\'abord sélectionner une période pour le rapport',
+            confirmButtonColor: '#4299e1'
+        });
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Envoi en cours...',
+        text: 'Génération et envoi du rapport par email',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    try {
+        const response = await fetch('/agent-mali/api/send-report-email/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                type: reportType,
+                period: period
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Email envoyé !',
+                text: data.message,
+                confirmButtonColor: '#ea4335'
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur d\'envoi',
+                text: data.error,
+                confirmButtonColor: '#e53e3e'
+            });
+        }
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur réseau',
+            text: 'Impossible d\'envoyer le rapport par email',
+            confirmButtonColor: '#e53e3e'
+        });
+    }
+}
+
+// Programmer l'envoi automatique
+function scheduleAutoReport() {
+    $('#scheduleModal').modal('show');
+}
+
+// Sauvegarder les paramètres de programmation
+async function saveScheduleSettings() {
+    const enabled = document.getElementById('autoReportEnabled').checked;
+    const time = document.getElementById('autoReportTime').value;
+
+    try {
+        const response = await fetch('/agent-mali/api/schedule-auto-report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ 
+                enabled: enabled,
+                time: time 
+            })
+        });
+
+        const data = await response.json();
+        $('#scheduleModal').modal('hide');
+
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Paramètres sauvegardés',
+                text: data.message,
+                confirmButtonColor: '#4299e1'
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: data.error,
+                confirmButtonColor: '#e53e3e'
+            });
+        }
+    } catch (error) {
+        $('#scheduleModal').modal('hide');
+        Swal.fire({
+            icon: 'error',
+            title: 'Erreur réseau',
+            text: 'Impossible de sauvegarder les paramètres',
+            confirmButtonColor: '#e53e3e'
+        });
+    }
+}
+
+// Fonction utilitaire pour récupérer le token CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Télécharger un rapport de l'historique
+function downloadReport(reportId) {
+    Swal.fire({
+        icon: 'info',
+        title: 'Fonction en développement',
+        text: 'Le téléchargement depuis l\'historique sera bientôt disponible',
+        confirmButtonColor: '#4299e1'
+    });
+}
+
+// Initialisation de la date du jour
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('daily-date').value = today;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Détails du Transfert</h5>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'admin_mali_app:transfert_edit' transfert.id %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-edit"></i> Modifier
+                    </a>
+                    <a href="{% url 'admin_mali_app:transfert_delete' transfert.id %}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash"></i> Supprimer
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th>Numéro de Transfert:</th>
+                                <td><strong>{{ transfert.numero_transfert }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>Montant (FCFA):</th>
+                                <td><span class="text-primary fs-5">{{ transfert.montant_fcfa|floatformat:0 }} FCFA</span></td>
+                            </tr>
+                            <tr>
+                                <th>Frais de Transfert:</th>
+                                <td>{{ transfert.frais_transfert|floatformat:0 }} FCFA</td>
+                            </tr>
+                            <tr>
+                                <th>Méthode de Transfert:</th>
+                                <td>{{ transfert.get_methode_transfert_display }}</td>
+                            </tr>
+                            <tr>
+                                <th>Statut:</th>
+                                <td>
+                                    {% if transfert.statut == 'initie' %}
+                                        <span class="badge bg-warning">{{ transfert.get_statut_display }}</span>
+                                    {% elif transfert.statut == 'envoye' %}
+                                        <span class="badge bg-info">{{ transfert.get_statut_display }}</span>
+                                    {% elif transfert.statut == 'confirme_chine' %}
+                                        <span class="badge bg-success">{{ transfert.get_statut_display }}</span>
+                                    {% elif transfert.statut == 'annule' %}
+                                        <span class="badge bg-danger">{{ transfert.get_statut_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th>Destinataire:</th>
+                                <td><strong>{{ transfert.destinataire_nom }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>Téléphone:</th>
+                                <td>{{ transfert.destinataire_telephone }}</td>
+                            </tr>
+                            <tr>
+                                <th>Motif:</th>
+                                <td>{{ transfert.motif_transfert|default:"Non spécifié" }}</td>
+                            </tr>
+                            <tr>
+                                <th>Date d'Initiation:</th>
+                                <td>{{ transfert.date_initiation|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <th>Dernière Modification:</th>
+                                <td>{{ transfert.date_modification|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if transfert.admin_chine %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Informations de Traitement</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th>Traité par (Chine):</th>
+                        <td>{{ transfert.admin_chine.get_full_name|default:transfert.admin_chine.username }}</td>
+                    </tr>
+                    {% if transfert.date_traitement_chine %}
+                    <tr>
+                        <th>Date de Traitement:</th>
+                        <td>{{ transfert.date_traitement_chine|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Actions Rapides</h5>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'admin_mali_app:transferts' %}" class="btn btn-outline-primary btn-block mb-2">
+                    <i class="fas fa-list"></i> Retour à la liste
+                </a>
+                
+                {% if transfert.statut == 'initie' %}
+                    <a href="{% url 'admin_mali_app:transfert_edit' transfert.id %}" class="btn btn-warning btn-block mb-2">
+                        <i class="fas fa-paper-plane"></i> Marquer comme Envoyé
+                    </a>
+                {% endif %}
+                
+                <a href="#" class="btn btn-info btn-block mb-2" onclick="window.print()">
+                    <i class="fas fa-print"></i> Imprimer
+                </a>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">Historique</h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ transfert.date_initiation|date:"d/m/Y H:i" }}</div>
+                        <div class="timeline-content">
+                            <strong>Transfert initié</strong><br>
+                            Par: {{ transfert.admin_mali.get_full_name|default:transfert.admin_mali.username }}
+                        </div>
+                    </div>
+                    
+                    {% if transfert.date_traitement_chine %}
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ transfert.date_traitement_chine|date:"d/m/Y H:i" }}</div>
+                        <div class="timeline-content">
+                            <strong>Traité en Chine</strong><br>
+                            Par: {{ transfert.admin_chine.get_full_name|default:transfert.admin_chine.username }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.timeline-item:before {
+    content: '';
+    position: absolute;
+    left: -1rem;
+    top: 0.5rem;
+    width: 8px;
+    height: 8px;
+    background: var(--primary-color);
+    border-radius: 50%;
+}
+
+.timeline-date {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+}
+
+.timeline-content {
+    font-size: 0.9rem;
+}
+
+@media print {
+    .btn-group, .card:last-child {
+        display: none !important;
+    }
+}
+</style>
+{% endblock %}

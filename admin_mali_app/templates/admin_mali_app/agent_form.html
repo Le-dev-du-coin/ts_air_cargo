@@ -1,0 +1,198 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    {% if is_edit %}
+                        <i class="fas fa-user-edit"></i> Modifier l'Agent
+                    {% else %}
+                        <i class="fas fa-user-plus"></i> Créer un Nouvel Agent
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="first_name" class="form-label">Prénom <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" 
+                                       value="{% if agent %}{{ agent.first_name }}{% elif form_data %}{{ form_data.first_name }}{% endif %}" 
+                                       required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="last_name" class="form-label">Nom <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" 
+                                       value="{% if agent %}{{ agent.last_name }}{% elif form_data %}{{ form_data.last_name }}{% endif %}" 
+                                       required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{% if agent %}{{ agent.email }}{% elif form_data %}{{ form_data.email }}{% endif %}" 
+                                       required>
+                                <small class="form-text text-muted">Servira également de nom d'utilisateur</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="phone_number" class="form-label">Téléphone <span class="text-danger">*</span></label>
+                                <input type="tel" class="form-control" id="phone_number" name="phone_number" 
+                                       value="{% if agent %}{{ agent.phone_number }}{% elif form_data %}{{ form_data.phone_number }}{% endif %}" 
+                                       required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if not is_edit %}
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Type d'Agent <span class="text-danger">*</span></label>
+                        <select class="form-select" id="role" name="role" required>
+                            <option value="">Sélectionnez un type</option>
+                            <option value="agent_mali" {% if form_data.role == 'agent_mali' %}selected{% endif %}>
+                                Agent Mali
+                            </option>
+                            <option value="agent_chine" {% if form_data.role == 'agent_chine' %}selected{% endif %}>
+                                Agent Chine
+                            </option>
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    {% if is_edit %}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                   {% if agent.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                Agent actif
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if not is_edit %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Information :</strong> Le mot de passe par défaut sera <code>agent123</code>. 
+                        L'agent devra le changer lors de sa première connexion.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'admin_mali_app:agents' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Retour
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if is_edit %}
+                                <i class="fas fa-save"></i> Modifier l'Agent
+                            {% else %}
+                                <i class="fas fa-user-plus"></i> Créer l'Agent
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if is_edit %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Informations Complémentaires</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Type d'Agent:</strong><br>
+                        {% if agent.is_agent_mali %}
+                            <span class="badge bg-primary">Agent Mali</span>
+                        {% elif agent.is_agent_chine %}
+                            <span class="badge bg-success">Agent Chine</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Date de création:</strong><br>
+                        {{ agent.date_joined|date:"d/m/Y à H:i" }}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>Dernière connexion:</strong><br>
+                        {% if agent.last_login %}
+                            {{ agent.last_login|date:"d/m/Y à H:i" }}
+                        {% else %}
+                            <em class="text-muted">Jamais connecté</em>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Statut:</strong><br>
+                        {% if agent.is_active %}
+                            <span class="badge bg-success">Actif</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactif</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Validation côté client
+document.getElementById('email').addEventListener('blur', function() {
+    const email = this.value;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (email && !emailRegex.test(email)) {
+        this.classList.add('is-invalid');
+        if (!this.nextElementSibling || !this.nextElementSibling.classList.contains('invalid-feedback')) {
+            const feedback = document.createElement('div');
+            feedback.className = 'invalid-feedback';
+            feedback.textContent = 'Veuillez entrer une adresse email valide.';
+            this.parentNode.appendChild(feedback);
+        }
+    } else {
+        this.classList.remove('is-invalid');
+        const feedback = this.parentNode.querySelector('.invalid-feedback');
+        if (feedback) {
+            feedback.remove();
+        }
+    }
+});
+
+// Validation du téléphone
+document.getElementById('phone_number').addEventListener('input', function() {
+    let value = this.value.replace(/\D/g, ''); // Supprimer tous les non-chiffres
+    
+    // Format: +223 XX XX XX XX pour Mali ou format international
+    if (value.length > 0) {
+        if (value.startsWith('223')) {
+            value = '+223 ' + value.substring(3).replace(/(\d{2})/g, '$1 ').trim();
+        } else if (value.startsWith('86')) {
+            value = '+86 ' + value.substring(2).replace(/(\d{3})/g, '$1 ').trim();
+        }
+    }
+    
+    this.value = value.substring(0, 20); // Limiter la longueur
+});
+</script>
+{% endblock %}

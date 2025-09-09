@@ -1,0 +1,384 @@
+{% extends "client_app/base_client.html" %}
+
+{% block title %}Dashboard Client - TS Air Cargo{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    body {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f0f4f8 100%) !important;
+        min-height: 100vh;
+    }
+    
+    .stats-card {
+        background: rgba(255, 255, 255, 0.95);
+        color: #333;
+        border-radius: 15px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: all 0.4s ease;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        position: relative;
+        overflow: hidden;
+        min-height: 120px;
+    }
+    
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px) scale(1.01);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+    }
+    
+    .stats-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        margin-bottom: 10px;
+        color: white;
+    }
+    
+    .stats-icon.total { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .stats-icon.chine { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .stats-icon.transit { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .stats-icon.arrives { background: linear-gradient(135deg, #10b981, #059669); }
+    .stats-icon.livres { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+    .stats-icon.valeur { background: linear-gradient(135deg, #f43f5e, #e11d48); }
+    
+    .stats-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+        color: #1f2937;
+    }
+    
+    .stats-label {
+        font-size: 0.8rem;
+        color: #6b7280;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        line-height: 1.2;
+    }
+    
+    .colis-image {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+    
+    .colis-image:hover {
+        transform: scale(1.1);
+    }
+    
+    .colis-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s;
+        margin-bottom: 15px;
+    }
+    
+    .colis-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 5px 10px;
+        border-radius: 20px;
+    }
+    
+    .status-receptionne_chine {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-en_transit, .status-expedie {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    
+    .status-arrive {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-livre {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+    
+    .status-perdu {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .modal-img {
+        max-width: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Notification de première connexion -->
+{% if is_first_login or show_password_reminder %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info alert-dismissible fade show" role="alert" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <i class="fas fa-info-circle fa-2x"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="alert-heading mb-2">
+                        <i class="fas fa-key me-2"></i>
+                        {% if is_first_login %}Bienvenue !{% else %}Sécurité{% endif %}
+                    </h5>
+                    <p class="mb-2">
+                        {% if is_first_login %}
+                            Votre compte a été créé avec succès ! Pour sécuriser votre compte, nous vous recommandons fortement de changer votre mot de passe.
+                        {% else %}
+                            Pour votre sécurité, nous vous recommandons de personnaliser votre mot de passe.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'client_app:change_password' %}" class="btn btn-light btn-sm me-2">
+                        <i class="fas fa-lock me-1"></i>
+                        Changer le mot de passe
+                    </a>
+                    <small class="opacity-75">Cela ne prendra que quelques secondes</small>
+                </div>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-tachometer-alt text-primary"></i>
+            Tableau de bord Client
+        </h1>
+        <p class="text-muted">Bienvenue {{ client.user.get_full_name }}, voici un résumé de vos colis</p>
+    </div>
+</div>
+
+<!-- Statistiques -->
+<div class="row mb-4">
+    <div class="col-6 col-sm-4 col-md-2 mb-3">
+        <div class="stats-card text-center">
+            <div class="stats-icon total"><i class="fas fa-boxes"></i></div>
+            <div class="stats-number">{{ stats.total_colis }}</div>
+            <div class="stats-label">Total Colis</div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-md-2 mb-3">
+        <div class="stats-card text-center">
+            <div class="stats-icon chine"><i class="fas fa-warehouse"></i></div>
+            <div class="stats-number">{{ stats.en_chine }}</div>
+            <div class="stats-label">En Chine</div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-md-2 mb-3">
+        <div class="stats-card text-center">
+            <div class="stats-icon transit"><i class="fas fa-shipping-fast"></i></div>
+            <div class="stats-number">{{ stats.en_transit }}</div>
+            <div class="stats-label">En Transit</div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-md-2 mb-3">
+        <div class="stats-card text-center">
+            <div class="stats-icon arrives"><i class="fas fa-plane-arrival"></i></div>
+            <div class="stats-number">{{ stats.arrive_mali }}</div>
+            <div class="stats-label">Arrivés</div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-md-2 mb-3">
+        <div class="stats-card text-center">
+            <div class="stats-icon livres"><i class="fas fa-check-circle"></i></div>
+            <div class="stats-number">{{ stats.livres }}</div>
+            <div class="stats-label">Livrés</div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-md-2 mb-3">
+        <div class="stats-card text-center">
+            <div class="stats-icon valeur"><i class="fas fa-coins"></i></div>
+            <div class="stats-number">{{ valeur_totale|floatformat:0 }}</div>
+            <div class="stats-label">CFA Total</div>
+        </div>
+    </div>
+</div>
+
+<!-- Notifications -->
+{% if notifications_non_lues > 0 %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info d-flex align-items-center">
+            <i class="fas fa-bell me-3"></i>
+            <div>
+                <strong>{{ notifications_non_lues }} nouvelle(s) notification(s)</strong>
+                <a href="{% url 'client_app:notifications' %}" class="btn btn-sm btn-outline-info ms-3">Voir toutes</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Colis en cours -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-shipping-fast text-warning me-2"></i>
+                    Colis en cours de livraison
+                </h5>
+                <a href="{% url 'client_app:mes_colis' %}?statut=en_transit" class="btn btn-sm btn-outline-primary">Voir tous</a>
+            </div>
+            <div class="card-body">
+                {% if colis_en_cours %}
+                    {% for colis in colis_en_cours %}
+                    <div class="colis-card p-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                {% if colis.image %}
+                                    <img src="{{ colis.image.url }}" alt="Colis {{ colis.numero_suivi }}" 
+                                         class="colis-image" data-bs-toggle="modal" data-bs-target="#imageModal" 
+                                         data-image-src="{{ colis.image.url }}" data-image-title="{{ colis.numero_suivi }}">
+                                {% else %}
+                                    <div class="colis-image d-flex align-items-center justify-content-center bg-light">
+                                        <i class="fas fa-box text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="mb-1">{{ colis.numero_suivi }}</h6>
+                                <p class="text-muted mb-1">{{ colis.description|truncatechars:50 }}</p>
+                                <small class="text-muted">Lot: {{ colis.lot.numero_lot }}</small>
+                            </div>
+                            <div class="col-md-2">
+                                <span class="status-badge status-{{ colis.statut }}">{{ colis.get_statut_display }}</span>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <a href="{% url 'client_app:colis_detail' colis.id %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-shipping-fast fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Aucun colis en cours de livraison</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Derniers colis -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history text-info me-2"></i>
+                    Derniers colis
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if derniers_colis %}
+                    {% for colis in derniers_colis %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            {% if colis.image %}
+                                <img src="{{ colis.image.url }}" alt="Colis {{ colis.numero_suivi }}" 
+                                     class="colis-image" style="width: 50px; height: 50px;" 
+                                     data-bs-toggle="modal" data-bs-target="#imageModal" 
+                                     data-image-src="{{ colis.image.url }}" data-image-title="{{ colis.numero_suivi }}">
+                            {% else %}
+                                <div class="colis-image d-flex align-items-center justify-content-center bg-light" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-box text-muted"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">{{ colis.numero_suivi }}</h6>
+                            <span class="status-badge status-{{ colis.statut }}">{{ colis.get_statut_display }}</span>
+                        </div>
+                        <div>
+                            <a href="{% url 'client_app:colis_detail' colis.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'client_app:mes_colis' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-list me-2"></i>Voir tous mes colis
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-box fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Aucun colis enregistré</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour agrandir les images -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Image du colis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img src="" alt="Image du colis" class="modal-img" id="modalImage">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Script pour gérer l'ouverture des images en modal
+$('#imageModal').on('show.bs.modal', function (event) {
+    var button = $(event.relatedTarget);
+    var imageSrc = button.data('image-src');
+    var imageTitle = button.data('image-title');
+    
+    var modal = $(this);
+    modal.find('#modalImage').attr('src', imageSrc);
+    modal.find('.modal-title').text('Colis ' + imageTitle);
+});
+</script>
+{% endblock %}

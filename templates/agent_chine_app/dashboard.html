@@ -1,0 +1,391 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}Tableau de Bord Agent Chine - TS Air Cargo{% endblock %}
+
+{% block page_title %}Tableau de Bord{% endblock %}
+
+{% block content %}
+<!-- Header Actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Bienvenue, {{ user.get_full_name }}! 🚀</h2>
+        <p class="text-muted mb-1">Voici un aperçu de vos activités aujourd'hui</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_chine:lot_create' %}" class="action-btn">
+            <i class="bi bi-plus-circle"></i>
+            Nouveau Lot
+        </a>
+        <a href="{% url 'agent_chine:client_create' %}" class="action-btn action-btn-outline">
+            <i class="bi bi-person-plus"></i>
+            Nouveau Client
+        </a>
+    </div>
+</div>
+
+<!-- Cartes de statistiques modernes -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ stats.total_clients }}</h3>
+                    <p class="stat-label">Total Clients</p>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i>
+                        +5.8%
+                    </div>
+                </div>
+                <i class="bi bi-people stat-icon" style="color: var(--primary-color);"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ stats.total_lots }}</h3>
+                    <p class="stat-label">Total Lots</p>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i>
+                        +11%
+                    </div>
+                </div>
+                <i class="bi bi-box stat-icon" style="color: var(--success-color);"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ stats.total_colis }}</h3>
+                    <p class="stat-label">Total Colis</p>
+                    <div class="stat-change negative">
+                        <i class="bi bi-arrow-down"></i>
+                        -2.4%
+                    </div>
+                </div>
+                <i class="bi bi-archive stat-icon" style="color: var(--info-color);"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ stats.revenus_mois|floatformat:0 }} CFA</h3>
+                    <p class="stat-label">Revenus du Mois</p>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i>
+                        {% if stats.croissance_clients >= 0 %}+{% endif %}{{ stats.croissance_clients|floatformat:1 }}%
+                    </div>
+                </div>
+                <i class="bi bi-currency-dollar stat-icon" style="color: var(--success-color);"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activités récentes et Projets ouverts -->
+<div class="row mb-4">
+    <!-- Activités récentes avec vraies données -->
+    <div class="col-xl-6 col-lg-6 mb-4">
+        <div class="modern-card">
+            <div class="modern-card-header d-flex justify-content-between align-items-center">
+                <h5 class="modern-card-title">Activités Récentes</h5>
+                <small class="text-muted">{{ "now"|date:"d M Y, H:i" }}</small>
+            </div>
+            <div class="modern-card-body">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="position-relative">
+                        {% with angle=stats.lots_ouverts|default:0 %}
+                        <div style="width: 100px; height: 100px; background: conic-gradient(var(--success-color) 0deg, var(--success-color) {% if angle %}{{ angle }}0{% else %}0{% endif %}deg, #e5e7eb {% if angle %}{{ angle }}0{% else %}0{% endif %}deg, #e5e7eb 360deg); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        {% endwith %}
+                            <div style="width: 60px; height: 60px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem; color: var(--dark-color);">
+                                {{ stats.lots_ouverts }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ms-4">
+                        <div class="text-muted small">Lots</div>
+                        <div class="fw-bold">Actifs</div>
+                    </div>
+                </div>
+                
+                {% if derniers_lots %}
+                    {% for lot in derniers_lots|slice:":2" %}
+                    <div class="activity-item d-flex align-items-center mb-3 p-3" style="background: rgba({% if lot.statut == 'ouvert' %}16, 185, 129{% elif lot.statut == 'ferme' %}245, 158, 11{% else %}59, 130, 246{% endif %}, 0.1); border-radius: 0.75rem;">
+                        <div class="activity-icon me-3" style="width: 40px; height: 40px; background: {% if lot.statut == 'ouvert' %}var(--success-color){% elif lot.statut == 'ferme' %}var(--warning-color){% else %}var(--info-color){% endif %}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i class="bi bi-{% if lot.statut == 'ouvert' %}box{% elif lot.statut == 'ferme' %}box-seam{% else %}truck{% endif %}"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">Lot {{ lot.numero_lot }}</div>
+                            <div class="text-muted small">{{ lot.get_statut_display }} - {{ lot.colis.count }} colis</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold text-success">{% if lot.colis.count %}{{ lot.colis.count }}{% else %}0{% endif %}</div>
+                            <div class="text-muted small">{{ lot.date_creation|date:"d M, H:i" }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                        <p class="mt-2 mb-0">Aucune activité récente</p>
+                        <small>Créez votre premier lot pour commencer</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions rapides et statistiques temps réel -->
+    <div class="col-xl-6 col-lg-6 mb-4">
+        <div class="modern-card">
+            <div class="modern-card-header d-flex justify-content-between align-items-center">
+                <h5 class="modern-card-title">Actions Rapides</h5>
+                <div class="text-muted small">
+                    <div>Status en temps réel</div>
+                    <div>{{ "now"|date:"H:i" }}</div>
+                </div>
+            </div>
+            <div class="modern-card-body">
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(59, 130, 246, 0.1); border-radius: 0.75rem;">
+                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--info-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="bi bi-kanban"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Lots Ouverts</div>
+                        <div class="text-muted small">Lots actifs en cours de remplissage</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-info">{{ stats.lots_ouverts }}</div>
+                        <a href="{% url 'agent_chine:lot_list' %}" class="text-muted small text-decoration-none">Voir tous</a>
+                    </div>
+                </div>
+                
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(16, 185, 129, 0.1); border-radius: 0.75rem;">
+                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--success-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Lots Fermés</div>
+                        <div class="text-muted small">Prêts à être expédiés</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-success">{{ stats.lots_fermes }}</div>
+                        <a href="{% url 'agent_chine:lot_list' %}?statut=ferme" class="text-muted small text-decoration-none">Expédier</a>
+                    </div>
+                </div>
+                
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(139, 92, 246, 0.1); border-radius: 0.75rem;">
+                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: #8b5cf6; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="bi bi-truck"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Lots Expédiés</div>
+                        <div class="text-muted small">En route vers le Mali</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold" style="color: #8b5cf6;">{{ stats.lots_expedies }}</div>
+                        <a href="{% url 'agent_chine:lot_list' %}?statut=expedie" class="text-muted small text-decoration-none">Suivre</a>
+                    </div>
+                </div>
+                
+                {% if derniers_colis %}
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(245, 158, 11, 0.1); border-radius: 0.75rem;">
+                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--warning-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="bi bi-archive"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Dernier Colis</div>
+                        <div class="text-muted small">{{ derniers_colis.0.client.user.get_full_name }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-warning">{{ derniers_colis.0.numero_suivi }}</div>
+                        <div class="text-muted small">{{ derniers_colis.0.date_creation|date:"d/m H:i" }}</div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="project-item d-flex align-items-center p-3" style="background: rgba(239, 68, 68, 0.1); border-radius: 0.75rem;">
+                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--danger-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Total Clients</div>
+                        <div class="text-muted small">Base clients active</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-danger">{{ stats.total_clients }}</div>
+                        <a href="{% url 'agent_chine:client_list' %}" class="text-muted small text-decoration-none">Gérer</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Derniers lots et colis -->
+<div class="row">
+    <!-- Derniers lots -->
+    <div class="col-xl-6 col-lg-6 mb-4 equal-height">
+        <div class="modern-card">
+            <div class="modern-card-header d-flex justify-content-between align-items-center">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-box"></i>
+                    Derniers Lots
+                </h5>
+                <a href="{% url 'agent_chine:lot_list' %}" class="action-btn">
+                    <i class="bi bi-arrow-right"></i>
+                    Voir tous
+                </a>
+            </div>
+            <div class="modern-card-body">
+                {% if derniers_lots %}
+                    <div class="table-modern">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>N° Lot</th>
+                                    <th>Statut</th>
+                                    <th>Date</th>
+                                    <th class="d-mobile-none">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lot in derniers_lots %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="text-decoration-none fw-bold">
+                                            {{ lot.numero_lot }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-{{ lot.statut }}">
+                                            {{ lot.get_statut_display }}
+                                        </span>
+                                    </td>
+                                    <td class="small">{{ lot.date_creation|date:"d/m/Y" }}</td>
+                                    <td class="d-mobile-none">
+                                        <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-box" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="mt-2">Aucun lot créé</p>
+                        <a href="{% url 'agent_chine:lot_create' %}" class="action-btn">
+                            <i class="bi bi-plus-circle"></i>
+                            Créer le premier lot
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Derniers colis -->
+    <div class="col-xl-6 col-lg-6 mb-4 equal-height">
+        <div class="modern-card">
+            <div class="modern-card-header d-flex justify-content-between align-items-center">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-archive"></i>
+                    Derniers Colis
+                </h5>
+                <a href="{% url 'agent_chine:colis_list' %}" class="action-btn">
+                    <i class="bi bi-arrow-right"></i>
+                    Voir tous
+                </a>
+            </div>
+            <div class="modern-card-body">
+                {% if derniers_colis %}
+                    <div class="table-modern">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>N° Suivi</th>
+                                    <th>Client</th>
+                                    <th>Statut</th>
+                                    <th class="d-mobile-none">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for colis in derniers_colis %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none fw-bold">
+                                            {{ colis.numero_suivi }}
+                                        </a>
+                                    </td>
+                                    <td class="small">{{ colis.client.user.get_full_name }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ colis.statut }}">
+                                            {{ colis.get_statut_display }}
+                                        </span>
+                                    </td>
+                                    <td class="small d-mobile-none">{{ colis.date_creation|date:"d/m/Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-archive" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="mt-2">Aucun colis créé</p>
+                        <p class="small">Créez d'abord un lot pour ajouter des colis</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions rapides mobiles -->
+<div class="d-md-none fixed-bottom bg-light border-top p-3">
+    <div class="row">
+        <div class="col-6">
+            <a href="{% url 'agent_chine:lot_create' %}" class="btn btn-primary btn-block">
+                <i class="bi bi-plus-circle"></i> Nouveau Lot
+            </a>
+        </div>
+        <div class="col-6">
+            <a href="{% url 'agent_chine:client_create' %}" class="btn btn-outline-primary btn-block">
+                <i class="bi bi-person-plus"></i> Client
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.border-left-primary {
+    border-left: .25rem solid var(--bs-primary) !important;
+}
+.border-left-success {
+    border-left: .25rem solid var(--bs-success) !important;
+}
+.border-left-info {
+    border-left: .25rem solid var(--bs-info) !important;
+}
+.border-left-warning {
+    border-left: .25rem solid var(--bs-warning) !important;
+}
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+</style>
+{% endblock %}

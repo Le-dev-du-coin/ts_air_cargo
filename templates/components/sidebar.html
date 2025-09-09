@@ -1,0 +1,200 @@
+<div class="position-sticky pt-3">
+    <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+        <span>Navigation</span>
+    </h6>
+
+    <!-- Menu selon le rôle de l'utilisateur -->
+    {% if user.is_agent_chine %}
+        <!-- Menu Agent Chine -->
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-house"></i>
+                    Tableau de bord
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-people"></i>
+                    Clients
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-box"></i>
+                    Lots
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-archive"></i>
+                    Colis
+                </a>
+            </li>
+        </ul>
+
+    {% elif user.is_agent_mali %}
+        <!-- Menu Agent Mali -->
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-house"></i>
+                    Tableau de bord
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-inbox"></i>
+                    Lots en transit
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-truck"></i>
+                    Livraisons
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-receipt"></i>
+                    Dépenses
+                </a>
+            </li>
+        </ul>
+
+    {% elif user.is_admin_mali %}
+        <!-- Menu Admin Mali -->
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-speedometer2"></i>
+                    Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-people-fill"></i>
+                    Gestion utilisateurs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-currency-exchange"></i>
+                    Transferts d'argent
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-graph-up"></i>
+                    Rapports financiers
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-gear"></i>
+                    Configuration
+                </a>
+            </li>
+        </ul>
+
+    {% elif user.is_admin_chine %}
+        <!-- Menu Admin Chine -->
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-speedometer2"></i>
+                    Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-people-fill"></i>
+                    Gestion utilisateurs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-check-circle"></i>
+                    Confirmer transferts
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-tags"></i>
+                    Tarifs transport
+                </a>
+            </li>
+        </ul>
+
+    {% elif user.is_client %}
+        <!-- Menu Client -->
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-house"></i>
+                    Mon espace
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-search"></i>
+                    Suivre mes colis
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-clock-history"></i>
+                    Historique
+                </a>
+            </li>
+        </ul>
+
+    {% elif user.is_superuser %}
+        <!-- Menu Super Utilisateur -->
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="/admin/">
+                    <i class="bi bi-gear-fill"></i>
+                    Administration Django
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    Analytics
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="bi bi-shield-check"></i>
+                    Sécurité
+                </a>
+            </li>
+        </ul>
+    {% endif %}
+
+    <!-- Menu commun à tous les utilisateurs connectés -->
+    <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+        <span>Général</span>
+    </h6>
+    <ul class="nav flex-column mb-2">
+        <li class="nav-item">
+            <a class="nav-link" href="#">
+                <i class="bi bi-person-circle"></i>
+                Mon profil
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#">
+                <i class="bi bi-question-circle"></i>
+                Aide
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#">
+                <i class="bi bi-box-arrow-right"></i>
+                Déconnexion
+            </a>
+        </li>
+    </ul>
+</div>

@@ -1,0 +1,14 @@
+[Unit]
+Description=WaChap Monitoring Service for TS Air Cargo
+After=network.target
+
+[Service]
+Type=simple
+User=ledevducoin
+WorkingDirectory=/Users/ledevducoin/Desktop/ts_air_cargo
+ExecStart=/Users/ledevducoin/Desktop/ts_air_cargo/.venv/bin/python /Users/ledevducoin/Desktop/ts_air_cargo/manage.py monitor_wachap --continuous --interval=15
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

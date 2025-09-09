@@ -1,0 +1,393 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load mali_filters %}
+
+{% block title %}Réceptionner Lot {{ lot.numero_lot }} - TS Air Cargo Mali{% endblock %}
+
+{% block content %}
+<!-- Header avec navigation -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Réceptionner le Lot</h2>
+        <p class="text-muted mb-0">Confirmer la réception et notifier les clients</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:lots_en_transit' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Informations du lot -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-box-seam me-2"></i>
+                    Lot {{ lot.numero_lot }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Numéro de lot:</strong></td>
+                                <td>{{ lot.numero_lot }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Statut actuel:</strong></td>
+                                <td>
+                                    <span class="badge bg-warning">{{ lot.get_statut_display }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date expédition:</strong></td>
+                                <td>{{ lot.date_expedition|date:"d/m/Y à H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Agent expéditeur:</strong></td>
+                                <td>{{ lot.agent_createur.get_full_name }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Nombre de colis:</strong></td>
+                                <td><span class="badge bg-info fs-6">{{ lot.colis.count }}</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Prix transport:</strong></td>
+                                <td class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} CFA</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date prévue:</strong></td>
+                                <td>{{ lot.date_prevue_arrivee|date:"d/m/Y"|default:"Non définie" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow border-left-success">
+            <div class="card-body">
+                <h6 class="text-success">
+                    <i class="bi bi-check-circle me-2"></i>Actions de réception
+                </h6>
+                <p class="text-muted small">
+                    En réceptionnant ce lot, tous les colis passeront au statut "Arrivé" et les clients seront automatiquement notifiés.
+                </p>
+                <div class="d-grid">
+                    <button class="btn btn-success" onclick="showReceptionModal()">
+                        <i class="bi bi-download"></i> Réceptionner maintenant
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des colis dans le lot -->
+<div class="card shadow">
+    <div class="card-header">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="bi bi-boxes me-2"></i>
+            Colis dans ce lot ({{ lot.colis.count }})
+        </h6>
+    </div>
+    <div class="card-body">
+        {% if lot.colis.all %}
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th width="30">Réceptionner</th>
+                            <th>Code Colis</th>
+                            <th>Client</th>
+                            <th>Téléphone</th>
+                            <th>Poids</th>
+                            <th>Prix</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for colis in lot.colis.all %}
+                        <tr{% if colis.statut == 'arrive' %} class="table-success" style="opacity: 0.7;"{% endif %}>
+                            <td>
+                                {% if colis.statut != 'arrive' %}
+                                    <input type="checkbox" class="colis-checkbox" name="colis_recus" value="{{ colis.id }}" checked>
+                                {% else %}
+                                    <i class="bi bi-check-circle-fill text-success" title="Déjà réceptionné"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="fw-bold {% if colis.statut == 'arrive' %}text-success{% else %}text-primary{% endif %}">{{ colis.numero_suivi }}</div>
+                                <small class="text-muted">{{ colis.description|truncatechars:30 }}</small>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ colis.client.user.get_full_name }}</div>
+                                <small class="text-muted">{{ colis.client.adresse|truncatechars:40 }}</small>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ colis.client.user.telephone }}</div>
+                                <small class="text-success">
+                                    <i class="bi bi-whatsapp"></i> WhatsApp disponible
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ colis.poids }} kg</span>
+                            </td>
+                            <td>
+                                <div class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} CFA</div>
+                            </td>
+                            <td>
+                                {% if colis.statut == 'arrive' %}
+                                    <span class="badge bg-success">{{ colis.get_statut_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ colis.get_statut_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Résumé -->
+            <div class="row mt-3">
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-primary">{{ lot.colis.count }}</div>
+                        <div class="small text-muted">Colis total</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-info">
+                            {% with total_poids=lot.colis.all|sum_field:"poids" %}
+                                {{ total_poids|floatformat:1 }}
+                            {% endwith %} kg
+                        </div>
+                        <div class="small text-muted">Poids total</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-success">
+                            {% with total_prix=lot.colis.all|sum_field:"prix" %}
+                                {{ total_prix|floatformat:0 }}
+                            {% endwith %} CFA
+                        </div>
+                        <div class="small text-muted">Valeur totale</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-warning">{{ lot.colis.all|length }}</div>
+                        <div class="small text-muted">Clients à notifier</div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-box" style="font-size: 3rem; color: #e3e6f0;"></i>
+                <h5 class="text-muted mt-3">Aucun colis trouvé</h5>
+                <p class="text-muted">Ce lot ne contient aucun colis.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de confirmation de réception -->
+<div class="modal fade" id="receptionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-download me-2"></i>
+                    Confirmer la réception
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Attention :</strong> Cette action va :
+                        <ul class="mb-0 mt-2">
+                            <li>Marquer le lot comme "Arrivé au Mali"</li>
+                            <li>Changer le statut de tous les colis ({{ lot.colis.count }}) vers "Arrivé"</li>
+                            <li>Envoyer des notifications automatiques à tous les clients</li>
+                            <li>Créer un enregistrement de réception avec la date actuelle</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="commentaire_reception" class="form-label">Commentaire (optionnel)</label>
+                        <textarea class="form-control" id="commentaire_reception" name="commentaire" rows="3" 
+                                  placeholder="Ajouter un commentaire sur la réception..."></textarea>
+                        <div class="form-text">Ce commentaire sera visible dans l'historique du lot</div>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="notification_clients" name="notifier_clients" checked>
+                        <label class="form-check-label" for="notification_clients">
+                            <strong>Notifier automatiquement les clients</strong>
+                            <div class="small text-muted">Envoyer SMS/WhatsApp UNIQUEMENT aux clients des colis sélectionnés</div>
+                            <div class="small text-info mt-1">
+                                <i class="bi bi-info-circle"></i> 
+                                Les notifications sont envoyées au numéro sandbox WhatsApp en mode test
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Confirmer la réception
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedColis = [];
+    
+    function showReceptionModal() {
+        // Copier les checkboxes sélectionnés dans le formulaire du modal
+        const checkedBoxes = document.querySelectorAll('.colis-checkbox:checked');
+        const modalForm = document.querySelector('#receptionModal form');
+        
+        // Supprimer les anciens champs cachés
+        const existingHiddenInputs = modalForm.querySelectorAll('input[name="colis_recus"]');
+        existingHiddenInputs.forEach(input => input.remove());
+        
+        // Ajouter les nouveaux champs cachés pour les colis sélectionnés
+        checkedBoxes.forEach(checkbox => {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'colis_recus';
+            hiddenInput.value = checkbox.value;
+            modalForm.appendChild(hiddenInput);
+        });
+        
+        // Mettre à jour le texte du modal
+        const selectedCount = checkedBoxes.length;
+        const totalCount = document.querySelectorAll('.colis-checkbox').length;
+        const alertText = document.querySelector('#receptionModal .alert');
+        
+        if (selectedCount === totalCount) {
+            alertText.innerHTML = `
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Réception complète :</strong> Cette action va :
+                <ul class="mb-0 mt-2">
+                    <li>Marquer le lot comme "Arrivé au Mali"</li>
+                    <li>Changer le statut de tous les colis (${selectedCount}) vers "Arrivé"</li>
+                    <li>Envoyer des notifications automatiques à tous les clients</li>
+                    <li>Créer un enregistrement de réception avec la date actuelle</li>
+                </ul>
+            `;
+        } else {
+            alertText.innerHTML = `
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Réception partielle :</strong> Cette action va :
+                <ul class="mb-0 mt-2">
+                    <li>Marquer ${selectedCount} colis sur ${totalCount} comme "Arrivés"</li>
+                    <li>Laisser le lot en transit (réception incomplète)</li>
+                    <li>Marquer les colis non sélectionnés comme manquants</li>
+                    <li>Envoyer des notifications uniquement aux clients des colis reçus</li>
+                </ul>
+            `;
+            alertText.className = 'alert alert-warning';
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('receptionModal'));
+        modal.show();
+    }
+    
+    // Fonction pour sélectionner/désélectionner tous les colis
+    function toggleAllColis() {
+        const allCheckboxes = document.querySelectorAll('.colis-checkbox');
+        const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+        
+        allCheckboxes.forEach(checkbox => {
+            checkbox.checked = !allChecked;
+        });
+        
+        updateSelectionInfo();
+    }
+    
+    // Mettre à jour les informations de sélection
+    function updateSelectionInfo() {
+        const checkedBoxes = document.querySelectorAll('.colis-checkbox:checked');
+        const totalBoxes = document.querySelectorAll('.colis-checkbox');
+        
+        // Créer ou mettre à jour l'indicateur de sélection
+        let selectionInfo = document.getElementById('selection-info');
+        if (!selectionInfo) {
+            selectionInfo = document.createElement('div');
+            selectionInfo.id = 'selection-info';
+            selectionInfo.className = 'alert alert-info mt-3';
+            document.querySelector('.card-body').appendChild(selectionInfo);
+        }
+        
+        const selectedCount = checkedBoxes.length;
+        const totalCount = totalBoxes.length;
+        
+        if (selectedCount === 0) {
+            selectionInfo.style.display = 'none';
+        } else {
+            selectionInfo.style.display = 'block';
+            selectionInfo.innerHTML = `
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>${selectedCount}</strong> colis sélectionné(s) sur <strong>${totalCount}</strong> pour réception
+                ${selectedCount < totalCount ? '<br><small class="text-muted">Les colis non sélectionnés seront marqués comme manquants</small>' : ''}
+            `;
+        }
+    }
+    
+    // Initialiser les événements
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ajouter un bouton pour sélectionner/désélectionner tous
+        const tableHeader = document.querySelector('.card-header h6');
+        if (tableHeader) {
+            const toggleButton = document.createElement('button');
+            toggleButton.type = 'button';
+            toggleButton.className = 'btn btn-sm btn-outline-primary ms-2';
+            toggleButton.innerHTML = '<i class="bi bi-check-all"></i> Tout sélectionner/désélectionner';
+            toggleButton.onclick = toggleAllColis;
+            tableHeader.appendChild(toggleButton);
+        }
+        
+        // Ajouter des écouteurs d'événements aux checkboxes
+        document.querySelectorAll('.colis-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectionInfo);
+        });
+        
+        // Initialiser l'affichage
+        updateSelectionInfo();
+    });
+    
+    // Afficher automatiquement le modal si des messages d'erreur existent
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'error' %}
+                showReceptionModal();
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+</script>
+{% endblock %}

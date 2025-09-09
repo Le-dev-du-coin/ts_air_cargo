@@ -1,0 +1,383 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+
+{% block title %}Marquer Livré - {{ colis.code_colis }} - TS Air Cargo Mali{% endblock %}
+
+{% block content %}
+<!-- Header avec navigation -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Marquer comme Livré</h2>
+        <p class="text-muted mb-0">Confirmer la livraison du colis {{ colis.numero_suivi }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Informations du colis -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-box-seam me-2"></i>
+                    Colis {{ colis.numero_suivi }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Code colis:</strong></td>
+                                <td>{{ colis.numero_suivi }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Description:</strong></td>
+                                <td>{{ colis.description }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Statut actuel:</strong></td>
+                                <td>
+                                    <span class="badge bg-info">{{ colis.get_statut_display }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Lot:</strong></td>
+                                <td>{{ colis.lot.numero_lot }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Poids:</strong></td>
+                                <td><span class="badge bg-secondary">{{ colis.poids }} kg</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Prix:</strong></td>
+                                <td class="text-success fw-bold">{{ colis.prix|floatformat:0 }} CFA</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date création:</strong></td>
+                                <td>{{ colis.date_creation|date:"d/m/Y à H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date arrivée:</strong></td>
+                                <td>
+                                    {% if colis.lot.receptionlot_set.first %}
+                                        {{ colis.lot.receptionlot_set.first.date_reception|date:"d/m/Y à H:i" }}
+                                    {% else %}
+                                        <span class="text-muted">Non réceptionné</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow border-left-success">
+            <div class="card-body">
+                <h6 class="text-success">
+                    <i class="bi bi-truck me-2"></i>Livraison
+                </h6>
+                <p class="text-muted small">
+                    Confirmez la livraison de ce colis au destinataire. Cette action est irréversible.
+                </p>
+                <div class="d-grid">
+                    <button class="btn btn-success" onclick="showDeliveryModal()">
+                        <i class="bi bi-check-circle"></i> Marquer comme livré
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Historique rapide -->
+        <div class="card shadow mt-3">
+            <div class="card-header">
+                <h6 class="m-0 text-primary">
+                    <i class="bi bi-clock-history me-2"></i>Historique
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <div class="fw-semibold">Création</div>
+                            <div class="small text-muted">{{ colis.date_creation|date:"d/m/Y H:i" }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if colis.lot.date_expedition %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-warning"></div>
+                        <div class="timeline-content">
+                            <div class="fw-semibold">Expédition</div>
+                            <div class="small text-muted">{{ colis.lot.date_expedition|date:"d/m/Y H:i" }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if colis.lot.receptionlot_set.first %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-info"></div>
+                        <div class="timeline-content">
+                            <div class="fw-semibold">Arrivée Mali</div>
+                            <div class="small text-muted">{{ colis.lot.receptionlot_set.first.date_reception|date:"d/m/Y H:i" }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <div class="fw-semibold text-success">Livraison</div>
+                            <div class="small text-muted">En attente...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Informations du destinataire -->
+<div class="card shadow mb-4">
+    <div class="card-header">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="bi bi-person me-2"></i>
+            Informations Destinataire
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Nom complet</label>
+                    <div class="form-control-plaintext">{{ colis.client.user.get_full_name }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Téléphone</label>
+                    <div class="form-control-plaintext">
+                        {{ colis.client.user.telephone }}
+                        {% if colis.whatsapp_destinataire %}
+                            <span class="badge bg-success ms-2">
+                                <i class="bi bi-whatsapp"></i> WhatsApp
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Email</label>
+                    <div class="form-control-plaintext">
+                        {{ colis.client.user.email|default:"Non renseigné" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-8">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Adresse complète</label>
+                    <div class="form-control-plaintext">{{ colis.client.adresse|default:"Adresse non renseignée" }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Actions rapides</label>
+                    <div>
+                        <a href="tel:{{ colis.client.user.telephone }}" class="btn btn-outline-primary btn-sm me-2">
+                            <i class="bi bi-telephone"></i> Appeler
+                        </a>
+                        {% if colis.whatsapp_destinataire %}
+                            <a href="https://wa.me/{{ colis.client.user.telephone|slice:'1:' }}" target="_blank" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-whatsapp"></i> WhatsApp
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation de livraison -->
+<div class="modal fade" id="deliveryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Confirmer la Livraison
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Confirmation :</strong> Vous êtes sur le point de marquer ce colis comme livré.
+                        <ul class="mb-0 mt-2">
+                            <li>Le statut passera à "Livré"</li>
+                            <li>La date de livraison sera enregistrée</li>
+                            <li>Le client peut être notifié (optionnel)</li>
+                            <li>Cette action est irréversible</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="mode_livraison" class="form-label">Mode de livraison <span class="text-danger">*</span></label>
+                        <select class="form-select" id="mode_livraison" name="mode_livraison" required>
+                            <option value="">Sélectionner le mode</option>
+                            <option value="domicile">Livraison à domicile</option>
+                            <option value="retrait_agence">Retrait en agence</option>
+                            <option value="point_relais">Point relais</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="personne_receptrice" class="form-label">Personne réceptrice</label>
+                        <input type="text" class="form-control" id="personne_receptrice" name="personne_receptrice" 
+                               value="{{ colis.nom_destinataire }}" 
+                               placeholder="Nom de la personne qui a reçu le colis">
+                        <div class="form-text">Laisser vide si c'est le destinataire principal</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="commentaire_livraison" class="form-label">Commentaire (optionnel)</label>
+                        <textarea class="form-control" id="commentaire_livraison" name="commentaire" rows="3" 
+                                  placeholder="Ajouter un commentaire sur la livraison..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="statut_paiement" class="form-label">Statut de paiement <span class="text-danger">*</span></label>
+                        <select class="form-select" id="statut_paiement" name="statut_paiement" required>
+                            <option value="en_attente">En attente de paiement</option>
+                            <option value="paye">Payé</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Important :</strong> Les colis "Payés" ne peuvent plus être modifiés.
+                        </div>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="notification_client" name="notifier_client" checked>
+                        <label class="form-check-label" for="notification_client">
+                            <strong>Envoyer une notification au client</strong>
+                            <div class="small text-muted">Confirmer la livraison par SMS/WhatsApp</div>
+                        </label>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="demander_avis" name="demander_avis">
+                        <label class="form-check-label" for="demander_avis">
+                            <strong>Demander un avis client</strong>
+                            <div class="small text-muted">Inclure une demande d'évaluation du service</div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Confirmer la livraison
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e3e6f0;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -22px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #e3e6f0;
+    }
+    
+    .timeline-content {
+        padding-left: 10px;
+    }
+    
+    .border-left-success {
+        border-left: 4px solid #28a745 !important;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showDeliveryModal() {
+        const modal = new bootstrap.Modal(document.getElementById('deliveryModal'));
+        modal.show();
+    }
+    
+    // Afficher automatiquement le modal si des messages d'erreur existent
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'error' %}
+                showDeliveryModal();
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    
+    // Validation du formulaire
+    document.getElementById('deliveryModal').addEventListener('submit', function(e) {
+        const modelivraison = document.getElementById('mode_livraison').value;
+        if (!modelivraison) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Champ requis',
+                text: 'Veuillez sélectionner un mode de livraison avant de continuer.',
+                confirmButtonText: 'Compris',
+                confirmButtonColor: '#f59e0b'
+            });
+            return false;
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,220 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo{% endblock %}
+
+{% block content %}
+<div class="container-flued px-4">
+    <!-- En-tête de la page -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-lock text-warning"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mt-1">Saisir le prix du transport pour fermer le lot</p>
+        </div>
+        <div>
+            <a href="{% url 'agent_chine:lot_detail' lot_id=lot.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour au lot
+            </a>
+        </div>
+    </div>
+
+    <!-- Informations du lot -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Lot à fermer
+                            </div>
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">
+                                {{ lot.numero_lot }}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1">
+                                Créé le {{ lot.date_creation|date:"d/m/Y à H:i" }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-box fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Nombre de colis
+                            </div>
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">
+                                {{ colis_count }}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1">
+                                Total: {{ total_poids|floatformat:2 }} kg
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cubes fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé du lot -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-chart-bar"></i>
+                Résumé du lot
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="text-center p-3 bg-light rounded">
+                        <div class="text-xs font-weight-bold text-uppercase mb-2">Colis</div>
+                        <div class="h5 mb-0 font-weight-bold text-primary">{{ colis_count }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center p-3 bg-light rounded">
+                        <div class="text-xs font-weight-bold text-uppercase mb-2">Poids total</div>
+                        <div class="h5 mb-0 font-weight-bold text-success">{{ total_poids|floatformat:2 }} kg</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center p-3 bg-light rounded">
+                        <div class="text-xs font-weight-bold text-uppercase mb-2">Valeur colis</div>
+                        <div class="h5 mb-0 font-weight-bold text-info">{{ total_prix_colis|floatformat:0 }} CFA</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire de fermeture -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-warning">
+                <i class="fas fa-lock"></i>
+                Fermeture du lot
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6 mx-auto">
+                        <div class="form-group">
+                            <label for="prix_transport" class="form-label font-weight-bold">
+                                <i class="fas fa-dollar-sign text-success"></i>
+                                Prix du transport (CFA) *
+                            </label>
+                            <div class="input-group input-group-lg">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text bg-success text-white">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </span>
+                                </div>
+                                <input 
+                                    type="number" 
+                                    class="form-control form-control-lg" 
+                                    id="prix_transport" 
+                                    name="prix_transport" 
+                                    min="1" 
+                                    step="0.01"
+                                    placeholder="Ex: 50000"
+                                    required
+                                >
+                                <div class="input-group-append">
+                                    <span class="input-group-text">CFA</span>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Veuillez saisir un prix de transport valide.
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                Le prix du transport sera utilisé pour calculer les coûts de livraison.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zone d'alerte -->
+                <div class="alert alert-warning" role="alert">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Attention !
+                    </h6>
+                    <p class="mb-2">
+                        Une fois le lot fermé avec le prix du transport :
+                    </p>
+                    <ul class="mb-2">
+                        <li><strong>Aucun nouveau colis</strong> ne pourra être ajouté</li>
+                        <li><strong>Notifications WhatsApp</strong> seront envoyées aux {{ colis_count }} propriétaires</li>
+                        <li>Le lot sera <strong>prêt pour l'expédition</strong></li>
+                    </ul>
+                    <hr>
+                    <p class="mb-0">
+                        <small>Cette action est irréversible. Assurez-vous que le prix est correct.</small>
+                    </p>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="text-center">
+                    <a href="{% url 'agent_chine:lot_detail' lot_id=lot.id %}" 
+                       class="btn btn-secondary btn-lg mr-3">
+                        <i class="fas fa-times"></i>
+                        Annuler
+                    </a>
+                    <button type="submit" class="btn btn-warning btn-lg">
+                        <i class="fas fa-lock"></i>
+                        Fermer le lot
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Validation du formulaire
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Formatage automatique du prix
+document.getElementById('prix_transport').addEventListener('input', function(e) {
+    let value = this.value;
+    if (value && !isNaN(value)) {
+        // Affichage avec séparateurs de milliers
+        let formatted = parseFloat(value).toLocaleString('fr-FR');
+        this.setAttribute('title', formatted + ' CFA');
+    }
+});
+</script>
+{% endblock %}

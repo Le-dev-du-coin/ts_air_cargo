@@ -1,0 +1,594 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Mali{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tarifs-container {
+        padding: 20px 0;
+    }
+    
+    .tarif-card {
+        border: none;
+        border-left: 4px solid var(--primary-color);
+        background: rgba(255, 255, 255, 0.95);
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+        border-radius: 8px;
+    }
+    
+    .tarif-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.15);
+        border-left-width: 6px;
+    }
+    
+    .tarif-card.inactive {
+        opacity: 0.6;
+        background: #f8f9fa;
+    }
+    
+    .tarif-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        padding: 15px 20px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        border-radius: 8px 8px 0 0;
+        margin: -1px -1px 0 -1px;
+    }
+    
+    .tarif-info {
+        flex-grow: 1;
+    }
+    
+    .tarif-info h6 {
+        margin: 0;
+        font-weight: 600;
+    }
+    
+    .tarif-details {
+        padding: 20px;
+    }
+    
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-label {
+        font-weight: 500;
+        color: #666;
+    }
+    
+    .detail-value {
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .price-display {
+        font-family: 'Courier New', monospace;
+        font-size: 1.1em;
+        color: var(--primary-color);
+    }
+    
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .status-active {
+        background: rgba(25, 135, 84, 0.2);
+        color: #0f5132;
+    }
+    
+    .status-inactive {
+        background: rgba(220, 53, 69, 0.2);
+        color: #721c24;
+    }
+    
+    .tarif-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 15px;
+    }
+    
+    .btn-tarif-action {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .btn-view {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: #138496;
+        color: white;
+    }
+    
+    .btn-edit {
+        background: #ffc107;
+        color: #000;
+    }
+    
+    .btn-edit:hover {
+        background: #e0a800;
+        color: #000;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+        color: white;
+    }
+    
+    .btn-add-tarif {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        font-weight: 600;
+        border-radius: 10px;
+        padding: 12px 24px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-add-tarif:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+        color: white;
+    }
+    
+    .filters-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    .modal-form .form-control:focus,
+    .modal-form .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+    }
+    
+    .form-section {
+        border-left: 4px solid var(--primary-color);
+        padding-left: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .form-section h6 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tarifs-container">
+    <!-- Filtres et actions -->
+    <div class="filters-card">
+        <div class="row align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Filtrer par statut</label>
+                <select class="form-select" id="statutFilter">
+                    <option value="">Tous les statuts</option>
+                    <option value="true" {% if actif_filter == 'true' %}selected{% endif %}>Actifs</option>
+                    <option value="false" {% if actif_filter == 'false' %}selected{% endif %}>Inactifs</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Filtrer par pays</label>
+                <select class="form-select" id="paysFilter">
+                    <option value="">Tous les pays</option>
+                    <option value="ML" {% if pays_filter == 'ML' %}selected{% endif %}>Mali</option>
+                    <option value="SN" {% if pays_filter == 'SN' %}selected{% endif %}>Sénégal</option>
+                    <option value="CI" {% if pays_filter == 'CI' %}selected{% endif %}>Côte d'Ivoire</option>
+                    <option value="BF" {% if pays_filter == 'BF' %}selected{% endif %}>Burkina Faso</option>
+                    <option value="ALL" {% if pays_filter == 'ALL' %}selected{% endif %}>Tous les pays</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-outline-primary w-100" onclick="applyFilters()">
+                    <i class="fas fa-filter me-2"></i>Filtrer
+                </button>
+            </div>
+            <div class="col-md-3 text-end">
+                <button type="button" class="btn btn-add-tarif" data-bs-toggle="modal" data-bs-target="#tarifModal">
+                    <i class="fas fa-plus me-2"></i>Nouveau Tarif
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des tarifs -->
+    <div class="row">
+        {% if tariffs %}
+            {% for tarif in tariffs %}
+            <div class="col-lg-6 mb-3">
+                <div class="card tarif-card {% if not tarif.actif %}inactive{% endif %}">
+                    <div class="tarif-header">
+                        <div class="tarif-info">
+                            <h6>{{ tarif.nom_tarif }}</h6>
+                            <small>{{ tarif.get_pays_destination_display }}</small>
+                        </div>
+                        <div>
+                            <span class="status-badge {% if tarif.actif %}status-active{% else %}status-inactive{% endif %}">
+                                {% if tarif.actif %}Actif{% else %}Inactif{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="tarif-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Méthode de calcul</span>
+                            <span class="detail-value">{{ tarif.get_methode_calcul_display }}</span>
+                        </div>
+                        
+                        {% if tarif.prix_par_kilo %}
+                        <div class="detail-row">
+                            <span class="detail-label">Prix par kg</span>
+                            <span class="detail-value price-display">{{ tarif.prix_par_kilo|floatformat:0 }} FCFA</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if tarif.prix_par_m3 %}
+                        <div class="detail-row">
+                            <span class="detail-label">Prix par m³</span>
+                            <span class="detail-value price-display">{{ tarif.prix_par_m3|floatformat:0 }} FCFA</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if tarif.prix_forfaitaire %}
+                        <div class="detail-row">
+                            <span class="detail-label">Prix forfaitaire</span>
+                            <span class="detail-value price-display">{{ tarif.prix_forfaitaire|floatformat:0 }} FCFA</span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Période</span>
+                            <span class="detail-value">
+                                {{ tarif.date_debut|date:"d/m/Y" }}
+                                {% if tarif.date_fin %} - {{ tarif.date_fin|date:"d/m/Y" }}{% else %} - Illimitée{% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="tarif-actions">
+                            <a href="{% url 'admin_mali_app:tarif_detail' tarif.id %}" 
+                               class="btn-tarif-action btn-view">
+                                <i class="fas fa-eye"></i> Voir
+                            </a>
+                            <button type="button" 
+                                    class="btn-tarif-action btn-edit"
+                                    onclick="editTarif({{ tarif.id }}, '{{ tarif.nom_tarif }}', '{{ tarif.methode_calcul }}', '{{ tarif.prix_par_kilo|default:'' }}', '{{ tarif.prix_par_m3|default:'' }}', '{{ tarif.prix_forfaitaire|default:'' }}', '{{ tarif.poids_minimum }}', '{{ tarif.poids_maximum|default:'' }}', '{{ tarif.volume_minimum }}', '{{ tarif.volume_maximum|default:'' }}', '{{ tarif.pays_destination }}', '{{ tarif.description }}', {{ tarif.actif|yesno:'true,false' }}, '{{ tarif.date_debut|date:'Y-m-d' }}', '{% if tarif.date_fin %}{{ tarif.date_fin|date:'Y-m-d' }}{% endif %}')">
+                                <i class="fas fa-edit"></i> Modifier
+                            </button>
+                            <a href="{% url 'admin_mali_app:tarif_delete' tarif.id %}" 
+                               class="btn-tarif-action btn-delete"
+                               onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce tarif ?')">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-coins"></i>
+                    <h5>Aucun tarif trouvé</h5>
+                    <p>Aucun tarif de transport n'a encore été configuré.</p>
+                    <button type="button" class="btn btn-add-tarif" data-bs-toggle="modal" data-bs-target="#tarifModal">
+                        <i class="fas fa-plus me-2"></i>Créer le premier tarif
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de formulaire tarif -->
+<div class="modal fade" id="tarifModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tarifModalTitle">Nouveau Tarif</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="tarifForm" class="modal-form" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <input type="hidden" id="tarifId" name="tarif_id">
+                    
+                    <!-- Informations générales -->
+                    <div class="form-section">
+                        <h6><i class="fas fa-info-circle me-2"></i>Informations Générales</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="nom_tarif" class="form-label">Nom du tarif *</label>
+                                <input type="text" class="form-control" id="nom_tarif" name="nom_tarif" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="methode_calcul" class="form-label">Méthode de calcul *</label>
+                                <select class="form-select" id="methode_calcul" name="methode_calcul" required onchange="togglePriceFields()">
+                                    <option value="">Sélectionner une méthode</option>
+                                    <option value="par_kilo">Par Kilo</option>
+                                    <option value="par_metre_cube">Par Mètre Cube</option>
+                                    <option value="forfaitaire">Forfaitaire</option>
+                                    <option value="mixte">Mixte (Kilo + M³)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="pays_destination" class="form-label">Pays de destination *</label>
+                                <select class="form-select" id="pays_destination" name="pays_destination" required>
+                                    <option value="ML">Mali</option>
+                                    <option value="SN">Sénégal</option>
+                                    <option value="CI">Côte d'Ivoire</option>
+                                    <option value="BF">Burkina Faso</option>
+                                    <option value="NE">Niger</option>
+                                    <option value="GN">Guinée</option>
+                                    <option value="MR">Mauritanie</option>
+                                    <option value="GM">Gambie</option>
+                                    <option value="GW">Guinée-Bissau</option>
+                                    <option value="ALL">Tous les pays</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch mt-4">
+                                    <input class="form-check-input" type="checkbox" id="actif" name="actif" checked>
+                                    <label class="form-check-label" for="actif">Tarif actif</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Prix et méthodes -->
+                    <div class="form-section">
+                        <h6><i class="fas fa-money-bill-wave me-2"></i>Configuration des Prix</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3" id="prix_par_kilo_field" style="display: none;">
+                                <label for="prix_par_kilo" class="form-label">Prix par kg (FCFA)</label>
+                                <input type="number" class="form-control" id="prix_par_kilo" name="prix_par_kilo" step="0.01" min="0">
+                            </div>
+                            <div class="col-md-4 mb-3" id="prix_par_m3_field" style="display: none;">
+                                <label for="prix_par_m3" class="form-label">Prix par m³ (FCFA)</label>
+                                <input type="number" class="form-control" id="prix_par_m3" name="prix_par_m3" step="0.01" min="0">
+                            </div>
+                            <div class="col-md-4 mb-3" id="prix_forfaitaire_field" style="display: none;">
+                                <label for="prix_forfaitaire" class="form-label">Prix forfaitaire (FCFA)</label>
+                                <input type="number" class="form-control" id="prix_forfaitaire" name="prix_forfaitaire" step="0.01" min="0">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Limites -->
+                    <div class="form-section">
+                        <h6><i class="fas fa-weight me-2"></i>Limites et Contraintes</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="poids_minimum" class="form-label">Poids min. (kg)</label>
+                                <input type="number" class="form-control" id="poids_minimum" name="poids_minimum" step="0.01" min="0" value="0">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="poids_maximum" class="form-label">Poids max. (kg)</label>
+                                <input type="number" class="form-control" id="poids_maximum" name="poids_maximum" step="0.01" min="0">
+                                <div class="form-text">Laisser vide pour illimité</div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="volume_minimum" class="form-label">Volume min. (m³)</label>
+                                <input type="number" class="form-control" id="volume_minimum" name="volume_minimum" step="0.001" min="0" value="0">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="volume_maximum" class="form-label">Volume max. (m³)</label>
+                                <input type="number" class="form-control" id="volume_maximum" name="volume_maximum" step="0.001" min="0">
+                                <div class="form-text">Laisser vide pour illimité</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Période de validité -->
+                    <div class="form-section">
+                        <h6><i class="fas fa-calendar me-2"></i>Période de Validité</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="date_debut" class="form-label">Date de début *</label>
+                                <input type="date" class="form-control" id="date_debut" name="date_debut" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="date_fin" class="form-label">Date de fin</label>
+                                <input type="date" class="form-control" id="date_fin" name="date_fin">
+                                <div class="form-text">Laisser vide pour illimitée</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="form-section">
+                        <h6><i class="fas fa-align-left me-2"></i>Description</h6>
+                        <textarea class="form-control" id="description" name="description" rows="3" placeholder="Description détaillée du tarif..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span id="submitBtnText">Créer le tarif</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser la date de début à aujourd'hui
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date_debut').value = today;
+    
+    // Animation des cartes
+    const tarifCards = document.querySelectorAll('.tarif-card');
+    tarifCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+
+function togglePriceFields() {
+    const methode = document.getElementById('methode_calcul').value;
+    const kiloField = document.getElementById('prix_par_kilo_field');
+    const m3Field = document.getElementById('prix_par_m3_field');
+    const forfaitaireField = document.getElementById('prix_forfaitaire_field');
+    
+    // Cacher tous les champs
+    kiloField.style.display = 'none';
+    m3Field.style.display = 'none';
+    forfaitaireField.style.display = 'none';
+    
+    // Afficher selon la méthode
+    switch(methode) {
+        case 'par_kilo':
+            kiloField.style.display = 'block';
+            break;
+        case 'par_metre_cube':
+            m3Field.style.display = 'block';
+            break;
+        case 'forfaitaire':
+            forfaitaireField.style.display = 'block';
+            break;
+        case 'mixte':
+            kiloField.style.display = 'block';
+            m3Field.style.display = 'block';
+            break;
+    }
+}
+
+function applyFilters() {
+    const statutFilter = document.getElementById('statutFilter').value;
+    const paysFilter = document.getElementById('paysFilter').value;
+    
+    let url = new URL(window.location);
+    
+    if (statutFilter) {
+        url.searchParams.set('actif', statutFilter);
+    } else {
+        url.searchParams.delete('actif');
+    }
+    
+    if (paysFilter) {
+        url.searchParams.set('pays', paysFilter);
+    } else {
+        url.searchParams.delete('pays');
+    }
+    
+    window.location.href = url.toString();
+}
+
+function editTarif(id, nom, methode, prixKilo, prixM3, prixForf, poidsMin, poidsMax, volMin, volMax, pays, desc, actif, dateDebut, dateFin) {
+    // Changer le titre du modal
+    document.getElementById('tarifModalTitle').textContent = 'Modifier le Tarif';
+    document.getElementById('submitBtnText').textContent = 'Modifier le tarif';
+    
+    // Remplir les champs
+    document.getElementById('tarifId').value = id;
+    document.getElementById('nom_tarif').value = nom;
+    document.getElementById('methode_calcul').value = methode;
+    document.getElementById('prix_par_kilo').value = prixKilo;
+    document.getElementById('prix_par_m3').value = prixM3;
+    document.getElementById('prix_forfaitaire').value = prixForf;
+    document.getElementById('poids_minimum').value = poidsMin;
+    document.getElementById('poids_maximum').value = poidsMax;
+    document.getElementById('volume_minimum').value = volMin;
+    document.getElementById('volume_maximum').value = volMax;
+    document.getElementById('pays_destination').value = pays;
+    document.getElementById('description').value = desc;
+    document.getElementById('actif').checked = actif === 'true';
+    document.getElementById('date_debut').value = dateDebut;
+    document.getElementById('date_fin').value = dateFin;
+    
+    // Afficher les bons champs de prix
+    togglePriceFields();
+    
+    // Changer l'action du formulaire
+    const form = document.getElementById('tarifForm');
+    form.action = `{% url 'admin_mali_app:tarif_edit' 0 %}`.replace('0', id);
+    
+    // Ouvrir le modal
+    new bootstrap.Modal(document.getElementById('tarifModal')).show();
+}
+
+// Réinitialiser le modal à la fermeture
+document.getElementById('tarifModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('tarifModalTitle').textContent = 'Nouveau Tarif';
+    document.getElementById('submitBtnText').textContent = 'Créer le tarif';
+    document.getElementById('tarifForm').action = '{% url "admin_mali_app:tarif_create" %}';
+    document.getElementById('tarifForm').reset();
+    document.getElementById('tarifId').value = '';
+    
+    // Réinitialiser la date
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date_debut').value = today;
+    
+    // Cacher les champs de prix
+    document.getElementById('prix_par_kilo_field').style.display = 'none';
+    document.getElementById('prix_par_m3_field').style.display = 'none';
+    document.getElementById('prix_forfaitaire_field').style.display = 'none';
+});
+</script>
+{% endblock %}

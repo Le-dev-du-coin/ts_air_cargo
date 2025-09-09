@@ -1,0 +1,738 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Agent Chine{% endblock %}
+
+{% block page_title %}Rapports & Analyses{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid var(--primary-color);
+        margin-bottom: 20px;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .stat-card-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .stat-card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--dark-color);
+        margin: 0;
+    }
+    
+    .stat-card-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: white;
+    }
+    
+    .stat-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 5px;
+        line-height: 1.1;
+    }
+    
+    .stat-label {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+    
+    .stat-change {
+        font-size: 0.8rem;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .stat-change.positive {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+    
+    .stat-change.negative {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+    
+    .stat-change.neutral {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+    
+    .progress-bar-custom {
+        background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+        height: 8px;
+        border-radius: 4px;
+        animation: progress-fill 2s ease-in-out;
+    }
+    
+    @keyframes progress-fill {
+        0% { width: 0%; }
+        100% { width: var(--progress-width); }
+    }
+    
+    .report-section {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 25px;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    
+    .section-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--dark-color);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .alert-badge {
+        background: linear-gradient(45deg, #ef4444, #dc2626);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    .data-table {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .data-table th {
+        background: var(--primary-color);
+        color: white;
+        font-weight: 600;
+        padding: 15px;
+        border: none;
+    }
+    
+    .data-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+    
+    .status-ouvert {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+    }
+    
+    .status-ferme {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+    
+    .status-expedie {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+    
+    .status-en_transit {
+        background: rgba(139, 92, 246, 0.1);
+        color: #8b5cf6;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+    }
+    
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .btn-export {
+        background: linear-gradient(45deg, var(--success-color), #059669);
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-export:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header avec actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">📊 Tableau de Bord Administrateur</h2>
+        <p class="text-muted mb-0">Vue complète des statistiques et monitoring</p>
+        <small class="text-muted">Dernière mise à jour: {{ "now"|date:"d/m/Y à H:i" }}</small>
+    </div>
+    <div class="export-buttons">
+        <button class="btn btn-export" onclick="exportToPDF()">
+            <i class="bi bi-file-pdf"></i> Exporter PDF
+        </button>
+        <button class="btn btn-export" onclick="exportToExcel()">
+            <i class="bi bi-file-excel"></i> Exporter Excel
+        </button>
+        <a href="{% url 'agent_chine:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Alertes importantes -->
+{% if alertes.lots_anciens > 0 or alertes.colis_en_retard > 0 %}
+<div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <div>
+        <strong>Alertes:</strong>
+        {% if alertes.lots_anciens > 0 %}{{ alertes.lots_anciens }} lot(s) ouvert(s) depuis plus de 7 jours.{% endif %}
+        {% if alertes.colis_en_retard > 0 %}{{ alertes.colis_en_retard }} colis en attente depuis plus de 3 jours.{% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Statistiques générales -->
+<div class="report-section">
+    <div class="section-header">
+        <h3 class="section-title">
+            <i class="bi bi-graph-up text-primary"></i>
+            Statistiques Générales
+        </h3>
+        <span class="badge bg-primary">En temps réel</span>
+    </div>
+    
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-value">{{ stats_generales.total_clients }}</div>
+                        <div class="stat-label">Total Clients</div>
+                        <div class="stat-change positive">
+                            <i class="bi bi-arrow-up"></i>
+                            +{{ performances.croissance_colis|floatformat:1 }}%
+                        </div>
+                    </div>
+                    <div class="stat-card-icon" style="background: var(--primary-color);">
+                        <i class="bi bi-people"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-value">{{ stats_generales.total_lots }}</div>
+                        <div class="stat-label">Total Lots</div>
+                        <div class="stat-change positive">
+                            <i class="bi bi-arrow-up"></i>
+                            +12%
+                        </div>
+                    </div>
+                    <div class="stat-card-icon" style="background: var(--success-color);">
+                        <i class="bi bi-box"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-value">{{ stats_generales.total_colis }}</div>
+                        <div class="stat-label">Total Colis</div>
+                        <div class="stat-change positive">
+                            <i class="bi bi-arrow-up"></i>
+                            +8.3%
+                        </div>
+                    </div>
+                    <div class="stat-card-icon" style="background: var(--info-color);">
+                        <i class="bi bi-archive"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-value">{{ finances.revenus_totaux|floatformat:0 }}</div>
+                        <div class="stat-label">Revenus Total (CFA)</div>
+                        <div class="stat-change positive">
+                            <i class="bi bi-arrow-up"></i>
+                            +15.2%
+                        </div>
+                    </div>
+                    <div class="stat-card-icon" style="background: var(--warning-color);">
+                        <i class="bi bi-currency-dollar"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statut complet des parcelles et lots (Chine et Mali) -->
+<div class="report-section">
+    <div class="section-header">
+        <h3 class="section-title">
+            <i class="bi bi-geo-alt text-success"></i>
+            Statut Complet Parcelles & Lots - Chine et Mali
+        </h3>
+        <span class="text-muted">{{ "now"|date:"d/m/Y" }}</span>
+    </div>
+    
+    <div class="row">
+        <!-- Statut des Lots -->
+        <div class="col-lg-6">
+            <h5 class="mb-3">📦 Statut des Lots</h5>
+            <div class="row">
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #3b82f6;">
+                        <div class="stat-value text-primary">{{ stats_lots.ouverts }}</div>
+                        <div class="stat-label">Lots Ouverts (Chine)</div>
+                        {% if alertes.lots_anciens > 0 %}
+                            <span class="alert-badge">{{ alertes.lots_anciens }} anciens</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #f59e0b;">
+                        <div class="stat-value text-warning">{{ stats_lots.fermes }}</div>
+                        <div class="stat-label">Lots Fermés (Chine)</div>
+                    </div>
+                </div>
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #10b981;">
+                        <div class="stat-value text-success">{{ stats_lots.expedies }}</div>
+                        <div class="stat-label">Lots Expédiés</div>
+                    </div>
+                </div>
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #8b5cf6;">
+                        <div class="stat-value" style="color: #8b5cf6;">{{ stats_lots.en_transit }}</div>
+                        <div class="stat-label">Lots en Transit</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statut des Colis -->
+        <div class="col-lg-6">
+            <h5 class="mb-3">📋 Statut des Colis</h5>
+            <div class="row">
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #ef4444;">
+                        <div class="stat-value text-danger">{{ stats_colis.en_attente }}</div>
+                        <div class="stat-label">En Attente (Chine)</div>
+                        {% if alertes.colis_en_retard > 0 %}
+                            <span class="alert-badge">{{ alertes.colis_en_retard }} retards</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #10b981;">
+                        <div class="stat-value text-success">{{ stats_colis.recus_chine }}</div>
+                        <div class="stat-label">Reçus Chine</div>
+                    </div>
+                </div>
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #8b5cf6;">
+                        <div class="stat-value" style="color: #8b5cf6;">{{ stats_colis.en_transit }}</div>
+                        <div class="stat-label">En Transit</div>
+                    </div>
+                </div>
+                <div class="col-6 mb-3">
+                    <div class="stat-card" style="border-left-color: #059669;">
+                        <div class="stat-value" style="color: #059669;">{{ stats_colis.livres_mali }}</div>
+                        <div class="stat-label">Livrés Mali</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Montants journaliers et stock -->
+<div class="row mb-4">
+    <!-- Statistiques journalières -->
+    <div class="col-lg-4">
+        <div class="report-section">
+            <div class="section-header">
+                <h5 class="section-title">
+                    <i class="bi bi-calendar-day text-primary"></i>
+                    Activité Quotidienne
+                </h5>
+            </div>
+            <div class="stat-card" style="border-left-color: #10b981;">
+                <div class="stat-value text-success">{{ stats_journalieres.colis_livres }}</div>
+                <div class="stat-label">Colis Livrés Aujourd'hui</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <div class="stat-value text-warning">{{ stats_journalieres.montant|floatformat:0 }}</div>
+                <div class="stat-label">Montant Journalier (CFA)</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stock Chine -->
+    <div class="col-lg-4">
+        <div class="report-section">
+            <div class="section-header">
+                <h5 class="section-title">
+                    <i class="bi bi-box-seam text-primary"></i>
+                    Stock Chine
+                </h5>
+            </div>
+            <div class="stat-card" style="border-left-color: #3b82f6;">
+                <div class="stat-value text-primary">{{ stock_chine.total_colis }}</div>
+                <div class="stat-label">Colis en Stock</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #10b981;">
+                <div class="stat-value text-success">{{ stock_chine.valeur_totale|floatformat:0 }}</div>
+                <div class="stat-label">Valeur Totale (CFA)</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stock Mali -->
+    <div class="col-lg-4">
+        <div class="report-section">
+            <div class="section-header">
+                <h5 class="section-title">
+                    <i class="bi bi-building text-success"></i>
+                    Entrepôt Mali
+                </h5>
+            </div>
+            <div class="stat-card" style="border-left-color: #8b5cf6;">
+                <div class="stat-value" style="color: #8b5cf6;">{{ stock_mali.total_colis }}</div>
+                <div class="stat-label">Colis en Transit + Livrés</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #10b981;">
+                <div class="stat-value text-success">{{ finances.prix_total_lots|floatformat:0 }}</div>
+                <div class="stat-label">Prix Total Estimé Lots (CFA)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques par période et types -->
+<div class="row mb-4">
+    <!-- Statistiques temporelles -->
+    <div class="col-lg-6">
+        <div class="report-section">
+            <div class="section-header">
+                <h5 class="section-title">
+                    <i class="bi bi-graph-up text-info"></i>
+                    Évolution Temporelle
+                </h5>
+            </div>
+            <div class="row">
+                <div class="col-4 text-center">
+                    <h6>Cette Semaine</h6>
+                    <div class="stat-value text-info">{{ stats_temporelles.semaine.colis }}</div>
+                    <div class="stat-label">Nouveaux Colis</div>
+                    <div class="stat-value text-primary">{{ stats_temporelles.semaine.lots }}</div>
+                    <div class="stat-label">Nouveaux Lots</div>
+                </div>
+                <div class="col-4 text-center">
+                    <h6>Ce Mois</h6>
+                    <div class="stat-value text-success">{{ stats_temporelles.mois.colis }}</div>
+                    <div class="stat-label">Nouveaux Colis</div>
+                    <div class="stat-value text-warning">{{ stats_temporelles.mois.lots }}</div>
+                    <div class="stat-label">Nouveaux Lots</div>
+                    <div class="stat-value text-primary">{{ stats_temporelles.mois.clients }}</div>
+                    <div class="stat-label">Nouveaux Clients</div>
+                </div>
+                <div class="col-4 text-center">
+                    <h6>Cette Année</h6>
+                    <div class="stat-value" style="color: #8b5cf6;">{{ stats_temporelles.annee.colis }}</div>
+                    <div class="stat-label">Total Colis</div>
+                    <div class="stat-value text-info">{{ stats_temporelles.annee.lots }}</div>
+                    <div class="stat-label">Total Lots</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Types de transport -->
+    <div class="col-lg-6">
+        <div class="report-section">
+            <div class="section-header">
+                <h5 class="section-title">
+                    <i class="bi bi-truck text-warning"></i>
+                    Types de Transport
+                </h5>
+            </div>
+            <div class="chart-container">
+                <canvas id="transportChart"></canvas>
+            </div>
+            <div class="row text-center mt-3">
+                <div class="col-4">
+                    <div class="stat-value text-primary">{{ colis_par_transport.cargo }}</div>
+                    <div class="stat-label">Cargo</div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-value text-success">{{ colis_par_transport.express }}</div>
+                    <div class="stat-label">Express</div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-value text-info">{{ colis_par_transport.bateau }}</div>
+                    <div class="stat-label">Bateau</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performances et monitoring -->
+<div class="report-section">
+    <div class="section-header">
+        <h3 class="section-title">
+            <i class="bi bi-speedometer2 text-success"></i>
+            Monitoring et Performances
+        </h3>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-3">
+            <div class="stat-card" style="border-left-color: #10b981;">
+                <div class="stat-value text-success">{{ performances.croissance_colis|floatformat:1 }}%</div>
+                <div class="stat-label">Croissance Mensuelle</div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <div class="stat-value text-warning">{{ performances.poids_moyen|floatformat:1 }} kg</div>
+                <div class="stat-label">Poids Moyen Colis</div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="stat-card" style="border-left-color: #3b82f6;">
+                <div class="stat-value text-primary">{{ performances.prix_moyen|floatformat:0 }}</div>
+                <div class="stat-label">Prix Moyen (CFA)</div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="stat-card" style="border-left-color: #059669;">
+                <div class="stat-value" style="color: #059669;">{{ finances.revenus_mois|floatformat:0 }}</div>
+                <div class="stat-label">Revenus ce Mois (CFA)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activité récente -->
+<div class="row">
+    <!-- Derniers lots -->
+    <div class="col-lg-6">
+        <div class="report-section">
+            <div class="section-header">
+                <h5 class="section-title">
+                    <i class="bi bi-clock-history text-info"></i>
+                    Derniers Lots Créés
+                </h5>
+                <a href="{% url 'agent_chine:lot_list' %}" class="btn btn-outline-primary btn-sm">Voir tous</a>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="data-table table">
+                    <thead>
+                        <tr>
+                            <th>Numéro</th>
+                            <th>Statut</th>
+                            <th>Colis</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lot in derniers_lots|slice:":5" %}
+                        <tr>
+                            <td>
+                                <strong>{{ lot.numero_lot }}</strong>
+                            </td>
+                            <td>
+                                <span class="status-badge status-{{ lot.statut }}">
+                                    {{ lot.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>{{ lot.colis.count }}</td>
+                            <td>{{ lot.date_creation|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">Aucun lot créé</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Derniers colis -->
+    <div class="col-lg-6">
+        <div class="report-section">
+            <div class="section-header">
+                <h5 class="section-title">
+                    <i class="bi bi-archive text-success"></i>
+                    Derniers Colis Créés
+                </h5>
+                <a href="{% url 'agent_chine:colis_list' %}" class="btn btn-outline-success btn-sm">Voir tous</a>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="data-table table">
+                    <thead>
+                        <tr>
+                            <th>Suivi</th>
+                            <th>Client</th>
+                            <th>Prix</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for colis in derniers_colis|slice:":5" %}
+                        <tr>
+                            <td>
+                                <strong>{{ colis.numero_suivi }}</strong>
+                            </td>
+                            <td>{{ colis.client.user.get_full_name|truncatechars:20 }}</td>
+                            <td>{{ colis.prix_calcule|floatformat:0 }} CFA</td>
+                            <td>{{ colis.date_creation|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">Aucun colis créé</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript pour les graphiques et exports -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Graphique des types de transport
+    const ctx = document.getElementById('transportChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Cargo', 'Express', 'Bateau'],
+            datasets: [{
+                data: [{{ colis_par_transport.cargo }}, {{ colis_par_transport.express }}, {{ colis_par_transport.bateau }}],
+                backgroundColor: [
+                    'var(--primary-color)',
+                    'var(--success-color)',
+                    'var(--info-color)'
+                ],
+                borderWidth: 2,
+                borderColor: 'white'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+});
+
+function exportToPDF() {
+    // Implémenter l'export PDF
+    alert('Export PDF en cours de développement...');
+}
+
+function exportToExcel() {
+    // Implémenter l'export Excel
+    alert('Export Excel en cours de développement...');
+}
+
+// Auto-refresh des données toutes les 5 minutes
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+
+{% endblock %}

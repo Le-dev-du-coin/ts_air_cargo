@@ -1,0 +1,371 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header de la page -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-users text-warning me-2"></i>{{ title }}
+        </h1>
+        <div>
+            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#addAgentModal">
+                <i class="fas fa-plus me-1"></i>Ajouter un Agent
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistiques des agents -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Agents Chine
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ agents_chine.count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-flag text-warning fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Agents Mali
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ agents_mali.count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-home text-danger fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Agents Actifs
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ agents_chine|length|add:agents_mali|length }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle text-success fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Total Agents
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ agents_chine.count|add:agents_mali.count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users text-info fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Agents Chine -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-warning">
+                        <i class="fas fa-flag me-2"></i>Agents en Chine
+                    </h6>
+                    <span class="badge bg-warning text-dark">{{ agents_chine.count }} agent{{ agents_chine.count|pluralize }}</span>
+                </div>
+                <div class="card-body">
+                    {% if agents_chine %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Agent</th>
+                                        <th>Téléphone</th>
+                                        <th>Email</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for agent in agents_chine %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar me-3">
+                                                    <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                                         style="width: 40px; height: 40px;">
+                                                        {{ agent.first_name.0 }}{{ agent.last_name.0 }}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div class="font-weight-bold">{{ agent.get_full_name }}</div>
+                                                    <small class="text-muted">Agent Chine</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ agent.telephone }}</td>
+                                        <td>{{ agent.email }}</td>
+                                        <td>
+                                            {% if agent.is_active %}
+                                                <span class="badge bg-success">Actif</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactif</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" title="Voir détails">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning" title="Modifier">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                {% if agent.is_active %}
+                                                    <button class="btn btn-sm btn-outline-danger" title="Désactiver">
+                                                        <i class="fas fa-ban"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-sm btn-outline-success" title="Activer">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Aucun agent en Chine enregistré</p>
+                            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#addAgentModal">
+                                <i class="fas fa-plus me-1"></i>Ajouter le premier agent
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Agents Mali -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-danger">
+                        <i class="fas fa-home me-2"></i>Agents au Mali
+                    </h6>
+                    <span class="badge bg-danger">{{ agents_mali.count }} agent{{ agents_mali.count|pluralize }}</span>
+                </div>
+                <div class="card-body">
+                    {% if agents_mali %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Agent</th>
+                                        <th>Téléphone</th>
+                                        <th>Email</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for agent in agents_mali %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar me-3">
+                                                    <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                                         style="width: 40px; height: 40px;">
+                                                        {{ agent.first_name.0 }}{{ agent.last_name.0 }}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div class="font-weight-bold">{{ agent.get_full_name }}</div>
+                                                    <small class="text-muted">Agent Mali</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ agent.telephone }}</td>
+                                        <td>{{ agent.email }}</td>
+                                        <td>
+                                            {% if agent.is_active %}
+                                                <span class="badge bg-success">Actif</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactif</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" title="Voir détails">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning" title="Modifier">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                {% if agent.is_active %}
+                                                    <button class="btn btn-sm btn-outline-danger" title="Désactiver">
+                                                        <i class="fas fa-ban"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-sm btn-outline-success" title="Activer">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Aucun agent au Mali enregistré</p>
+                            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#addAgentModal">
+                                <i class="fas fa-plus me-1"></i>Ajouter le premier agent
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'ajout d'agent -->
+<div class="modal fade" id="addAgentModal" tabindex="-1" aria-labelledby="addAgentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="addAgentModalLabel">
+                    <i class="fas fa-user-plus me-2"></i>Ajouter un Agent
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="agentType" class="form-label">Type d'agent *</label>
+                        <select class="form-select" id="agentType" required>
+                            <option value="">Sélectionner un type</option>
+                            <option value="agent_chine">Agent Chine</option>
+                            <option value="agent_mali">Agent Mali</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="firstName" class="form-label">Prénom *</label>
+                                <input type="text" class="form-control" id="firstName" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="lastName" class="form-label">Nom *</label>
+                                <input type="text" class="form-control" id="lastName" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="telephone" class="form-label">Téléphone *</label>
+                        <input type="tel" class="form-control" id="telephone" placeholder="+223 XX XX XX XX" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mot de passe temporaire *</label>
+                        <input type="password" class="form-control" id="password" required>
+                        <div class="form-text">L'agent devra changer ce mot de passe à sa première connexion</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="isActive" checked>
+                        <label class="form-check-label" for="isActive">
+                            Agent actif
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-warning">
+                    <i class="fas fa-save me-1"></i>Créer l'agent
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // JavaScript pour la gestion des agents
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gestion du formulaire d'ajout d'agent
+        const addAgentModal = document.getElementById('addAgentModal');
+        const agentTypeSelect = document.getElementById('agentType');
+        
+        // Mise à jour de l'apparence du modal selon le type d'agent
+        agentTypeSelect.addEventListener('change', function() {
+            const modalHeader = addAgentModal.querySelector('.modal-header');
+            const submitBtn = addAgentModal.querySelector('.btn-warning');
+            
+            if (this.value === 'agent_chine') {
+                modalHeader.className = 'modal-header bg-warning text-dark';
+                submitBtn.className = 'btn btn-warning';
+            } else if (this.value === 'agent_mali') {
+                modalHeader.className = 'modal-header bg-danger text-white';
+                submitBtn.className = 'btn btn-danger';
+            } else {
+                modalHeader.className = 'modal-header bg-warning text-dark';
+                submitBtn.className = 'btn btn-warning';
+            }
+        });
+        
+        // Confirmation pour les actions critiques
+        document.querySelectorAll('.btn-outline-danger').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (confirm('Êtes-vous sûr de vouloir désactiver cet agent ?')) {
+                    // Logique de désactivation
+                    console.log('Agent désactivé');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
