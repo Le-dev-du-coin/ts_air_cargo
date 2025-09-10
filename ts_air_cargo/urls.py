@@ -3,6 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
+from authentication import views as auth_views
 
 def home_redirect(request):
     """Redirect to authentication by default"""
@@ -13,10 +14,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # Home redirect
-    path('', home_redirect, name='home'),
+    path('', auth_views.home_view, name='home'),
     
     # Application URLs
-    path('', home_redirect, name='home'),
     path('authentication/', include('authentication.urls')),
     path('admin-chine/', include('admin_chine_app.urls')),
     path('admin-mali/', include('admin_mali_app.urls')),

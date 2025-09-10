@@ -65,7 +65,8 @@ def dashboard_view(request):
         lots_facturable_total = Lot.objects.filter(statut__in=['ferme', 'expedie'])
         total_revenus = sum(float(lot.prix_transport or 0) for lot in lots_facturable_total)
     except Exception as e:
-        print(f"Erreur calcul revenus: {e}")
+        # Erreur lors du calcul des revenus - ignorée silencieusement
+        pass
     
     # Statistiques de croissance (simulation basée sur l'activité récente)
     try:
@@ -394,7 +395,6 @@ def lot_close_view(request, lot_id):
                 )
                 messages.success(request, f"✅ Lot {lot.numero_lot} fermé avec succès ! Prix transport: {prix_float} CFA. Les notifications sont en cours d'envoi aux {colis_count} clients.")
             except Exception as notif_error:
-                print(f"Erreur lancement tâche notifications de masse: {notif_error}")
                 messages.success(request, f"✅ Lot {lot.numero_lot} fermé avec succès ! Prix transport: {prix_float} CFA. Erreur lors du lancement des notifications.")
             return redirect('agent_chine:lot_detail', lot_id=lot_id)
                 
@@ -403,7 +403,6 @@ def lot_close_view(request, lot_id):
             pass
         except Exception as e:
             messages.error(request, f"❌ Erreur lors de la fermeture: {str(e)}")
-            print(f"Erreur fermeture lot: {e}")
     
     # Calculer les statistiques du lot pour affichage
     colis = lot.colis.all()
@@ -451,7 +450,6 @@ def lot_expedite_view(request, lot_id):
         )
         messages.success(request, f"✅ Lot {lot.numero_lot} expédié avec succès ! Les notifications d'expédition sont en cours d'envoi aux {total_colis} clients.")
     except Exception as notif_error:
-        print(f"Erreur lancement tâche notifications de masse: {notif_error}")
         messages.success(request, f"✅ Lot {lot.numero_lot} expédié avec succès ! Erreur lors du lancement des notifications.")
     return redirect('agent_chine:lot_detail', lot_id=lot_id)
 
@@ -537,8 +535,8 @@ def colis_create_view(request, lot_id):
                 from notifications_app.tasks import notify_colis_created
                 notify_colis_created.delay(colis.id, initiated_by_id=request.user.id)
             except Exception as notif_error:
-                print(f"Erreur lancement tâche notification: {notif_error}")
                 # Ne pas faire échouer la création si la notification échoue
+                pass
             
             messages.success(request, f"✅ Colis {colis.numero_suivi} créé avec succès pour {client.user.get_full_name()}.")
             return redirect('agent_chine:lot_detail', lot_id=lot_id)
@@ -548,7 +546,6 @@ def colis_create_view(request, lot_id):
             pass
         except Exception as e:
             messages.error(request, f"❌ Erreur lors de la création du colis : {str(e)}")
-            print(f"Erreur création colis: {e}")
     
     # Récupérer tous les clients pour la sélection
     clients = Client.objects.all().order_by('user__first_name', 'user__last_name')
@@ -628,8 +625,8 @@ def colis_edit_view(request, colis_id):
                 from notifications_app.tasks import notify_colis_updated
                 notify_colis_updated.delay(colis.id, initiated_by_id=request.user.id)
             except Exception as notif_error:
-                print(f"Erreur lancement tâche notification: {notif_error}")
                 # Ne pas faire échouer la modification si la notification échoue
+                pass
             
             messages.success(request, f"✅ Colis {colis.numero_suivi} mis à jour avec succès.")
             return redirect('agent_chine:colis_detail', colis_id=colis_id)
@@ -639,7 +636,6 @@ def colis_edit_view(request, colis_id):
             pass
         except Exception as e:
             messages.error(request, f"❌ Erreur lors de la modification du colis : {str(e)}")
-            print(f"Erreur modification colis: {e}")
     
     # Récupérer tous les clients pour la sélection
     clients = Client.objects.all().order_by('user__first_name', 'user__last_name')
@@ -715,7 +711,7 @@ def calculate_price_api(request):
         # Calculer le volume en m3
         volume_m3 = (longueur * largeur * hauteur) / 1000000
         
-        # Debug : Vérifier s'il y a des tarifs disponibles
+        # Vérifier s'il y a des tarifs disponibles
         tarifs_disponibles = ShippingPrice.objects.filter(actif=True)
         total_tarifs = tarifs_disponibles.count()
         
@@ -763,7 +759,7 @@ def calculate_price_api(request):
                     prix_max = prix_calcule
                     tarif_utilise = tarif
             except Exception as e:
-                print(f'Erreur calcul tarif {tarif.nom_tarif}: {e}')
+                # Erreur calcul tarif - continuer avec le tarif suivant
                 continue
         
         # Si aucun tarif ne donne de prix, utiliser tarif par défaut
@@ -792,7 +788,6 @@ def calculate_price_api(request):
         })
         
     except Exception as e:
-        print(f'Erreur API calculate_price: {e}')
         return JsonResponse({
             'success': False,
             'error': f'Erreur serveur: {str(e)}',

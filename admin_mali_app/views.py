@@ -1320,3 +1320,563 @@ def parametres(request):
     }
     
     return render(request, 'admin_mali_app/parametres.html', context)
+
+
+@admin_mali_required
+def export_depenses_excel(request):
+    """
+    Exporter les dépenses en format Excel avec formatage professionnel
+    """
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from django.http import HttpResponse
+    from datetime import datetime
+    
+    # Récupération des filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    type_depense = request.GET.get('type_depense')
+    
+    # Dates par défaut
+    today = timezone.now().date()
+    if not date_debut:
+        date_debut = today - timedelta(days=30)
+    else:
+        try:
+            date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
+        except ValueError:
+            date_debut = today - timedelta(days=30)
+    
+    if not date_fin:
+        date_fin = today
+    else:
+        try:
+            date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
+        except ValueError:
+            date_fin = today
+    
+    # Récupération des dépenses
+    depenses_query = Depense.objects.filter(
+        date_depense__gte=date_debut,
+        date_depense__lte=date_fin
+    )
+    
+    if type_depense:
+        depenses_query = depenses_query.filter(type_depense=type_depense)
+    
+    depenses = depenses_query.select_related('cree_par').order_by('-date_depense')
+    
+    # Création du workbook Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Rapport Dépenses"
+    
+    # Styles pour le formatage
+    header_font = Font(name='Arial', size=16, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='FF6B35', end_color='FF6B35', fill_type='solid')
+    
+    subheader_font = Font(name='Arial', size=12, bold=True, color='2D3748')
+    subheader_fill = PatternFill(start_color='F7FAFC', end_color='F7FAFC', fill_type='solid')
+    
+    data_font = Font(name='Arial', size=10)
+    number_font = Font(name='Arial', size=10, bold=True)
+    
+    border = Border(
+        left=Side(border_style='thin', color='E2E8F0'),
+        right=Side(border_style='thin', color='E2E8F0'),
+        top=Side(border_style='thin', color='E2E8F0'),
+        bottom=Side(border_style='thin', color='E2E8F0')
+    )
+    
+    # En-tête principal
+    ws['A1'] = 'RAPPORT DES DÉPENSES - TS AIR CARGO MALI'
+    ws.merge_cells('A1:G1')
+    ws['A1'].font = header_font
+    ws['A1'].fill = header_fill
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Sous-titre avec période
+    ws['A2'] = f'Période: {date_debut.strftime("%d/%m/%Y")} au {date_fin.strftime("%d/%m/%Y")}'
+    ws.merge_cells('A2:G2')
+    ws['A2'].font = subheader_font
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Date de génération
+    ws['A3'] = f'Généré le: {datetime.now().strftime("%d/%m/%Y à %H:%M")}'
+    ws.merge_cells('A3:G3')
+    ws['A3'].font = data_font
+    ws['A3'].alignment = Alignment(horizontal='center')
+    
+    # Résumé
+    total_depenses = depenses.aggregate(total=Sum('montant'))['total'] or 0
+    ws['A5'] = f'Total des dépenses: {total_depenses:,.0f} FCFA'
+    ws['A5'].font = subheader_font
+    ws['A6'] = f'Nombre de dépenses: {depenses.count()}'
+    ws['A6'].font = subheader_font
+    
+    # En-têtes des colonnes
+    headers = ['Date', 'Type', 'Description', 'Montant (FCFA)', 'Créé par', 'Date création', 'Statut']
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=8, column=col_idx, value=header)
+        cell.font = subheader_font
+        cell.fill = subheader_fill
+        cell.border = border
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Données des dépenses
+    for row_idx, depense in enumerate(depenses, start=9):
+        row_data = [
+            depense.date_depense.strftime('%d/%m/%Y'),
+            depense.get_type_depense_display(),
+            depense.description,
+            float(depense.montant),
+            f"{depense.cree_par.first_name} {depense.cree_par.last_name}" if depense.cree_par else "N/A",
+            depense.date_creation.strftime('%d/%m/%Y %H:%M'),
+            'Validé' if hasattr(depense, 'statut') else 'En cours'
+        ]
+        
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if col_idx == 4:  # Colonne montant
+                cell.font = number_font
+                cell.number_format = '#,##0'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.font = data_font
+    
+    # Ajuster la largeur des colonnes
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column].width = adjusted_width
+    
+    # Préparation de la réponse HTTP
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="depenses_{date_debut}_{date_fin}.xlsx"'
+    
+    wb.save(response)
+    return response
+
+
+@admin_mali_required
+def export_rapport_cargo_excel(request):
+    """
+    Exporter les rapports cargo en format Excel
+    """
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from django.http import HttpResponse
+    from datetime import datetime
+    
+    # Récupération des filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    
+    # Dates par défaut
+    today = timezone.now().date()
+    if not date_debut:
+        date_debut = today - timedelta(days=30)
+    else:
+        try:
+            date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
+        except ValueError:
+            date_debut = today - timedelta(days=30)
+    
+    if not date_fin:
+        date_fin = today
+    else:
+        try:
+            date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
+        except ValueError:
+            date_fin = today
+    
+    # Récupération des colis cargo
+    colis_cargo = Colis.objects.filter(
+        type_transport='cargo',
+        date_creation__gte=date_debut,
+        date_creation__lte=date_fin
+    ).select_related('client__user', 'lot').order_by('-date_creation')
+    
+    # Récupération des lots avec colis cargo
+    lots_cargo = Lot.objects.filter(
+        colis__type_transport='cargo',
+        date_creation__gte=date_debut,
+        date_creation__lte=date_fin
+    ).distinct().prefetch_related('colis_set').order_by('-date_creation')
+    
+    # Création du workbook Excel
+    wb = openpyxl.Workbook()
+    
+    # Feuille 1: Résumé Cargo
+    ws1 = wb.active
+    ws1.title = "Résumé Cargo"
+    
+    # Styles
+    header_font = Font(name='Arial', size=16, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='FF6B35', end_color='FF6B35', fill_type='solid')
+    subheader_font = Font(name='Arial', size=12, bold=True, color='2D3748')
+    subheader_fill = PatternFill(start_color='F7FAFC', end_color='F7FAFC', fill_type='solid')
+    data_font = Font(name='Arial', size=10)
+    number_font = Font(name='Arial', size=10, bold=True)
+    border = Border(
+        left=Side(border_style='thin', color='E2E8F0'),
+        right=Side(border_style='thin', color='E2E8F0'),
+        top=Side(border_style='thin', color='E2E8F0'),
+        bottom=Side(border_style='thin', color='E2E8F0')
+    )
+    
+    # En-tête
+    ws1['A1'] = 'RAPPORT CARGO - TS AIR CARGO'
+    ws1.merge_cells('A1:F1')
+    ws1['A1'].font = header_font
+    ws1['A1'].fill = header_fill
+    ws1['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Statistiques générales
+    total_colis = colis_cargo.count()
+    valeur_totale = colis_cargo.aggregate(total=Sum('prix_calcule'))['total'] or 0
+    poids_total = colis_cargo.aggregate(total=Sum('poids'))['total'] or 0
+    
+    stats_data = [
+        ['Indicateur', 'Valeur'],
+        ['Total Colis Cargo', total_colis],
+        ['Valeur Totale (FCFA)', f"{valeur_totale:,.0f}"],
+        ['Poids Total (Kg)', f"{poids_total:,.1f}"],
+        ['Nombre de Lots', lots_cargo.count()],
+    ]
+    
+    for row_idx, row_data in enumerate(stats_data, start=3):
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws1.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 3:
+                cell.font = subheader_font
+                cell.fill = subheader_fill
+            else:
+                cell.font = data_font
+    
+    # Feuille 2: Détail des Colis Cargo
+    ws2 = wb.create_sheet(title="Colis Cargo")
+    
+    # En-têtes des colis
+    colis_headers = ['Code Suivi', 'Client', 'Description', 'Poids (Kg)', 'Valeur (FCFA)', 'Statut', 'Date Création', 'Lot']
+    for col_idx, header in enumerate(colis_headers, start=1):
+        cell = ws2.cell(row=1, column=col_idx, value=header)
+        cell.font = subheader_font
+        cell.fill = subheader_fill
+        cell.border = border
+    
+    # Données des colis
+    for row_idx, colis in enumerate(colis_cargo, start=2):
+        row_data = [
+            colis.code_suivi,
+            f"{colis.client.user.first_name} {colis.client.user.last_name}" if colis.client and colis.client.user else "N/A",
+            colis.description_contenu,
+            float(colis.poids) if colis.poids else 0,
+            float(colis.prix_calcule) if colis.prix_calcule else 0,
+            colis.get_statut_display(),
+            colis.date_creation.strftime('%d/%m/%Y'),
+            colis.lot.numero_lot if colis.lot else "Aucun"
+        ]
+        
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws2.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if col_idx in [4, 5]:  # Colonnes numériques
+                cell.font = number_font
+                cell.number_format = '#,##0.00' if col_idx == 4 else '#,##0'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.font = data_font
+    
+    # Feuille 3: Lots Cargo
+    ws3 = wb.create_sheet(title="Lots Cargo")
+    
+    # En-têtes des lots
+    lots_headers = ['Numéro Lot', 'Nb Colis', 'Poids Total (Kg)', 'Prix Transport (FCFA)', 'Statut', 'Date Création', 'Date Expédition']
+    for col_idx, header in enumerate(lots_headers, start=1):
+        cell = ws3.cell(row=1, column=col_idx, value=header)
+        cell.font = subheader_font
+        cell.fill = subheader_fill
+        cell.border = border
+    
+    # Données des lots
+    for row_idx, lot in enumerate(lots_cargo, start=2):
+        nb_colis_cargo = lot.colis_set.filter(type_transport='cargo').count()
+        poids_lot = lot.colis_set.filter(type_transport='cargo').aggregate(total=Sum('poids'))['total'] or 0
+        
+        row_data = [
+            lot.numero_lot,
+            nb_colis_cargo,
+            float(poids_lot),
+            float(lot.prix_transport) if lot.prix_transport else 0,
+            lot.get_statut_display(),
+            lot.date_creation.strftime('%d/%m/%Y'),
+            lot.date_expedition.strftime('%d/%m/%Y') if lot.date_expedition else "Non expédié"
+        ]
+        
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws3.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if col_idx in [2, 3, 4]:  # Colonnes numériques
+                cell.font = number_font
+                if col_idx == 3:
+                    cell.number_format = '#,##0.00'
+                else:
+                    cell.number_format = '#,##0'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.font = data_font
+    
+    # Ajuster les largeurs des colonnes pour toutes les feuilles
+    for ws in [ws1, ws2, ws3]:
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column].width = adjusted_width
+    
+    # Préparation de la réponse HTTP
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="rapport_cargo_{date_debut}_{date_fin}.xlsx"'
+    
+    wb.save(response)
+    return response
+
+
+@admin_mali_required
+def export_rapport_express_excel(request):
+    """
+    Exporter les rapports express en format Excel
+    """
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from django.http import HttpResponse
+    from datetime import datetime
+    
+    # Récupération des filtres
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    
+    # Dates par défaut
+    today = timezone.now().date()
+    if not date_debut:
+        date_debut = today - timedelta(days=30)
+    else:
+        try:
+            date_debut = datetime.strptime(date_debut, '%Y-%m-%d').date()
+        except ValueError:
+            date_debut = today - timedelta(days=30)
+    
+    if not date_fin:
+        date_fin = today
+    else:
+        try:
+            date_fin = datetime.strptime(date_fin, '%Y-%m-%d').date()
+        except ValueError:
+            date_fin = today
+    
+    # Récupération des colis express
+    colis_express = Colis.objects.filter(
+        type_transport='express',
+        date_creation__gte=date_debut,
+        date_creation__lte=date_fin
+    ).select_related('client__user', 'lot').order_by('-date_creation')
+    
+    # Récupération des lots avec colis express
+    lots_express = Lot.objects.filter(
+        colis__type_transport='express',
+        date_creation__gte=date_debut,
+        date_creation__lte=date_fin
+    ).distinct().prefetch_related('colis_set').order_by('-date_creation')
+    
+    # Création du workbook Excel
+    wb = openpyxl.Workbook()
+    
+    # Feuille 1: Résumé Express
+    ws1 = wb.active
+    ws1.title = "Résumé Express"
+    
+    # Styles
+    header_font = Font(name='Arial', size=16, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='28A745', end_color='28A745', fill_type='solid')  # Vert pour express
+    subheader_font = Font(name='Arial', size=12, bold=True, color='2D3748')
+    subheader_fill = PatternFill(start_color='F7FAFC', end_color='F7FAFC', fill_type='solid')
+    data_font = Font(name='Arial', size=10)
+    number_font = Font(name='Arial', size=10, bold=True)
+    border = Border(
+        left=Side(border_style='thin', color='E2E8F0'),
+        right=Side(border_style='thin', color='E2E8F0'),
+        top=Side(border_style='thin', color='E2E8F0'),
+        bottom=Side(border_style='thin', color='E2E8F0')
+    )
+    
+    # En-tête
+    ws1['A1'] = 'RAPPORT EXPRESS - TS AIR CARGO'
+    ws1.merge_cells('A1:F1')
+    ws1['A1'].font = header_font
+    ws1['A1'].fill = header_fill
+    ws1['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Statistiques générales
+    total_colis = colis_express.count()
+    valeur_totale = colis_express.aggregate(total=Sum('prix_calcule'))['total'] or 0
+    poids_total = colis_express.aggregate(total=Sum('poids'))['total'] or 0
+    
+    # Calcul du délai moyen de livraison (si disponible)
+    colis_livres = colis_express.filter(statut='livre', date_livraison__isnull=False)
+    delai_moyen = 0
+    if colis_livres.exists():
+        delais = []
+        for colis in colis_livres:
+            if colis.date_livraison and colis.date_creation:
+                delai = (colis.date_livraison.date() - colis.date_creation.date()).days
+                delais.append(delai)
+        if delais:
+            delai_moyen = sum(delais) / len(delais)
+    
+    stats_data = [
+        ['Indicateur', 'Valeur'],
+        ['Total Colis Express', total_colis],
+        ['Valeur Totale (FCFA)', f"{valeur_totale:,.0f}"],
+        ['Poids Total (Kg)', f"{poids_total:,.1f}"],
+        ['Nombre de Lots', lots_express.count()],
+        ['Délai Moyen Livraison (jours)', f"{delai_moyen:.1f}"],
+        ['Taux de Livraison (%)', f"{(colis_livres.count() / total_colis * 100):.1f}" if total_colis > 0 else "0.0"],
+    ]
+    
+    for row_idx, row_data in enumerate(stats_data, start=3):
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws1.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 3:
+                cell.font = subheader_font
+                cell.fill = subheader_fill
+            else:
+                cell.font = data_font
+    
+    # Feuille 2: Détail des Colis Express
+    ws2 = wb.create_sheet(title="Colis Express")
+    
+    # En-têtes des colis
+    colis_headers = ['Code Suivi', 'Client', 'Description', 'Poids (Kg)', 'Valeur (FCFA)', 'Statut', 'Date Création', 'Date Livraison', 'Délai (jours)', 'Lot']
+    for col_idx, header in enumerate(colis_headers, start=1):
+        cell = ws2.cell(row=1, column=col_idx, value=header)
+        cell.font = subheader_font
+        cell.fill = subheader_fill
+        cell.border = border
+    
+    # Données des colis
+    for row_idx, colis in enumerate(colis_express, start=2):
+        # Calcul du délai
+        delai = ""
+        if hasattr(colis, 'date_livraison') and colis.date_livraison and colis.date_creation:
+            delai = (colis.date_livraison.date() - colis.date_creation.date()).days
+        
+        row_data = [
+            colis.code_suivi,
+            f"{colis.client.user.first_name} {colis.client.user.last_name}" if colis.client and colis.client.user else "N/A",
+            colis.description_contenu,
+            float(colis.poids) if colis.poids else 0,
+            float(colis.prix_calcule) if colis.prix_calcule else 0,
+            colis.get_statut_display(),
+            colis.date_creation.strftime('%d/%m/%Y'),
+            colis.date_livraison.strftime('%d/%m/%Y') if hasattr(colis, 'date_livraison') and colis.date_livraison else "Non livré",
+            delai if delai != "" else "N/A",
+            colis.lot.numero_lot if colis.lot else "Aucun"
+        ]
+        
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws2.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if col_idx in [4, 5, 9]:  # Colonnes numériques
+                cell.font = number_font
+                if col_idx == 4:
+                    cell.number_format = '#,##0.00'
+                else:
+                    cell.number_format = '#,##0'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.font = data_font
+    
+    # Feuille 3: Lots Express
+    ws3 = wb.create_sheet(title="Lots Express")
+    
+    # En-têtes des lots
+    lots_headers = ['Numéro Lot', 'Nb Colis', 'Poids Total (Kg)', 'Prix Transport (FCFA)', 'Frais Douane (FCFA)', 'Statut', 'Date Création', 'Date Expédition']
+    for col_idx, header in enumerate(lots_headers, start=1):
+        cell = ws3.cell(row=1, column=col_idx, value=header)
+        cell.font = subheader_font
+        cell.fill = subheader_fill
+        cell.border = border
+    
+    # Données des lots
+    for row_idx, lot in enumerate(lots_express, start=2):
+        nb_colis_express = lot.colis_set.filter(type_transport='express').count()
+        poids_lot = lot.colis_set.filter(type_transport='express').aggregate(total=Sum('poids'))['total'] or 0
+        
+        row_data = [
+            lot.numero_lot,
+            nb_colis_express,
+            float(poids_lot),
+            float(lot.prix_transport) if lot.prix_transport else 0,
+            float(lot.frais_douane) if hasattr(lot, 'frais_douane') and lot.frais_douane else 0,
+            lot.get_statut_display(),
+            lot.date_creation.strftime('%d/%m/%Y'),
+            lot.date_expedition.strftime('%d/%m/%Y') if lot.date_expedition else "Non expédié"
+        ]
+        
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws3.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if col_idx in [2, 3, 4, 5]:  # Colonnes numériques
+                cell.font = number_font
+                if col_idx == 3:
+                    cell.number_format = '#,##0.00'
+                else:
+                    cell.number_format = '#,##0'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.font = data_font
+    
+    # Ajuster les largeurs des colonnes pour toutes les feuilles
+    for ws in [ws1, ws2, ws3]:
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column].width = adjusted_width
+    
+    # Préparation de la réponse HTTP
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="rapport_express_{date_debut}_{date_fin}.xlsx"'
+    
+    wb.save(response)
+    return response

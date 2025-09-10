@@ -83,6 +83,9 @@
                     <option value="agents" {% if request.GET.type_rapport == 'agents' %}selected{% endif %}>Agents</option>
                     <option value="financier" {% if request.GET.type_rapport == 'financier' %}selected{% endif %}>Financier</option>
                     <option value="operationnel" {% if request.GET.type_rapport == 'operationnel' %}selected{% endif %}>Opérationnel</option>
+                    <option value="cargo" {% if request.GET.type_rapport == 'cargo' %}selected{% endif %}>Cargo</option>
+                    <option value="express" {% if request.GET.type_rapport == 'express' %}selected{% endif %}>Express</option>
+                    <option value="depenses" {% if request.GET.type_rapport == 'depenses' %}selected{% endif %}>Dépenses</option>
                 </select>
             </div>
             <div class="col-md-3 d-flex align-items-end">
@@ -165,6 +168,69 @@
             <a href="?type_rapport=operationnel" class="btn btn-generate btn-sm">
                 <i class="fas fa-eye"></i> Voir
             </a>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="report-card p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="report-icon me-3">
+                    <i class="fas fa-shipping-fast"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Rapport Cargo</h6>
+                    <small class="text-muted">Transport cargo</small>
+                </div>
+            </div>
+            <p class="text-muted small">Statistiques détaillées des colis et lots cargo.</p>
+            <a href="?type_rapport=cargo" class="btn btn-generate btn-sm me-2">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+            <button class="btn btn-outline-success btn-sm" onclick="exportCargo()">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="report-card p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="report-icon me-3" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                    <i class="fas fa-plane"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Rapport Express</h6>
+                    <small class="text-muted">Transport express</small>
+                </div>
+            </div>
+            <p class="text-muted small">Statistiques détaillées des colis et lots express.</p>
+            <a href="?type_rapport=express" class="btn btn-generate btn-sm me-2">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+            <button class="btn btn-outline-success btn-sm" onclick="exportExpress()">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
+        </div>
+    </div>
+    
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="report-card p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <div class="report-icon me-3" style="background: linear-gradient(135deg, #dc3545, #fd7e14);">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Rapport Dépenses</h6>
+                    <small class="text-muted">Dépenses opérationnelles</small>
+                </div>
+            </div>
+            <p class="text-muted small">Analyse détaillée des dépenses par type et période.</p>
+            <a href="?type_rapport=depenses" class="btn btn-generate btn-sm me-2">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+            <button class="btn btn-outline-success btn-sm" onclick="exportDepenses()">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
         </div>
     </div>
 </div>

@@ -39,4 +39,10 @@ urlpatterns = [
     path('api/send-report-whatsapp/', views.send_report_whatsapp_api, name='send_report_whatsapp_api'),
     path('api/send-report-email/', views.send_report_email_api, name='send_report_email_api'),
     path('api/schedule-auto-report/', views.schedule_auto_report_api, name='schedule_auto_report_api'),
+    
+    # Exports Excel
+    path('export-depenses-excel/', views.export_depenses_excel, name='export_depenses_excel'),
+    path('export-rapport-cargo-excel/', views.export_rapport_cargo_excel, name='export_rapport_cargo_excel'),
+    path('export-rapport-express-excel/', views.export_rapport_express_excel, name='export_rapport_express_excel'),
+    path('export-rapport-bateau-excel/', views.export_rapport_bateau_excel, name='export_rapport_bateau_excel'),
 ]

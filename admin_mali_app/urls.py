@@ -37,4 +37,9 @@ urlpatterns = [
     
     # Export Excel
     path('export-rapport-excel/', views.export_rapport_excel, name='export_rapport_excel'),
+    
+    # Exports spécialisés
+    path('export-depenses-excel/', views.export_depenses_excel, name='export_depenses_excel'),
+    path('export-rapport-cargo-excel/', views.export_rapport_cargo_excel, name='export_rapport_cargo_excel'),
+    path('export-rapport-express-excel/', views.export_rapport_express_excel, name='export_rapport_express_excel'),
 ]

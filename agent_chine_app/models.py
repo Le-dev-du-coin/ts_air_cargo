@@ -64,6 +64,13 @@ class Lot(models.Model):
         blank=True,
         help_text="Prix total du transport du lot"
     )
+    frais_douane = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Frais de douane saisis par l'agent Mali"
+    )
     statut = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
