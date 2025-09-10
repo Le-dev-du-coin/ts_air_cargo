@@ -1,0 +1,422 @@
+{% extends 'base_admin_chine.html' %}
+
+{% block title %}Dashboard Admin Chine{% endblock %}
+
+{% block page_subtitle %}
+Supervision des opérations côté Chine - Monitoring complet selon règle dashboard
+{% endblock %}
+
+{% block content %}
+<!-- Statistiques Principales -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card stat-card">
+            <div class="modern-card-body">
+                <span class="stat-number">{{ total_clients|floatformat:0 }}</span>
+                <div class="stat-label">
+                    <i class="bi bi-people me-1"></i>
+                    Clients Total
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card stat-card">
+            <div class="modern-card-body">
+                <span class="stat-number">{{ total_lots|floatformat:0 }}</span>
+                <div class="stat-label">
+                    <i class="bi bi-boxes me-1"></i>
+                    Lots Total
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card stat-card">
+            <div class="modern-card-body">
+                <span class="stat-number">{{ total_colis|floatformat:0 }}</span>
+                <div class="stat-label">
+                    <i class="bi bi-box-seam me-1"></i>
+                    Colis Total
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card stat-card">
+            <div class="modern-card-body">
+                <span class="stat-number">{{ inv_stats.nb_produits|floatformat:0 }}</span>
+                <div class="stat-label">
+                    <i class="bi bi-box me-1"></i>
+                    Produits Inventaire
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statut des Lots - Selon Règle Dashboard -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-boxes me-2"></i>
+                    Statut des Lots (Chine & Mali)
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-info me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Ouverts</span>
+                            <span class="ms-auto fw-bold text-info">{{ lots_stats.ouverts }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-warning me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Fermés</span>
+                            <span class="ms-auto fw-bold text-warning">{{ lots_stats.fermes }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-primary me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Expédiés</span>
+                            <span class="ms-auto fw-bold text-primary">{{ lots_stats.expedies }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-secondary me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">En Transit</span>
+                            <span class="ms-auto fw-bold text-secondary">{{ lots_stats.en_transit }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-success me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Arrivés Mali</span>
+                            <span class="ms-auto fw-bold text-success">{{ lots_stats.arrives }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-dark me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Livrés</span>
+                            <span class="ms-auto fw-bold text-dark">{{ lots_stats.livres }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-box-seam me-2"></i>
+                    Statut des Colis (Chine & Mali)
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-light me-2" style="width: 12px; height: 12px; border-radius: 50%; border: 1px solid #ccc;"></div>
+                            <span class="small">En Attente</span>
+                            <span class="ms-auto fw-bold text-muted">{{ colis_stats.en_attente }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-info me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Reçus Chine</span>
+                            <span class="ms-auto fw-bold text-info">{{ colis_stats.receptionnes_chine }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-primary me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">En Transit</span>
+                            <span class="ms-auto fw-bold text-primary">{{ colis_stats.en_transit }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-success me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Arrivés Mali</span>
+                            <span class="ms-auto fw-bold text-success">{{ colis_stats.arrives_mali }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-dark me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Livrés</span>
+                            <span class="ms-auto fw-bold text-dark">{{ colis_stats.livres }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-danger me-2" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <span class="small">Perdus</span>
+                            <span class="ms-auto fw-bold text-danger">{{ colis_stats.perdus }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Valeurs Financières - Selon Règle Dashboard -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-body text-center">
+                <h6 class="text-muted mb-2">Stock Colis Chine</h6>
+                <h4 class="text-info mb-0">{{ valeurs_colis.valeur_stock_chine|floatformat:0|default:0 }} FCFA</h4>
+                <small class="text-muted">Valeur totale en Chine</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-body text-center">
+                <h6 class="text-muted mb-2">Colis en Transit</h6>
+                <h4 class="text-warning mb-0">{{ valeurs_colis.valeur_transit|floatformat:0|default:0 }} FCFA</h4>
+                <small class="text-muted">Valeur en transit</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-body text-center">
+                <h6 class="text-muted mb-2">Stock Entrepôt Mali</h6>
+                <h4 class="text-success mb-0">{{ valeurs_colis.valeur_arrives_mali|floatformat:0|default:0 }} FCFA</h4>
+                <small class="text-muted">Valeur arrivée Mali</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-body text-center">
+                <h6 class="text-muted mb-2">Colis Livrés</h6>
+                <h4 class="text-dark mb-0">{{ valeurs_colis.valeur_livres|floatformat:0|default:0 }} FCFA</h4>
+                <small class="text-muted">Montant livré</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prix des Lots -->
+<div class="row mb-4">
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-body text-center">
+                <h6 class="text-muted mb-2">Prix Transport Total</h6>
+                <h4 class="text-primary mb-0">{{ prix_lots.prix_transport_total|floatformat:0|default:0 }} FCFA</h4>
+                <small class="text-muted">Prix estimé tous lots</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-body text-center">
+                <h6 class="text-muted mb-2">Lots Expédiés</h6>
+                <h4 class="text-info mb-0">{{ prix_lots.prix_lots_expedies|floatformat:0|default:0 }} FCFA</h4>
+                <small class="text-muted">Prix lots expédiés</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-body text-center">
+                <h6 class="text-muted mb-2">Lots en Transit</h6>
+                <h4 class="text-secondary mb-0">{{ prix_lots.prix_lots_en_transit|floatformat:0|default:0 }} FCFA</h4>
+                <small class="text-muted">Prix lots en transit</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inventaire Chine -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-box me-2"></i>
+                    Inventaire & Opérations Chine
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center mb-3">
+                        <h5 class="text-info">{{ inv_stats.nb_produits }}</h5>
+                        <small class="text-muted">Produits en stock</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h5 class="text-warning">{{ inv_stats.valeur_stock_yuan|floatformat:0 }}</h5>
+                        <small class="text-muted">Valeur Yuan</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h5 class="text-success">{{ inv_stats.valeur_stock_fcfa|floatformat:0 }}</h5>
+                        <small class="text-muted">Valeur FCFA</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h5 class="text-danger">{{ inv_stats.produits_low_stock }}</h5>
+                        <small class="text-muted">Alertes stock</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-3">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear me-2"></i>
+                    Actions Rapides
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary-custom">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Nouveau Produit
+                    </button>
+                    <button class="btn btn-primary-custom">
+                        <i class="bi bi-arrow-up-circle me-2"></i>
+                        Nouvelle Opération
+                    </button>
+                    <button class="btn btn-primary-custom">
+                        <i class="bi bi-bar-chart me-2"></i>
+                        Voir Rapports
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Opérations Récentes -->
+{% if operations_recentes %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Opérations Récentes
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Numéro</th>
+                                <th>Type</th>
+                                <th>Produit</th>
+                                <th>Quantité</th>
+                                <th>Montant</th>
+                                <th>Statut</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operations_recentes %}
+                            <tr>
+                                <td><span class="badge bg-secondary">{{ op.numero_operation }}</span></td>
+                                <td>{{ op.get_type_operation_display }}</td>
+                                <td>{{ op.produit.nom_produit|default:"N/A" }}</td>
+                                <td>{{ op.quantite }}</td>
+                                <td>
+                                    {% if op.montant_total %}
+                                    {{ op.montant_total|floatformat:0 }} {{ op.monnaie }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-status-{{ op.statut }}">
+                                        {{ op.get_statut_display }}
+                                    </span>
+                                </td>
+                                <td>{{ op.date_operation|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Alertes et Notifications -->
+<div class="row">
+    <div class="col-12">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Alertes et Monitoring
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-info-circle me-2"></i>Lots Ouverts</h6>
+                            <p class="mb-0">{{ lots_stats.ouverts }} lots ouverts nécessitent votre attention</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        {% if inv_stats.produits_low_stock > 0 %}
+                        <div class="alert alert-warning">
+                            <h6><i class="bi bi-exclamation-triangle me-2"></i>Stock Faible</h6>
+                            <p class="mb-0">{{ inv_stats.produits_low_stock }} produits ont un stock faible</p>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-success">
+                            <h6><i class="bi bi-check-circle me-2"></i>Stock OK</h6>
+                            <p class="mb-0">Tous les produits ont un stock suffisant</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-primary">
+                            <h6><i class="bi bi-truck me-2"></i>En Transit</h6>
+                            <p class="mb-0">{{ lots_stats.en_transit }} lots sont actuellement en transit</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Actualisation automatique des statistiques toutes les 30 secondes
+setInterval(function() {
+    // Code pour rafraîchir les statistiques via AJAX si nécessaire
+}, 30000);
+</script>
+{% endblock %}

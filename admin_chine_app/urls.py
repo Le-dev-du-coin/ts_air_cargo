@@ -4,6 +4,5 @@ from . import views
 app_name = 'admin_chine_app'
 
 urlpatterns = [
-    # Ajoutez vos URLs ici quand les vues seront créées
-    # path('', views.index, name='index'),
+    path('', views.dashboard, name='dashboard'),
 ]
