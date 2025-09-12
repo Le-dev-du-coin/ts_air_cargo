@@ -1,0 +1,84 @@
+{% extends 'components/base_admin_chine.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Confirmation de Suppression</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-warning"></i>
+                    <strong>Attention !</strong> Cette action est irréversible.
+                </div>
+                
+                <p>Êtes-vous sûr de vouloir supprimer le transfert suivant ?</p>
+                
+                <div class="bg-light p-3 rounded mb-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Numéro de Transfert:</strong><br>
+                            {{ transfert.numero_transfert }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Montant:</strong><br>
+                            {{ transfert.montant_fcfa|floatformat:0 }} FCFA
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <strong>Destinataire:</strong><br>
+                            {{ transfert.destinataire_nom }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Statut:</strong><br>
+                            {% if transfert.statut == 'initie' %}
+                                <span class="badge bg-warning">{{ transfert.get_statut_display }}</span>
+                            {% elif transfert.statut == 'envoye' %}
+                                <span class="badge bg-info">{{ transfert.get_statut_display }}</span>
+                            {% elif transfert.statut == 'confirme_chine' %}
+                                <span class="badge bg-success">{{ transfert.get_statut_display }}</span>
+                            {% elif transfert.statut == 'annule' %}
+                                <span class="badge bg-danger">{{ transfert.get_statut_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <strong>Date de création:</strong><br>
+                            {{ transfert.date_initiation|date:"d/m/Y à H:i" }}
+                        </div>
+                    </div>
+                </div>
+                
+                {% if transfert.statut == 'confirme_chine' %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-ban"></i>
+                    <strong>Impossible de supprimer !</strong> 
+                    Ce transfert a déjà été confirmé en Chine et ne peut plus être supprimé.
+                </div>
+                {% endif %}
+                
+                <form method="post" class="d-flex justify-content-between">
+                    {% csrf_token %}
+                    <a href="{% url 'admin_chine_app:transfert_detail' transfert.id %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Annuler
+                    </a>
+                    
+                    {% if transfert.statut != 'confirme_chine' %}
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Êtes-vous absolument certain de vouloir supprimer ce transfert ?')">
+                        <i class="fas fa-trash"></i> Confirmer la Suppression
+                    </button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

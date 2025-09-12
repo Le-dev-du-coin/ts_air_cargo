@@ -1,0 +1,147 @@
+{% extends 'components/base_admin_mali.html' %}
+
+{% block title %}{{ title }} - Admin Mali{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-tags me-2"></i>{{ title }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nom du tarif *</label>
+                            <input type="text" name="nom_tarif" class="form-control" required 
+                                   placeholder="Ex: Tarif Standard" value="{{ tarif.nom_tarif|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Méthode de calcul *</label>
+                            <select name="methode_calcul" class="form-select" required id="methode_calcul">
+                                <option value="">-- Choisir --</option>
+                                {% for value, label in methode_choices %}
+                                <option value="{{ value }}" {% if tarif.methode_calcul == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row" id="prix-fields">
+                        <div class="col-md-4 mb-3" id="prix_par_kilo_field" style="display:none;">
+                            <label class="form-label">Prix par kilo (FCFA)</label>
+                            <input type="number" name="prix_par_kilo" class="form-control" step="0.01" min="0" 
+                                   value="{{ tarif.prix_par_kilo|default:'' }}">
+                        </div>
+                        <div class="col-md-4 mb-3" id="prix_par_m3_field" style="display:none;">
+                            <label class="form-label">Prix par m³ (FCFA)</label>
+                            <input type="number" name="prix_par_m3" class="form-control" step="0.01" min="0" 
+                                   value="{{ tarif.prix_par_m3|default:'' }}">
+                        </div>
+                        <div class="col-md-4 mb-3" id="prix_forfaitaire_field" style="display:none;">
+                            <label class="form-label">Prix forfaitaire (FCFA)</label>
+                            <input type="number" name="prix_forfaitaire" class="form-control" step="0.01" min="0" 
+                                   value="{{ tarif.prix_forfaitaire|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Poids min (kg)</label>
+                            <input type="number" name="poids_minimum" class="form-control" step="0.01" min="0" 
+                                   value="{{ tarif.poids_minimum|default:'0' }}">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Poids max (kg)</label>
+                            <input type="number" name="poids_maximum" class="form-control" step="0.01" min="0" 
+                                   value="{{ tarif.poids_maximum|default:'' }}">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Volume min (m³)</label>
+                            <input type="number" name="volume_minimum" class="form-control" step="0.001" min="0" 
+                                   value="{{ tarif.volume_minimum|default:'0' }}">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Volume max (m³)</label>
+                            <input type="number" name="volume_maximum" class="form-control" step="0.001" min="0" 
+                                   value="{{ tarif.volume_maximum|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Pays de destination *</label>
+                            <select name="pays_destination" class="form-select" required>
+                                {% for value, label in pays_choices %}
+                                <option value="{{ value }}" {% if tarif.pays_destination == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Date de début *</label>
+                            <input type="date" name="date_debut" class="form-control" required 
+                                   value="{{ tarif.date_debut|date:'Y-m-d'|default:date_aujourd_hui }}">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Date de fin</label>
+                            <input type="date" name="date_fin" class="form-control" 
+                                   value="{{ tarif.date_fin|date:'Y-m-d'|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3">{{ tarif.description|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="actif" class="form-check-input" {% if tarif.actif|default:True %}checked{% endif %}>
+                            <label class="form-check-label">Tarif actif</label>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <a href="{% url 'admin_mali_app:tarifs' %}" class="btn btn-secondary me-2">Annuler</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if tarif %}Modifier{% else %}Créer{% endif %} le tarif
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePrixFields() {
+    const methode = document.getElementById('methode_calcul').value;
+    const fields = ['prix_par_kilo_field', 'prix_par_m3_field', 'prix_forfaitaire_field'];
+    
+    // Cacher tous les champs
+    fields.forEach(field => document.getElementById(field).style.display = 'none');
+    
+    // Afficher selon la méthode
+    if (methode === 'par_kilo') {
+        document.getElementById('prix_par_kilo_field').style.display = 'block';
+    } else if (methode === 'par_metre_cube') {
+        document.getElementById('prix_par_m3_field').style.display = 'block';
+    } else if (methode === 'forfaitaire') {
+        document.getElementById('prix_forfaitaire_field').style.display = 'block';
+    } else if (methode === 'mixte') {
+        document.getElementById('prix_par_kilo_field').style.display = 'block';
+        document.getElementById('prix_par_m3_field').style.display = 'block';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('methode_calcul').addEventListener('change', togglePrixFields);
+    togglePrixFields();
+});
+</script>
+{% endblock %}

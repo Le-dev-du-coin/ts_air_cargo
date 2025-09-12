@@ -10,6 +10,8 @@ class ShippingPrice(models.Model):
     METHODE_CALCUL_CHOICES = [
         ('par_kilo', 'Par Kilo'),
         ('par_metre_cube', 'Par Mètre Cube'),
+        ('forfaitaire', 'Prix Forfaitaire'),
+        ('mixte', 'Mixte (Poids + Volume)'),
     ]
     
     nom_tarif = models.CharField(

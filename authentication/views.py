@@ -16,7 +16,7 @@ from notifications_app.wachap_service import send_whatsapp_otp
 import json
 
 from .models import CustomUser, PasswordResetToken
-from .forms import LoginForm, RegistrationForm, PasswordResetRequestForm, PasswordResetForm
+from .forms import LoginForm, RegistrationForm, PasswordResetRequestForm, PasswordResetForm, AdminChinaLoginForm
 
 
 def generate_otp_code():
@@ -32,9 +32,8 @@ def get_dashboard_url_by_role(user):
         return reverse('agent_chine:dashboard')
     elif user.role == 'agent_mali':
         return reverse('agent_mali:dashboard')
-    elif user.role == 'admin_chine':
-        # TODO: Créer le dashboard admin_chine
-        return '/admin/'
+    elif user.role == 'admin_chine' or user.is_admin_chine:
+        return reverse('admin_chine_app:dashboard')
     elif user.role == 'admin_mali' or user.is_admin_mali:
         return reverse('admin_mali_app:dashboard')
     elif user.role == 'client':
@@ -403,6 +402,49 @@ def resend_otp_view(request):
         return JsonResponse({'success': False, 'message': 'Utilisateur introuvable'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
+
+def admin_chine_login_view(request):
+    """Vue de connexion spécifique pour Admin Chine avec gestion des numéros chinois"""
+    if request.user.is_authenticated and request.user.is_admin_chine:
+        return redirect('admin_chine_app:dashboard')
+    
+    if request.method == 'POST':
+        form = AdminChinaLoginForm(request.POST, request=request)
+        
+        if form.is_valid():
+            telephone = form.cleaned_data['phone_number']
+            user = form.user_cache
+            
+            # Générer et envoyer l'OTP
+            otp_code = generate_otp_code()
+            cache_key = f"otp_{telephone}"
+            cache.set(cache_key, {
+                'code': otp_code,
+                'user_id': user.id,
+                'role': 'admin_chine',
+                'timestamp': timezone.now().isoformat()
+            }, timeout=600)
+            
+            # Envoyer l'OTP via WaChap
+            success, message = send_whatsapp_otp(telephone, otp_code)
+            
+            if success:
+                request.session['otp_telephone'] = telephone
+                request.session['login_role'] = 'admin_chine'
+                request.session['pre_authenticated_user_id'] = user.id
+                messages.success(request, f"Identifiants validés ! {message}")
+                return redirect('authentication:verify_otp')
+            else:
+                messages.error(request, f"Erreur d'envoi du code: {message}")
+    else:
+        form = AdminChinaLoginForm()
+    
+    return render(request, 'authentication/login_admin_chine.html', {
+        'form': form,
+        'role': 'admin_chine',
+        'role_display': 'Administrateur Chine'
+    })
+
 
 def home_view(request):
     """Page d'accueil avec liens de connexion par rôle"""

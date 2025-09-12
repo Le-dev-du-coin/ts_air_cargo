@@ -1,0 +1,137 @@
+{% extends 'agent_mali_app/templates/agent_mali_app/dashboard.html' %}
+{% comment %}
+This extends path is likely incorrect; we should extend a base admin template if available.
+We'll create a self-contained page for now.
+{% endcomment %}
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Agents - Admin Mali</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root { --border-color: #E2E8F0; }
+        .modern-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid var(--border-color); }
+        .modern-card-header { background: linear-gradient(135deg, #FF6B35 0%, #DC3545 100%); color: white; padding: 15px 20px; border-radius: 12px 12px 0 0; }
+        .modern-card-body { padding: 20px; }
+        .action-btn { display: inline-flex; align-items: center; gap: .5rem; border-radius: 8px; padding: 8px 14px; text-decoration: none; color: white; background: linear-gradient(135deg, #FF6B35 0%, #DC3545 100%); }
+        .table thead th { background: #f8f9fa; }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">Gestion des Agents</h2>
+            <small class="text-muted">Liste des agents Chine et Mali</small>
+        </div>
+        <a href="{% url 'admin_mali_app:agent_create' %}" class="action-btn">
+            <i class="bi bi-person-plus"></i>
+            Nouvel agent
+        </a>
+    </div>
+
+    <div class="modern-card mb-4">
+        <div class="modern-card-header">
+            <h5 class="mb-0"><i class="bi bi-building me-2"></i>Agents Chine</h5>
+        </div>
+        <div class="modern-card-body">
+            {% if agents_chine %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Téléphone</th>
+                            <th>Email</th>
+                            <th>Statut</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in agents_chine %}
+                        <tr>
+                            <td>{{ a.get_full_name }}</td>
+                            <td>{{ a.telephone }}</td>
+                            <td>{{ a.email }}</td>
+                            <td>
+                                {% if a.is_active %}
+                                <span class="badge bg-success">Actif</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactif</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'admin_mali_app:agent_edit' a.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'admin_mali_app:agent_delete' a.id %}" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted m-0">Aucun agent Chine.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="modern-card">
+        <div class="modern-card-header">
+            <h5 class="mb-0"><i class="bi bi-flag me-2"></i>Agents Mali</h5>
+        </div>
+        <div class="modern-card-body">
+            {% if agents_mali %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Téléphone</th>
+                            <th>Email</th>
+                            <th>Statut</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in agents_mali %}
+                        <tr>
+                            <td>{{ a.get_full_name }}</td>
+                            <td>{{ a.telephone }}</td>
+                            <td>{{ a.email }}</td>
+                            <td>
+                                {% if a.is_active %}
+                                <span class="badge bg-success">Actif</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactif</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'admin_mali_app:agent_edit' a.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'admin_mali_app:agent_delete' a.id %}" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted m-0">Aucun agent Mali.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</body>
+</html>
+

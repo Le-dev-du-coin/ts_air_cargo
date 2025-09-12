@@ -6,6 +6,7 @@ app_name = 'admin_mali_app'
 urlpatterns = [
     # Dashboard principal
     path('', views.dashboard, name='dashboard'),
+    path('dashboard-admin/', views.dashboard_admin_view, name='dashboard_admin'),
     
     # Gestion des transferts d'argent
     path('transferts/', views.transferts_list, name='transferts'),

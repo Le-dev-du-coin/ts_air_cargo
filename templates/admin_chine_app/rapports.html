@@ -1,0 +1,199 @@
+{% extends 'components/base_admin_chine.html' %}
+{% load static %}
+
+{% block title %}Rapports Financiers - Admin Chine{% endblock %}
+
+{% block page_title %}Rapports Financiers{% endblock %}
+
+{% block extra_head %}
+<style>
+    .report-card { border-left: 4px solid var(--primary-color); transition: all 0.3s ease; }
+    .report-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(255, 107, 53, 0.15); }
+    .btn-export { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); border: none; border-radius: 10px; padding: 10px 20px; color: white; font-weight: 600; transition: all 0.3s ease; margin: 5px; }
+    .btn-export:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3); color: white; }
+    .filter-card { background: #FFF8F6; border: 1px solid #FFE5D9; border-radius: 15px; }
+    .metric-value { font-family: 'Courier New', monospace; font-weight: bold; color: var(--primary-color); font-size: 1.2em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card filter-card">
+            <div class="card-body">
+                <form method="get" class="row align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Type de rapport</label>
+                        <select name="type_rapport" class="form-select" onchange="this.form.submit()">
+                            <option value="">-- Sélectionner un type --</option>
+                            <option value="financier" {% if type_rapport == 'financier' %}selected{% endif %}>Rapport Financier</option>
+                            <option value="transferts" {% if type_rapport == 'transferts' %}selected{% endif %}>Transferts d'Argent</option>
+                            <option value="agents" {% if type_rapport == 'agents' %}selected{% endif %}>Performance des Agents</option>
+                            <option value="operationnel" {% if type_rapport == 'operationnel' %}selected{% endif %}>Rapport Opérationnel</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date de début</label>
+                        <input type="date" name="date_debut" class="form-control" value="{{ date_debut|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date de fin</label>
+                        <input type="date" name="date_fin" class="form-control" value="{{ date_fin|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-chart-line"></i> Générer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if type_rapport %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-download me-2"></i>Exports disponibles</h5>
+            </div>
+            <div class="card-body text-center">
+                <a href="{% url 'admin_chine_app:export_rapport_excel' %}?type_rapport={{ type_rapport }}&date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}" class="btn btn-export">
+                    <i class="fas fa-file-excel"></i> Excel Complet
+                </a>
+                <a href="{% url 'admin_chine_app:export_rapport_cargo_excel' %}?date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}" class="btn btn-export">
+                    <i class="fas fa-truck"></i> Rapport Cargo
+                </a>
+                <a href="{% url 'admin_chine_app:export_rapport_express_excel' %}?date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}" class="btn btn-export">
+                    <i class="fas fa-rocket"></i> Rapport Express
+                </a>
+                <a href="{% url 'admin_chine_app:export_depenses_excel' %}?date_debut={{ date_debut|date:'Y-m-d' }}&date_fin={{ date_fin|date:'Y-m-d' }}" class="btn btn-export">
+                    <i class="fas fa-wallet"></i> Rapport Dépenses
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if rapport_data %}
+<div class="row">
+    <div class="col-12">
+        {% if type_rapport == 'financier' %}
+        <div class="card report-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Rapport Financier - {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}</h5>
+            </div>
+            <div class="card-body">
+                <!-- Première ligne de métriques -->
+                <div class="row mb-3">
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Revenus Total Colis</h6>
+                        <div class="metric-value">{{ rapport_data.revenus_total|floatformat:0 }} FCFA</div>
+                        <small class="text-muted">Valeur totale transport</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Revenus Réalisés</h6>
+                        <div class="metric-value">{{ rapport_data.revenus_realises|floatformat:0 }} FCFA</div>
+                        <small class="text-muted">Colis livrés</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Coûts Transport</h6>
+                        <div class="metric-value">{{ rapport_data.couts_transport|floatformat:0 }} FCFA</div>
+                        <small class="text-muted">Estimation 30%</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Bénéfice Net</h6>
+                        <div class="metric-value">{{ rapport_data.benefice_net|floatformat:0 }} FCFA</div>
+                        <small class="text-muted">Revenus - Coûts</small>
+                    </div>
+                </div>
+                
+                <!-- Deuxième ligne - Statistiques colis -->
+                <div class="row">
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Total Colis</h6>
+                        <div class="metric-value">{{ rapport_data.total_colis }}</div>
+                        <small class="text-muted">Période sélectionnée</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Colis Livrés</h6>
+                        <div class="metric-value">{{ rapport_data.colis_livres }}</div>
+                        <small class="text-muted">{{ rapport_data.taux_livraison }}% taux livraison</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">En Transit</h6>
+                        <div class="metric-value">{{ rapport_data.colis_en_transit }}</div>
+                        <small class="text-muted">Vers le Mali</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Arrivés Mali</h6>
+                        <div class="metric-value">{{ rapport_data.colis_arrives }}</div>
+                        <small class="text-muted">Prêts livraison</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% elif type_rapport == 'transferts' %}
+        <div class="card report-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>Rapport Transferts - {{ date_debut|date:"d/m/Y" }} au {{ date_fin|date:"d/m/Y" }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Total Transferts</h6>
+                        <div class="metric-value">{{ rapport_data.total_transferts }}</div>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Montant Total</h6>
+                        <div class="metric-value">{{ rapport_data.total_montant|floatformat:0 }} FCFA</div>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">Montant Moyen</h6>
+                        <div class="metric-value">{{ rapport_data.montant_moyen|floatformat:0 }} FCFA</div>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <h6 class="text-muted">En Cours</h6>
+                        <div class="metric-value">{{ rapport_data.transferts_en_cours }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% else %}
+        <div class="card report-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Rapport {{ type_rapport|title }}</h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <i class="fas fa-construction fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Rapport en développement</h5>
+                <p class="text-muted">Ce type de rapport sera bientôt disponible.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+{% if type_rapport %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">Aucune donnée trouvée</h5>
+        <p class="text-muted">Aucune donnée disponible pour la période sélectionnée.</p>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">Bienvenue dans les Rapports</h5>
+        <p class="text-muted">Sélectionnez un type de rapport et une période pour commencer l'analyse.</p>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

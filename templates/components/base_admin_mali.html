@@ -10,6 +10,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css" rel="stylesheet">
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
     
     <style>
@@ -497,13 +498,13 @@
         
         <!-- Content -->
         <div class="content-wrapper">
+            <!-- Messages cachés pour SweetAlert -->
             {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
+                <div id="django-messages" style="display: none;">
+                    {% for message in messages %}
+                        <div data-type="{{ message.tags }}" data-message="{{ message|escapejs }}"></div>
+                    {% endfor %}
+                </div>
             {% endif %}
             
             {% block content %}
@@ -514,6 +515,7 @@
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
     
     <script>
         // Sidebar Toggle
@@ -540,6 +542,77 @@
                 link.classList.add('active');
             }
         });
+        
+        // Afficher les messages Django avec SweetAlert2
+        const messagesContainer = document.getElementById('django-messages');
+        if (messagesContainer) {
+            const messages = messagesContainer.querySelectorAll('div[data-type]');
+            messages.forEach(messageEl => {
+                const type = messageEl.getAttribute('data-type');
+                const message = messageEl.getAttribute('data-message');
+                
+                let icon = 'info';
+                let title = 'Information';
+                
+                if (type === 'success') {
+                    icon = 'success';
+                    title = 'Succès';
+                } else if (type === 'error') {
+                    icon = 'error';
+                    title = 'Erreur';
+                } else if (type === 'warning') {
+                    icon = 'warning';
+                    title = 'Attention';
+                }
+                
+                Swal.fire({
+                    icon: icon,
+                    title: title,
+                    text: message,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#FF6B35'
+                });
+            });
+        }
+        
+        // Fonction globale pour les confirmations de suppression
+        window.confirmDelete = function(title, text, confirmText = 'Supprimer', cancelText = 'Annuler') {
+            return Swal.fire({
+                title: title,
+                text: text,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: confirmText,
+                cancelButtonText: cancelText,
+                reverseButtons: true
+            }).then((result) => {
+                return result.isConfirmed;
+            });
+        };
+        
+        // Fonction pour les messages de succès rapides
+        window.showSuccess = function(message) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Succès!',
+                text: message,
+                confirmButtonColor: '#FF6B35',
+                timer: 3000,
+                timerProgressBar: true
+            });
+        };
+        
+        // Fonction pour les messages d'erreur rapides
+        window.showError = function(message) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur!',
+                text: message,
+                confirmButtonColor: '#FF6B35'
+            });
+        };
     </script>
     
     {% block extra_scripts %}

@@ -1,7 +1,7 @@
-{% extends 'components/base_admin_mali.html' %}
+{% extends 'components/base_admin_chine.html' %}
 {% load static %}
 
-{% block title %}Rapports - Admin Mali{% endblock %}
+{% block title %}Rapports - Admin Chine{% endblock %}
 
 {% block page_title %}Rapports{% endblock %}
 
@@ -414,7 +414,7 @@
 function exportToExcel() {
     // Construire l'URL d'export avec les paramètres actuels
     const urlParams = new URLSearchParams(window.location.search);
-    const exportUrl = '{% url "admin_mali_app:export_rapport_excel" %}?' + urlParams.toString();
+    const exportUrl = '{% url "admin_chine_app:export_rapport_excel" %}?' + urlParams.toString();
     
     // Ouvrir dans une nouvelle fenêtre pour le téléchargement
     window.open(exportUrl, '_blank');
@@ -425,7 +425,7 @@ function exportCargo() {
         'date_debut': document.getElementById('date_debut').value || '',
         'date_fin': document.getElementById('date_fin').value || ''
     });
-    const exportUrl = '{% url "admin_mali_app:export_rapport_cargo_excel" %}?' + urlParams.toString();
+    const exportUrl = '{% url "admin_chine_app:export_rapport_cargo_excel" %}?' + urlParams.toString();
     window.open(exportUrl, '_blank');
 }
 
@@ -434,7 +434,7 @@ function exportExpress() {
         'date_debut': document.getElementById('date_debut').value || '',
         'date_fin': document.getElementById('date_fin').value || ''
     });
-    const exportUrl = '{% url "admin_mali_app:export_rapport_express_excel" %}?' + urlParams.toString();
+    const exportUrl = '{% url "admin_chine_app:export_rapport_express_excel" %}?' + urlParams.toString();
     window.open(exportUrl, '_blank');
 }
 
@@ -443,7 +443,7 @@ function exportDepenses() {
         'date_debut': document.getElementById('date_debut').value || '',
         'date_fin': document.getElementById('date_fin').value || ''
     });
-    const exportUrl = '{% url "admin_mali_app:export_depenses_excel" %}?' + urlParams.toString();
+    const exportUrl = '{% url "admin_chine_app:export_depenses_excel" %}?' + urlParams.toString();
     window.open(exportUrl, '_blank');
 }
 

@@ -497,17 +497,42 @@
         if (phoneInput && phoneFeedback) {
             phoneInput.addEventListener('input', function(e) {
                 const value = e.target.value.trim();
-                const phoneRegex = /^\+861[3-9]\d{9}$/;
+                const cleanedPhone = value.replace(/[\s\-\(\)]/g, '');
+                console.log('DEBUG JS: Phone original:', value);
+                console.log('DEBUG JS: Phone nettoyé:', cleanedPhone);
+                
+                // Patterns valides pour numéros maliens
+                const malianPatterns = [
+                    /^\+223[67]\d{7}$/,      // +22360123456 ou +22370123456
+                    /^223[67]\d{7}$/,        // 22360123456 ou 22370123456  
+                    /^[67]\d{7}$/            // 60123456 ou 70123456
+                ];
+                
+                // Patterns valides pour numéros chinois
+                const chinesePatterns = [
+                    /^\+861[3-9]\d{9}$/,     // +8613800138000
+                    /^861[3-9]\d{9}$/,       // 8613800138000  
+                    /^1[3-9]\d{9}$/          // 13800138000
+                ];
+                
+                const allPatterns = [...malianPatterns, ...chinesePatterns];
+                let isValid = false;
+                
+                if (cleanedPhone) {
+                    isValid = allPatterns.some(pattern => pattern.test(cleanedPhone));
+                    console.log('DEBUG JS: Validation result:', isValid);
+                }
                 
                 if (value === '') {
                     phoneFeedback.className = 'validation-feedback';
                     e.target.classList.remove('valid', 'invalid');
-                } else if (phoneRegex.test(value)) {
+                } else if (isValid) {
                     phoneFeedback.className = 'validation-feedback valid';
                     e.target.classList.remove('invalid');
                     e.target.classList.add('valid');
                 } else {
                     phoneFeedback.className = 'validation-feedback invalid';
+                    phoneFeedback.textContent = 'Formats valides: Mali (+22360123456) ou Chine (+8613800138000)';
                     e.target.classList.remove('valid');
                     e.target.classList.add('invalid');
                 }

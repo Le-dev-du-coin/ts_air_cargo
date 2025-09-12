@@ -1,7 +1,7 @@
-{% extends 'components/base_admin_mali.html' %}
+{% extends 'components/base_admin_chine.html' %}
 {% load static %}
 
-{% block title %}{{ title }} - Admin Mali{% endblock %}
+{% block title %}{{ title }} - Admin Chine{% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
 
@@ -294,7 +294,7 @@
                         </div>
                         
                         <div class="tarif-actions">
-                            <a href="{% url 'admin_mali_app:tarif_detail' tarif.id %}" 
+                            <a href="{% url 'admin_chine_app:tarif_detail' tarif.id %}" 
                                class="btn-tarif-action btn-view">
                                 <i class="fas fa-eye"></i> Voir
                             </a>
@@ -567,7 +567,7 @@ function editTarif(id, nom, methode, prixKilo, prixM3, prixForf, poidsMin, poids
     
     // Changer l'action du formulaire
     const form = document.getElementById('tarifForm');
-    form.action = `{% url 'admin_mali_app:tarif_edit' 0 %}`.replace('0', id);
+    form.action = `{% url 'admin_chine_app:tarif_edit' 0 %}`.replace('0', id);
     
     // Ouvrir le modal
     new bootstrap.Modal(document.getElementById('tarifModal')).show();
@@ -577,7 +577,7 @@ function editTarif(id, nom, methode, prixKilo, prixM3, prixForf, poidsMin, poids
 document.getElementById('tarifModal').addEventListener('hidden.bs.modal', function() {
     document.getElementById('tarifModalTitle').textContent = 'Nouveau Tarif';
     document.getElementById('submitBtnText').textContent = 'Créer le tarif';
-    document.getElementById('tarifForm').action = '{% url "admin_mali_app:tarif_create" %}';
+    document.getElementById('tarifForm').action = '{% url "admin_chine_app:tarif_create" %}';
     document.getElementById('tarifForm').reset();
     document.getElementById('tarifId').value = '';
     
@@ -606,7 +606,7 @@ function confirmDeleteTarif(tarifId, nomTarif) {
     }).then((result) => {
         if (result.isConfirmed) {
             // Rediriger vers la page de suppression
-            window.location.href = `/admin-mali/tarifs/${tarifId}/supprimer/`;
+            window.location.href = `/admin-chine/tarifs/${tarifId}/supprimer/`;
         }
     });
 }

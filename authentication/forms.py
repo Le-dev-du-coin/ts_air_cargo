@@ -44,10 +44,26 @@ class LoginForm(forms.Form):
             # Remove any non-digit characters except +
             phone_number = re.sub(r'[^\d+]', '', phone_number)
             print(f"Cleaned phone_number: {phone_number}")
-            # Basic phone number validation
-            if not re.match(r'^\+?[\d]{10,15}$', phone_number):
+            
+            # Validation pour numéros maliens et chinois
+            malian_patterns = [
+                r'^\+223[67]\d{7}$',     # +22360123456 ou +22370123456
+                r'^223[67]\d{7}$',       # 22360123456 ou 22370123456
+                r'^[67]\d{7}$'           # 60123456 ou 70123456
+            ]
+            
+            chinese_patterns = [
+                r'^\+861[3-9]\d{9}$',    # +8613800138000
+                r'^861[3-9]\d{9}$',      # 8613800138000
+                r'^1[3-9]\d{9}$'         # 13800138000
+            ]
+            
+            all_patterns = malian_patterns + chinese_patterns
+            is_valid = any(re.match(pattern, phone_number) for pattern in all_patterns)
+            
+            if not is_valid:
                 print(f"Phone number validation FAILED for: {phone_number}")
-                raise ValidationError('Please enter a valid phone number')
+                raise ValidationError('Numéro invalide. Formats acceptés: Mali (+223XXXXXXXX) ou Chine (+86XXXXXXXXXXX)')
             print(f"Phone number validation PASSED for: {phone_number}")
         return phone_number
     
@@ -331,6 +347,98 @@ class PasswordResetForm(forms.Form):
         if new_password and confirm_password:
             if new_password != confirm_password:
                 raise ValidationError('Passwords do not match')
+        
+        return cleaned_data
+
+
+class AdminChinaLoginForm(forms.Form):
+    """Formulaire de connexion spécifique pour Admin Chine avec support des numéros chinois"""
+    
+    phone_number = forms.CharField(
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '+86 138 0013 8000 ou 13800138000',
+            'autofocus': True
+        }),
+        label='Numéro de téléphone chinois',
+        help_text='Format accepté: +86XXXXXXXXX ou directement XXXXXXXXXXX (11 chiffres)'
+    )
+    
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Entrez votre mot de passe'
+        }),
+        label='Mot de passe'
+    )
+    
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+    
+    def clean_phone_number(self):
+        phone_number = self.cleaned_data.get('phone_number')
+        if phone_number:
+            print(f"DEBUG: Numéro original reçu: '{phone_number}'")  # Debug
+            
+            # Nettoyer le numéro: enlever espaces, tirets, parenthèses
+            cleaned_number = re.sub(r'[\s\-\(\)]', '', phone_number)
+            print(f"DEBUG: Après nettoyage: '{cleaned_number}'")  # Debug
+            
+            # Si commence par 86 sans +, ajouter +
+            if cleaned_number.startswith('86') and not cleaned_number.startswith('+'):
+                cleaned_number = '+' + cleaned_number
+                print(f"DEBUG: Ajout + au début: '{cleaned_number}'")  # Debug
+            
+            # Si commence par 1 et a 11 chiffres, ajouter +86 (format chinois)
+            elif re.match(r'^1[3-9]\d{9}$', cleaned_number):
+                cleaned_number = '+86' + cleaned_number
+                print(f"DEBUG: Ajout +86: '{cleaned_number}'")  # Debug
+            
+            # Vérification finale du format
+            if cleaned_number.startswith('+86'):
+                # Validation stricte pour les numéros chinois
+                if not re.match(r'^\+861[3-9]\d{9}$', cleaned_number):
+                    print(f"DEBUG: Échec validation chinoise pour: '{cleaned_number}'")  # Debug
+                    raise ValidationError('Numéro chinois invalide. Format attendu: +8613XXXXXXXXX (11 chiffres après +86, commençant par 1)')
+                else:
+                    print(f"DEBUG: Validation chinoise OK: '{cleaned_number}'")  # Debug
+            else:
+                # Validation générale pour autres pays
+                if not re.match(r'^\+?[\d]{10,15}$', cleaned_number):
+                    print(f"DEBUG: Échec validation générale pour: '{cleaned_number}'")  # Debug
+                    raise ValidationError('Numéro de téléphone invalide')
+                else:
+                    print(f"DEBUG: Validation générale OK: '{cleaned_number}'")  # Debug
+        
+            print(f"DEBUG: Numéro final retourné: '{cleaned_number}'")  # Debug
+            return cleaned_number
+        
+        return phone_number
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        phone_number = cleaned_data.get('phone_number')
+        password = cleaned_data.get('password')
+        
+        if phone_number and password:
+            # Authentifier avec le numéro normalisé
+            self.user_cache = authenticate(
+                self.request,
+                telephone=phone_number,
+                password=password
+            )
+            
+            if self.user_cache is None:
+                raise ValidationError('Numéro de téléphone ou mot de passe incorrect')
+            
+            # Vérifier que l'utilisateur est admin Chine
+            if not self.user_cache.is_admin_chine:
+                raise ValidationError('Accès réservé aux administrateurs Chine')
+                
+            if not self.user_cache.is_active:
+                raise ValidationError('Ce compte est désactivé')
         
         return cleaned_data
 

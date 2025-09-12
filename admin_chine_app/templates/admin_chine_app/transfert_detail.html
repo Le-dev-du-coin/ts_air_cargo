@@ -1,4 +1,4 @@
-{% extends 'components/base_admin_mali.html' %}
+{% extends 'components/base_admin_chine.html' %}
 {% load static %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -11,17 +11,6 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Détails du Transfert</h5>
-                {% if transfert.statut == 'initie' %}
-                <div class="btn-group" role="group">
-                    <a href="{% url 'admin_mali_app:transfert_edit' transfert.id %}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-edit"></i> Modifier
-                    </a>
-                    <a href="#" class="btn btn-danger btn-sm"
-                       onclick="confirmDeleteTransfert({{ transfert.id }}, '{{ transfert.numero_transfert }}')">
-                        <i class="fas fa-trash"></i> Supprimer
-                    </a>
-                </div>
-                {% endif %}
             </div>
             <div class="card-body">
                 <div class="row">
@@ -116,15 +105,9 @@
                 <h5 class="mb-0">Actions Rapides</h5>
             </div>
             <div class="card-body">
-                <a href="{% url 'admin_mali_app:transferts' %}" class="btn btn-outline-primary btn-block mb-2">
+                <a href="{% url 'admin_chine_app:transferts' %}" class="btn btn-outline-primary btn-block mb-2">
                     <i class="fas fa-list"></i> Retour à la liste
                 </a>
-                
-                {% if transfert.statut == 'initie' %}
-                    <a href="{% url 'admin_mali_app:transfert_edit' transfert.id %}" class="btn btn-warning btn-block mb-2">
-                        <i class="fas fa-paper-plane"></i> Marquer comme Envoyé
-                    </a>
-                {% endif %}
                 
                 <a href="#" class="btn btn-info btn-block mb-2" onclick="window.print()">
                     <i class="fas fa-print"></i> Imprimer
@@ -218,7 +201,7 @@ function confirmDeleteTransfert(transfertId, numeroTransfert) {
     }).then((result) => {
         if (result.isConfirmed) {
             // Rediriger vers la page de suppression
-            window.location.href = `/admin-mali/transferts/${transfertId}/supprimer/`;
+            window.location.href = `/admin-chine/transferts/${transfertId}/supprimer/`;
         }
     });
 }

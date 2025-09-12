@@ -1,0 +1,300 @@
+{% extends 'components/base_admin_chine.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-section {
+        border-left: 4px solid var(--primary-color);
+        padding-left: 15px;
+        margin-bottom: 25px;
+        background: rgba(255, 248, 246, 0.5);
+        padding: 20px;
+        border-radius: 8px;
+    }
+    
+    .form-section h6 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 15px;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+    }
+    
+    .btn-submit {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        font-weight: 600;
+        border-radius: 10px;
+        padding: 12px 24px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+        color: white;
+    }
+    
+    .price-field {
+        background: rgba(255, 107, 53, 0.05);
+        border: 2px solid rgba(255, 107, 53, 0.2);
+    }
+    
+    .price-field:focus {
+        background: white;
+        border-color: var(--primary-color);
+    }
+    
+    .form-text {
+        color: var(--secondary-color);
+        font-size: 0.85em;
+    }
+    
+    .required-field::after {
+        content: ' *';
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="post" action="{% if is_edit %}{% url 'admin_chine_app:tarif_edit' tarif.id %}{% else %}{% url 'admin_chine_app:tarif_create' %}{% endif %}">
+            {% csrf_token %}
+            
+            <!-- Informations générales -->
+            <div class="form-section">
+                <h6><i class="fas fa-info-circle me-2"></i>Informations Générales</h6>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="nom_tarif" class="form-label required-field">Nom du tarif</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="nom_tarif" 
+                               name="nom_tarif" 
+                               value="{% if tarif %}{{ tarif.nom_tarif }}{% endif %}"
+                               required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="methode_calcul" class="form-label required-field">Méthode de calcul</label>
+                        <select class="form-select" id="methode_calcul" name="methode_calcul" required onchange="togglePriceFields()">
+                            <option value="">Sélectionner une méthode</option>
+                            {% for key, value in methode_choices %}
+                            <option value="{{ key }}" {% if tarif and tarif.methode_calcul == key %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="pays_destination" class="form-label required-field">Pays de destination</label>
+                        <select class="form-select" id="pays_destination" name="pays_destination" required>
+                            {% for key, value in pays_choices %}
+                            <option value="{{ key }}" {% if tarif and tarif.pays_destination == key %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="actif" 
+                                   name="actif" 
+                                   {% if not tarif or tarif.actif %}checked{% endif %}>
+                            <label class="form-check-label" for="actif">Tarif actif</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Prix et méthodes -->
+            <div class="form-section">
+                <h6><i class="fas fa-money-bill-wave me-2"></i>Configuration des Prix</h6>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3" id="prix_par_kilo_field" style="display: none;">
+                        <label for="prix_par_kilo" class="form-label">Prix par kg (FCFA)</label>
+                        <input type="number" 
+                               class="form-control price-field" 
+                               id="prix_par_kilo" 
+                               name="prix_par_kilo" 
+                               step="0.01" 
+                               min="0"
+                               value="{% if tarif.prix_par_kilo %}{{ tarif.prix_par_kilo }}{% endif %}">
+                    </div>
+                    <div class="col-md-4 mb-3" id="prix_par_m3_field" style="display: none;">
+                        <label for="prix_par_m3" class="form-label">Prix par m³ (FCFA)</label>
+                        <input type="number" 
+                               class="form-control price-field" 
+                               id="prix_par_m3" 
+                               name="prix_par_m3" 
+                               step="0.01" 
+                               min="0"
+                               value="{% if tarif.prix_par_m3 %}{{ tarif.prix_par_m3 }}{% endif %}">
+                    </div>
+                    <div class="col-md-4 mb-3" id="prix_forfaitaire_field" style="display: none;">
+                        <label for="prix_forfaitaire" class="form-label">Prix forfaitaire (FCFA)</label>
+                        <input type="number" 
+                               class="form-control price-field" 
+                               id="prix_forfaitaire" 
+                               name="prix_forfaitaire" 
+                               step="0.01" 
+                               min="0"
+                               value="{% if tarif.prix_forfaitaire %}{{ tarif.prix_forfaitaire }}{% endif %}">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Limites -->
+            <div class="form-section">
+                <h6><i class="fas fa-weight me-2"></i>Limites et Contraintes</h6>
+                
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="poids_minimum" class="form-label">Poids min. (kg)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="poids_minimum" 
+                               name="poids_minimum" 
+                               step="0.01" 
+                               min="0" 
+                               value="{% if tarif %}{{ tarif.poids_minimum|default:'0' }}{% else %}0{% endif %}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="poids_maximum" class="form-label">Poids max. (kg)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="poids_maximum" 
+                               name="poids_maximum" 
+                               step="0.01" 
+                               min="0"
+                               value="{% if tarif.poids_maximum %}{{ tarif.poids_maximum }}{% endif %}">
+                        <div class="form-text">Laisser vide pour illimité</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="volume_minimum" class="form-label">Volume min. (m³)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="volume_minimum" 
+                               name="volume_minimum" 
+                               step="0.001" 
+                               min="0" 
+                               value="{% if tarif %}{{ tarif.volume_minimum|default:'0' }}{% else %}0{% endif %}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="volume_maximum" class="form-label">Volume max. (m³)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="volume_maximum" 
+                               name="volume_maximum" 
+                               step="0.001" 
+                               min="0"
+                               value="{% if tarif.volume_maximum %}{{ tarif.volume_maximum }}{% endif %}">
+                        <div class="form-text">Laisser vide pour illimité</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Période de validité -->
+            <div class="form-section">
+                <h6><i class="fas fa-calendar me-2"></i>Période de Validité</h6>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="date_debut" class="form-label required-field">Date de début</label>
+                        <input type="date" 
+                               class="form-control" 
+                               id="date_debut" 
+                               name="date_debut" 
+                               value="{% if tarif %}{{ tarif.date_debut|date:'Y-m-d' }}{% else %}{{ date_aujourd_hui }}{% endif %}"
+                               required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="date_fin" class="form-label">Date de fin</label>
+                        <input type="date" 
+                               class="form-control" 
+                               id="date_fin" 
+                               name="date_fin"
+                               value="{% if tarif.date_fin %}{{ tarif.date_fin|date:'Y-m-d' }}{% endif %}">
+                        <div class="form-text">Laisser vide pour illimitée</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Description -->
+            <div class="form-section">
+                <h6><i class="fas fa-align-left me-2"></i>Description</h6>
+                <textarea class="form-control" 
+                          id="description" 
+                          name="description" 
+                          rows="3" 
+                          placeholder="Description détaillée du tarif...">{% if tarif %}{{ tarif.description }}{% endif %}</textarea>
+            </div>
+            
+            <!-- Actions -->
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'admin_chine_app:tarifs' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Retour à la liste
+                </a>
+                <button type="submit" class="btn btn-submit">
+                    {% if is_edit %}
+                        <i class="fas fa-save me-2"></i>Modifier le tarif
+                    {% else %}
+                        <i class="fas fa-plus me-2"></i>Créer le tarif
+                    {% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser les champs de prix selon la méthode sélectionnée
+    togglePriceFields();
+});
+
+function togglePriceFields() {
+    const methode = document.getElementById('methode_calcul').value;
+    const kiloField = document.getElementById('prix_par_kilo_field');
+    const m3Field = document.getElementById('prix_par_m3_field');
+    const forfaitaireField = document.getElementById('prix_forfaitaire_field');
+    
+    // Cacher tous les champs
+    kiloField.style.display = 'none';
+    m3Field.style.display = 'none';
+    forfaitaireField.style.display = 'none';
+    
+    // Afficher selon la méthode
+    switch(methode) {
+        case 'par_kilo':
+            kiloField.style.display = 'block';
+            break;
+        case 'par_metre_cube':
+            m3Field.style.display = 'block';
+            break;
+        case 'forfaitaire':
+            forfaitaireField.style.display = 'block';
+            break;
+        case 'mixte':
+            kiloField.style.display = 'block';
+            m3Field.style.display = 'block';
+            break;
+    }
+}
+</script>
+{% endblock %}

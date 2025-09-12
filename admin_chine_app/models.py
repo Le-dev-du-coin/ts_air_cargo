@@ -1,288 +1,169 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from decimal import Decimal
 
-class InventoryChina(models.Model):
-    """
-    Inventaire des produits et fournisseurs en Chine
-    Gestion du stock et des approvisionnements
-    """
-    CATEGORY_CHOICES = [
-        ('electronique', 'Électronique'),
-        ('vetements', 'Vêtements'),
-        ('maison', 'Maison & Jardin'),
-        ('automobile', 'Automobile'),
-        ('beaute', 'Beauté & Santé'),
-        ('sport', 'Sport & Loisirs'),
-        ('outils', 'Outils & Industrie'),
-        ('autre', 'Autre'),
-    ]
+"""class TransfertArgent(models.Model):
+    
+    #Gère les transferts d'argent depuis le Mali.
     
     STATUS_CHOICES = [
-        ('actif', 'Actif'),
-        ('rupture', 'En rupture'),
-        ('commande', 'En commande'),
-        ('discontinu', 'Discontinué'),
-    ]
-    
-    nom_produit = models.CharField(
-        max_length=200,
-        help_text="Nom du produit ou article"
-    )
-    
-    code_produit = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Code unique du produit"
-    )
-    
-    categorie = models.CharField(
-        max_length=30,
-        choices=CATEGORY_CHOICES,
-        default='autre'
-    )
-    
-    fournisseur_nom = models.CharField(
-        max_length=200,
-        help_text="Nom du fournisseur chinois"
-    )
-    
-    fournisseur_contact = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Contact du fournisseur (WeChat, Téléphone)"
-    )
-    
-    prix_unitaire_yuan = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Prix d'achat en Yuan chinois"
-    )
-    
-    prix_unitaire_fcfa = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Prix équivalent en FCFA (calculé automatiquement)"
-    )
-    
-    taux_change_utilise = models.DecimalField(
-        max_digits=8,
-        decimal_places=4,
-        null=True,
-        blank=True,
-        help_text="Taux de change Yuan/FCFA utilisé"
-    )
-    
-    quantite_stock = models.PositiveIntegerField(
-        default=0,
-        help_text="Quantité en stock"
-    )
-    
-    quantite_minimale = models.PositiveIntegerField(
-        default=10,
-        help_text="Seuil d'alerte stock minimum"
-    )
-    
-    poids_unitaire = models.DecimalField(
-        max_digits=8,
-        decimal_places=3,
-        null=True,
-        blank=True,
-        help_text="Poids unitaire en kg"
-    )
-    
-    statut = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='actif'
-    )
-    
-    description = models.TextField(
-        blank=True,
-        help_text="Description détaillée du produit"
-    )
-    
-    image_produit = models.ImageField(
-        upload_to='inventory_china/',
-        null=True,
-        blank=True,
-        help_text="Photo du produit"
-    )
-    
-    admin_createur = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        limit_choices_to={'is_admin_chine': True},
-        related_name='inventaires_crees'
-    )
-    
-    date_creation = models.DateTimeField(auto_now_add=True)
-    date_modification = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Inventaire Chine"
-        verbose_name_plural = "Inventaires Chine"
-        ordering = ['-date_modification']
-    
-    def save(self, *args, **kwargs):
-        # Calcul automatique du prix en FCFA si taux de change fourni
-        if self.prix_unitaire_yuan and self.taux_change_utilise:
-            self.prix_unitaire_fcfa = self.prix_unitaire_yuan * self.taux_change_utilise
-        super().save(*args, **kwargs)
-    
-    def __str__(self):
-        return f"{self.nom_produit} ({self.code_produit}) - {self.quantite_stock} en stock"
-    
-    @property
-    def is_low_stock(self):
-        """Retourne True si le stock est en dessous du seuil minimum"""
-        return self.quantite_stock <= self.quantite_minimale
-    
-    @property
-    def valeur_stock_yuan(self):
-        """Valeur totale du stock en Yuan"""
-        return self.quantite_stock * self.prix_unitaire_yuan
-    
-    @property
-    def valeur_stock_fcfa(self):
-        """Valeur totale du stock en FCFA"""
-        if self.prix_unitaire_fcfa:
-            return self.quantite_stock * self.prix_unitaire_fcfa
-        return 0
-
-
-class OperationChina(models.Model):
-    """
-    Suivi des opérations spécifiques côté Chine
-    Achats, mouvements de stock, expéditions
-    """
-    TYPE_OPERATION_CHOICES = [
-        ('achat', 'Achat produit'),
-        ('vente', 'Vente produit'),
-        ('entree_stock', 'Entrée en stock'),
-        ('sortie_stock', 'Sortie de stock'),
-        ('expedition', 'Expédition vers Mali'),
-        ('retour', 'Retour/Échange'),
-        ('inventaire', 'Correction inventaire'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('en_attente', 'En attente'),
-        ('en_cours', 'En cours'),
-        ('termine', 'Terminé'),
+        ('initie', 'Initié'),
+        ('envoye', 'Envoyé'),
+        ('confirme_chine', 'Confirmé en Chine'),
         ('annule', 'Annulé'),
     ]
     
-    numero_operation = models.CharField(
+    METHODE_CHOICES = [
+        ('virement_bancaire', 'Virement bancaire'),
+        ('western_union', 'Western Union'),
+        ('moneygram', 'MoneyGram'),
+        ('orange_money', 'Orange Money'),
+        ('moov_money', 'Moov Money'),
+        ('autre', 'Autre'),
+    ]
+    
+    numero_transfert = models.CharField(
         max_length=20,
         unique=True,
-        editable=False,
-        help_text="Numéro auto-généré: OP + date + compteur"
+        help_text="Numéro unique du transfert"
     )
     
-    type_operation = models.CharField(
-        max_length=20,
-        choices=TYPE_OPERATION_CHOICES
+    montant_fcfa = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        help_text="Montant en FCFA"
     )
     
-    produit = models.ForeignKey(
-        InventoryChina,
-        on_delete=models.CASCADE,
-        related_name='operations',
+    montant_yuan = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
         null=True,
-        blank=True
+        blank=True,
+        help_text="Montant équivalent en Yuan chinois"
     )
     
-    quantite = models.PositiveIntegerField(
-        help_text="Quantité concernée par l'opération"
-    )
-    
-    prix_unitaire = models.DecimalField(
+    taux_change = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=6,
         null=True,
         blank=True,
-        help_text="Prix unitaire de l'opération"
+        help_text="Taux de change FCFA/Yuan utilisé"
     )
     
-    montant_total = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Montant total de l'opération"
-    )
-    
-    monnaie = models.CharField(
-        max_length=10,
-        choices=[
-            ('CNY', 'Yuan Chinois'),
-            ('USD', 'Dollar US'),
-            ('XOF', 'FCFA'),
-        ],
-        default='CNY'
+    methode_transfert = models.CharField(
+        max_length=30,
+        choices=METHODE_CHOICES,
+        help_text="Méthode utilisée pour le transfert"
     )
     
     statut = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='en_attente'
+        default='initie'
     )
     
-    description = models.TextField(
-        help_text="Description de l'opération"
+    admin_chine = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'is_admin_chine': True},
+        related_name='transferts_inities',
+        help_text="Administrateur chine qui a initié le transfert"
     )
     
-    fournisseur_contact = models.CharField(
-        max_length=200,
+    admin_chine = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        help_text="Contact du fournisseur/client"
+        limit_choices_to={'is_admin_chine': True},
+        related_name='transferts_confirmes',
+        help_text="Administrateur Chine qui a confirmé la réception"
+    )
+    
+    date_initiation = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Date d'initiation du transfert"
+    )
+    
+    date_envoi = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date effective d'envoi"
+    )
+    
+    date_confirmation = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de confirmation de réception en Chine"
     )
     
     reference_externe = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Référence externe (bon de commande, facture, etc.)"
+        help_text="Référence du service de transfert (Western Union, etc.)"
     )
     
-    admin_responsable = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        limit_choices_to={'is_admin_chine': True},
-        related_name='operations_gerees'
+    destinataire_nom = models.CharField(
+        max_length=200,
+        help_text="Nom du destinataire en Chine"
     )
     
-    date_operation = models.DateTimeField(
-        help_text="Date effective de l'opération"
+    destinataire_telephone = models.CharField(
+        max_length=20,
+        help_text="Téléphone du destinataire en Chine"
     )
     
-    date_creation = models.DateTimeField(auto_now_add=True)
+    destinataire_adresse = models.TextField(
+        help_text="Adresse du destinataire en Chine"
+    )
+    
+    motif_transfert = models.TextField(
+        help_text="Motif du transfert d'argent"
+    )
+    
+    frais_transfert = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text="Frais de transfert en FCFA"
+    )
+    
+    justificatifs = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Liste des documents justificatifs"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Notes additionnelles sur le transfert"
+    )
+    
     date_modification = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = "Opération Chine"
-        verbose_name_plural = "Opérations Chine"
-        ordering = ['-date_operation']
-    
+        verbose_name = "Transfert d'Argent"
+        verbose_name_plural = "Transferts d'Argent"
+        ordering = ['-date_initiation']
+        
     def save(self, *args, **kwargs):
-        if not self.numero_operation:
-            # Générer numéro d'opération: OP + date + compteur
+        if not self.numero_transfert:
+            # Générer numéro de transfert: TM + année + mois + compteur
             today = timezone.now()
-            date_str = today.strftime('%Y%m%d')
-            count = OperationChina.objects.filter(
-                numero_operation__startswith=f'OP{date_str}'
+            date_str = today.strftime('%Y%m')
+            count = TransfertArgent.objects.filter(
+                numero_transfert__startswith=f'TM{date_str}'
             ).count() + 1
-            self.numero_operation = f"OP{date_str}{count:04d}"
-        
-        # Calculer montant total si prix unitaire fourni
-        if self.prix_unitaire and self.quantite:
-            self.montant_total = self.prix_unitaire * self.quantite
-        
+            self.numero_transfert = f"TM{date_str}{count:04d}"
         super().save(*args, **kwargs)
-    
+        
     def __str__(self):
-        return f"{self.numero_operation} - {self.type_operation} - {self.statut}"
+        return f"Transfert {self.numero_transfert} - {self.montant_fcfa} FCFA - {self.statut}"
+    
+    @property
+    def montant_net_fcfa(self):
+        
+        Montant net après déduction des frais
+        
+        return self.montant_fcfa - self.frais_transfert
+"""

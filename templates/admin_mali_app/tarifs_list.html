@@ -1,0 +1,168 @@
+{% extends 'components/base_admin_mali.html' %}
+{% load static %}
+
+{% block title %}Tarifs de Transport - Admin Mali{% endblock %}
+
+{% block page_title %}Tarifs de Transport{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tariff-card { border-left: 4px solid var(--primary-color); transition: all 0.3s ease; }
+    .tariff-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(255, 107, 53, 0.15); }
+    .status-badge { padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+    .status-active { background: rgba(25, 135, 84, 0.2); color: #0f5132; }
+    .status-inactive { background: rgba(220, 53, 69, 0.2); color: #721c24; }
+    .btn-add-tariff { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); border: none; border-radius: 10px; padding: 12px 24px; color: white; font-weight: 600; transition: all 0.3s ease; }
+    .btn-add-tariff:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3); color: white; }
+    .filter-card { background: #FFF8F6; border: 1px solid #FFE5D9; border-radius: 15px; }
+    .amount-display { font-family: 'Courier New', monospace; font-weight: bold; color: var(--primary-color); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card filter-card">
+            <div class="card-body">
+                <form method="get" class="row align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Filtrer par statut</label>
+                        <select name="actif" class="form-select">
+                            <option value="">Tous les statuts</option>
+                            <option value="true" {% if actif_filter == 'true' %}selected{% endif %}>Actifs</option>
+                            <option value="false" {% if actif_filter == 'false' %}selected{% endif %}>Inactifs</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Pays de destination</label>
+                        <select name="pays" class="form-select">
+                            <option value="">Tous les pays</option>
+                            <option value="ML" {% if pays_filter == 'ML' %}selected{% endif %}>Mali</option>
+                            <option value="SN" {% if pays_filter == 'SN' %}selected{% endif %}>Sénégal</option>
+                            <option value="CI" {% if pays_filter == 'CI' %}selected{% endif %}>Côte d'Ivoire</option>
+                            <option value="ALL" {% if pays_filter == 'ALL' %}selected{% endif %}>Tous pays</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Filtrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'admin_mali_app:tarif_create' %}" class="btn btn-add-tariff">
+            <i class="fas fa-plus me-2"></i> Nouveau Tarif
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% if tariffs %}
+            <div class="row">
+                {% for tarif in tariffs %}
+                <div class="col-lg-6 mb-3">
+                    <div class="card tariff-card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-tags me-2"></i>
+                                {{ tarif.nom_tarif }}
+                            </h6>
+                            <span class="status-badge {% if tarif.actif %}status-active{% else %}status-inactive{% endif %}">
+                                {% if tarif.actif %}Actif{% else %}Inactif{% endif %}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Méthode</small>
+                                    <div>{{ tarif.get_methode_calcul_display }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Pays</small>
+                                    <div>{{ tarif.get_pays_destination_display }}</div>
+                                </div>
+                            </div>
+                            <hr class="my-3">
+                            <div class="row">
+                                {% if tarif.prix_par_kilo %}
+                                <div class="col-6">
+                                    <small class="text-muted">Prix/kg</small>
+                                    <div class="amount-display">{{ tarif.prix_par_kilo|floatformat:0 }} FCFA</div>
+                                </div>
+                                {% endif %}
+                                {% if tarif.prix_par_m3 %}
+                                <div class="col-6">
+                                    <small class="text-muted">Prix/m³</small>
+                                    <div class="amount-display">{{ tarif.prix_par_m3|floatformat:0 }} FCFA</div>
+                                </div>
+                                {% endif %}
+                                {% if tarif.prix_forfaitaire %}
+                                <div class="col-6">
+                                    <small class="text-muted">Forfait</small>
+                                    <div class="amount-display">{{ tarif.prix_forfaitaire|floatformat:0 }} FCFA</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">Période</small>
+                                <div>
+                                    {{ tarif.date_debut|date:"d/m/Y" }}
+                                    {% if tarif.date_fin %} au {{ tarif.date_fin|date:"d/m/Y" }}{% else %} (illimitée){% endif %}
+                                </div>
+                            </div>
+                            {% if tarif.description %}
+                            <div class="mt-2">
+                                <small class="text-muted">Description</small>
+                                <div>{{ tarif.description|truncatechars:120 }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i>
+                                Créé le {{ tarif.date_creation|date:"d/m/Y H:i" }}
+                            </small>
+                            <div>
+                                <a href="{% url 'admin_mali_app:tarif_detail' tarif.id %}" class="btn btn-sm btn-outline-primary me-2">
+                                    <i class="fas fa-eye"></i> Voir
+                                </a>
+                                <a href="{% url 'admin_mali_app:tarif_edit' tarif.id %}" class="btn btn-sm btn-outline-warning me-2">
+                                    <i class="fas fa-edit"></i> Modifier
+                                </a>
+                                <a href="{% url 'admin_mali_app:tarif_delete' tarif.id %}" class="btn btn-sm btn-outline-danger"
+                                   onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce tarif ?')">
+                                    <i class="fas fa-trash"></i> Supprimer
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucun tarif trouvé</h5>
+                    <p class="text-muted">
+                        {% if actif_filter or pays_filter %}
+                            Aucun tarif ne correspond aux critères de filtrage.
+                        {% else %}
+                            Aucun tarif de transport n'a encore été enregistré.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'admin_mali_app:tarif_create' %}" class="btn btn-add-tariff">
+                        <i class="fas fa-plus me-2"></i>
+                        Créer le premier tarif
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

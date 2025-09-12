@@ -1,0 +1,332 @@
+{% extends 'components/base_admin_chine.html' %}
+{% load static %}
+
+{% block title %}Gestion des Agents - Admin Chine{% endblock %}
+
+{% block page_title %}Gestion des Agents{% endblock %}
+
+{% block extra_head %}
+<style>
+    .agent-card {
+        border-left: 4px solid var(--primary-color);
+        transition: all 0.3s ease;
+    }
+    
+    .agent-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(255, 107, 53, 0.15);
+    }
+    
+    .role-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .role-chine {
+        background: rgba(220, 53, 69, 0.2);
+        color: #721c24;
+    }
+    
+    .role-chine {
+        background: rgba(25, 135, 84, 0.2);
+        color: #0f5132;
+    }
+    
+    .btn-add-agent {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        border-radius: 10px;
+        padding: 12px 24px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-add-agent:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+        color: white;
+    }
+    
+    .filter-card {
+        background: #FFF8F6;
+        border: 1px solid #FFE5D9;
+        border-radius: 15px;
+    }
+    
+    .section-title {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #FFE5D9;
+        padding-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <!-- Filtres -->
+        <div class="card filter-card">
+            <div class="card-body">
+                <form method="get" class="row align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label">Rechercher un agent</label>
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Nom, prénom, téléphone..." 
+                               value="{{ search_query }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Filtrer par rôle</label>
+                        <select name="role" class="form-select">
+                            <option value="">Tous les rôles</option>
+                            <option value="chine" {% if role_filter == 'chine' %}selected{% endif %}>
+                                Agents Chine
+                            </option>
+                            <option value="mali" {% if role_filter == 'mali' %}selected{% endif %}>
+                                Agents Mali
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Filtrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'admin_chine_app:agent_create' %}" class="btn btn-add-agent">
+            <i class="fas fa-plus me-2"></i>
+            Nouvel Agent
+        </a>
+    </div>
+</div>
+
+<!-- Section Agents Chine -->
+{% if agents_chine %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h4 class="section-title">
+            <i class="fas fa-flag-checkered me-2"></i>
+            Agents Chine ({{ agents_chine.count }})
+        </h4>
+        <div class="row">
+            {% for agent in agents_chine %}
+            <div class="col-lg-6 mb-3">
+                <div class="card agent-card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-user me-2"></i>
+                            {{ agent.get_full_name|default:agent.telephone }}
+                        </h6>
+                        <span class="role-badge role-chine">
+                            Agent Chine
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Téléphone</small>
+                                <div><i class="fas fa-phone me-1"></i>{{ agent.telephone }}</div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Email</small>
+                                <div><i class="fas fa-envelope me-1"></i>{{ agent.email|default:"Non renseigné" }}</div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-3">
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Statut</small>
+                                <div>
+                                    {% if agent.is_active %}
+                                        <i class="fas fa-check-circle text-success me-1"></i>Actif
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger me-1"></i>Inactif
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Dernière connexion</small>
+                                <div>
+                                    {% if agent.last_login %}
+                                        {{ agent.last_login|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        Jamais connecté
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            Créé le {{ agent.date_joined|date:"d/m/Y" }}
+                        </small>
+                        <div>
+                            <a href="{% url 'admin_chine_app:agent_edit' agent.id %}" 
+                               class="btn btn-sm btn-outline-warning me-2">
+                                <i class="fas fa-edit"></i> Modifier
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="confirmDelete('{{ agent.get_full_name|default:agent.telephone }}', '{{ agent.id }}')">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Section Agents Mali -->
+{% if agents_mali %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h4 class="section-title">
+            <i class="fas fa-flag me-2"></i>
+            Agents Mali ({{ agents_mali.count }})
+        </h4>
+        <div class="row">
+            {% for agent in agents_mali %}
+            <div class="col-lg-6 mb-3">
+                <div class="card agent-card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-user me-2"></i>
+                            {{ agent.get_full_name|default:agent.telephone }}
+                        </h6>
+                        <span class="role-badge role-mali">
+                            Agent Mali
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Téléphone</small>
+                                <div><i class="fas fa-phone me-1"></i>{{ agent.telephone }}</div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Email</small>
+                                <div><i class="fas fa-envelope me-1"></i>{{ agent.email|default:"Non renseigné" }}</div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-3">
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Statut</small>
+                                <div>
+                                    {% if agent.is_active %}
+                                        <i class="fas fa-check-circle text-success me-1"></i>Actif
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger me-1"></i>Inactif
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Dernière connexion</small>
+                                <div>
+                                    {% if agent.last_login %}
+                                        {{ agent.last_login|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        Jamais connecté
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            Créé le {{ agent.date_joined|date:"d/m/Y" }}
+                        </small>
+                        <div>
+                            <a href="{% url 'admin_chine_app:agent_edit' agent.id %}" 
+                               class="btn btn-sm btn-outline-warning me-2">
+                                <i class="fas fa-edit"></i> Modifier
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="confirmDelete('{{ agent.get_full_name|default:agent.telephone }}', '{{ agent.id }}')">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Message si aucun agent -->
+{% if not agents_chine and not agents_mali %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucun agent trouvé</h5>
+                <p class="text-muted">
+                    {% if search_query or role_filter %}
+                        Aucun agent ne correspond aux critères de recherche.
+                    {% else %}
+                        Aucun agent n'a encore été enregistré dans le système.
+                    {% endif %}
+                </p>
+                <a href="{% url 'admin_chine_app:agent_create' %}" class="btn btn-add-agent">
+                    <i class="fas fa-plus me-2"></i>
+                    Créer le premier agent
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation des cartes au survol
+    const agentCards = document.querySelectorAll('.agent-card');
+    agentCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.borderLeftWidth = '6px';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.borderLeftWidth = '4px';
+        });
+    });
+    
+    // Auto-submit du formulaire de filtre
+    const roleSelect = document.querySelector('select[name="role"]');
+    if (roleSelect) {
+        roleSelect.addEventListener('change', function() {
+            this.form.submit();
+        });
+    }
+});
+
+function confirmDelete(agentName, agentId) {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer l'agent "${agentName}" ?\n\nCette action est irréversible.`)) {
+        window.location.href = `/admin-chine/agents/${agentId}/supprimer/`;
+    }
+}
+</script>
+{% endblock %}
+

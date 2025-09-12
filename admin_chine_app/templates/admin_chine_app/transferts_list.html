@@ -1,7 +1,7 @@
-{% extends 'components/base_admin_mali.html' %}
+{% extends 'components/base_admin_chine.html' %}
 {% load static %}
 
-{% block title %}Transferts d'Argent - Admin Mali{% endblock %}
+{% block title %}Transferts d'Argent - Admin Chine{% endblock %}
 
 {% block page_title %}Transferts d'Argent{% endblock %}
 
@@ -109,12 +109,6 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4 text-end">
-        <a href="{% url 'admin_mali_app:transfert_create' %}" class="btn btn-add-transfer">
-            <i class="fas fa-plus me-2"></i>
-            Nouveau Transfert
-        </a>
-    </div>
 </div>
 
 <div class="row">
@@ -188,21 +182,10 @@
                                 {{ transfert.date_initiation|date:"d/m/Y H:i" }}
                             </small>
                             <div>
-                                <a href="{% url 'admin_mali_app:transfert_detail' transfert.id %}" 
+                                <a href="{% url 'admin_chine_app:transfert_detail' transfert.id %}" 
                                    class="btn btn-sm btn-outline-primary me-2">
                                     <i class="fas fa-eye"></i> Voir
                                 </a>
-                                {% if transfert.statut == 'initie' %}
-                                <a href="{% url 'admin_mali_app:transfert_edit' transfert.id %}" 
-                                   class="btn btn-sm btn-outline-warning me-2">
-                                    <i class="fas fa-edit"></i> Modifier
-                                </a>
-                                <a href="#" 
-                                   class="btn btn-sm btn-outline-danger"
-                                   onclick="confirmDeleteTransfert({{ transfert.id }}, '{{ transfert.numero_transfert }}')">
-                                    <i class="fas fa-trash"></i> Supprimer
-                                </a>
-                                {% endif %}
                             </div>
                         </div>
                     </div>
