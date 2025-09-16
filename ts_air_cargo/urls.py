@@ -31,3 +31,9 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+# Custom error handlers
+handler400 = 'ts_air_cargo.views.bad_request'
+handler403 = 'ts_air_cargo.views.permission_denied'
+handler404 = 'ts_air_cargo.views.page_not_found'
+handler500 = 'ts_air_cargo.views.server_error'

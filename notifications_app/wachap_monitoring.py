@@ -397,11 +397,9 @@ TS Air Cargo - Système de monitoring automatique
             
             if disconnected_instances:
                 logger.critical(summary)
-                print(f"\n🚨 {summary}")
-                print(f"Instances déconnectées: {[r for r, s in disconnected_instances]}")
+                logger.critical(f"Instances déconnectées: {[r for r, s in disconnected_instances]}")
             else:
                 logger.info(summary)
-                print(f"\n✅ {summary} - Tout fonctionne normalement")
             
             # Sauvegarder le dernier check
             cache.set('last_wachap_monitoring_check', {
@@ -416,7 +414,6 @@ TS Air Cargo - Système de monitoring automatique
             
         except Exception as e:
             logger.error(f"Erreur lors du monitoring WaChap: {e}")
-            print(f"❌ Erreur monitoring: {e}")
             return {}
     
     def get_monitoring_status(self) -> Dict:

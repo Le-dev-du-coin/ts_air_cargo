@@ -25,9 +25,6 @@ urlpatterns = [
     path('verify-otp/', views.verify_otp_view, name='verify_otp'),
     path('resend-otp/', views.resend_otp_view, name='resend_otp'),
     
-    # Inscription
-    path('register/', views.register_view, name='register'),
-    
     # Réinitialisation de mot de passe
     path('password-reset/', views.password_reset_request_view, name='password_reset_request'),
     path('password-reset/verify/', views.password_reset_verify_view, name='password_reset_verify'),

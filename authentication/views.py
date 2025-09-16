@@ -16,7 +16,7 @@ from notifications_app.wachap_service import send_whatsapp_otp
 import json
 
 from .models import CustomUser, PasswordResetToken
-from .forms import LoginForm, RegistrationForm, PasswordResetRequestForm, PasswordResetForm, AdminChinaLoginForm
+from .forms import LoginForm, PasswordResetRequestForm, PasswordResetForm, AdminChinaLoginForm
 
 
 def generate_otp_code():
@@ -48,12 +48,6 @@ def login_view(request):
     
     if request.method == 'POST':
         form = LoginForm(request.POST, request=request)
-        print(f"\n=== DEBUG LOGIN ===")
-        print(f"POST data: {request.POST}")
-        print(f"Form valid: {form.is_valid()}")
-        print(f"Form errors: {form.errors}")
-        print(f"Form non-field errors: {form.non_field_errors()}")
-        print(f"Form cleaned_data: {getattr(form, 'cleaned_data', 'No cleaned_data')}")
         if form.is_valid():
             # Le formulaire a déjà vérifié le téléphone + mot de passe avec authenticate()
             telephone = form.cleaned_data['phone_number']
@@ -61,7 +55,6 @@ def login_view(request):
             
             # Générer et stocker l'OTP
             otp_code = generate_otp_code()
-            print(f"OTP generated: {otp_code}")
             cache_key = f"otp_{telephone}"
             cache.set(cache_key, {
                 'code': otp_code,
@@ -71,27 +64,27 @@ def login_view(request):
             
             # Envoyer l'OTP via WaChap
             success, message = send_whatsapp_otp(telephone, otp_code)
-            print(f"OTP WaChap sent: {success}, {message}")
             
             if success:
                 # Stocker le téléphone en session pour la vérification OTP
                 request.session['otp_telephone'] = telephone
                 request.session['pre_authenticated_user_id'] = user.id
                 messages.success(request, f"Identifiants validés ! {message}")
-                print(f"OTP sent: {success}, {message}")
                 return redirect('authentication:verify_otp')
             else:
                 messages.error(request, f"Erreur d'envoi du code: {message}")
-                print(f"OTP sent: {success}, {message}")
                 
     else:
         form = LoginForm()
-        print(f"Form valid: {form.is_valid()}")
     
     return render(request, 'authentication/login.html', {'form': form})
 
 def verify_otp_view(request):
     """Vue de vérification du code OTP"""
+    # Si déjà authentifié, rediriger vers le dashboard pour éviter d'afficher l'écran OTP
+    if request.user.is_authenticated:
+        return redirect(get_dashboard_url_by_role(request.user))
+
     telephone = request.session.get('otp_telephone')
     if not telephone:
         messages.error(request, "Session expirée. Veuillez vous reconnecter.")
@@ -123,10 +116,15 @@ def verify_otp_view(request):
         else:
             messages.error(request, "Code OTP invalide ou expiré.")
     
-    return render(request, 'authentication/verify_otp.html', {
+    # Empêcher la mise en cache de la page OTP (améliore l'expérience lors du bouton retour)
+    response = render(request, 'authentication/verify_otp.html', {
         'telephone': telephone,
         'current_otp': current_otp  # Pour affichage en mode test
     })
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 def role_based_login_view(request, role):
     """Vue de connexion spécifique à un rôle"""
@@ -139,40 +137,30 @@ def role_based_login_view(request, role):
         return redirect(get_dashboard_url_by_role(request.user))
     
     if request.method == 'POST':
-        print(f"\n=== DEBUG LOGIN {role.upper()} ===")
-        print(f"POST data: {request.POST}")
         
         # Vérifier le token CSRF avant de traiter le formulaire
-        try:
-            from django.middleware.csrf import get_token
-            csrf_token = request.POST.get('csrfmiddlewaretoken')
-            if not csrf_token:
-                messages.error(request, "Erreur de sécurité: Token CSRF manquant.")
-                return render(request, f'authentication/login_{role}.html', {
-                    'form': LoginForm(),
-                    'role': role,
-                    'role_display': {
-                        'client': 'Client',
-                        'agent_chine': 'Agent Chine',
-                        'agent_mali': 'Agent Mali',
-                        'admin': 'Administrateur',
-                        'admin_mali': 'Admin Mali'
-                    }.get(role, role.title())
-                })
-        except Exception as e:
-            print(f"CSRF check error: {e}")
+        from django.middleware.csrf import get_token
+        csrf_token = request.POST.get('csrfmiddlewaretoken')
+        if not csrf_token:
+            messages.error(request, "Erreur de sécurité: Token CSRF manquant.")
+            return render(request, f'authentication/login_{role}.html', {
+                'form': LoginForm(),
+                'role': role,
+                'role_display': {
+                    'client': 'Client',
+                    'agent_chine': 'Agent Chine',
+                    'agent_mali': 'Agent Mali',
+                    'admin': 'Administrateur',
+                    'admin_mali': 'Admin Mali'
+                }.get(role, role.title())
+            })
         
         form = LoginForm(request.POST, request=request)
-        print(f"Form valid: {form.is_valid()}")
-        if not form.is_valid():
-            print(f"Form errors: {form.errors}")
         
         if form.is_valid():
             # Le formulaire a déjà vérifié téléphone + mot de passe avec authenticate()
             telephone = form.cleaned_data['phone_number']
             user = form.user_cache  # L'utilisateur authentifié depuis le formulaire
-            print(f"User authenticated: {user}")
-            print(f"User role: {user.role if user else 'None'}")
             
             # Vérifier que l'utilisateur a le bon rôle
             if role == 'admin' and not (user.is_admin_chine or user.is_admin_mali):
@@ -236,18 +224,7 @@ def logout_view(request):
     messages.success(request, f"Au revoir {user_name}! Vous êtes maintenant déconnecté.")
     return redirect('authentication:home')
 
-def register_view(request):
-    """Vue d'inscription (si activée)"""
-    if request.method == 'POST':
-        form = RegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            messages.success(request, f"Compte créé avec succès pour {user.telephone}!")
-            return redirect('authentication:login')
-    else:
-        form = RegistrationForm()
-    
-    return render(request, 'authentication/register.html', {'form': form})
+# register_view supprimée pour la production
 
 def password_reset_request_view(request):
     """Vue de demande de réinitialisation de mot de passe"""
@@ -289,6 +266,10 @@ def password_reset_request_view(request):
 
 def password_reset_verify_view(request):
     """Vue de vérification OTP pour réinitialisation de mot de passe"""
+    # Si déjà authentifié, rediriger vers le dashboard
+    if request.user.is_authenticated:
+        return redirect(get_dashboard_url_by_role(request.user))
+
     telephone = request.session.get('reset_telephone')
     if not telephone:
         messages.error(request, "Session expirée. Veuillez recommencer.")
@@ -308,10 +289,15 @@ def password_reset_verify_view(request):
         else:
             messages.error(request, "Code OTP invalide ou expiré.")
     
-    return render(request, 'authentication/password_reset_verify.html', {
+    # Empêcher la mise en cache
+    response = render(request, 'authentication/password_reset_verify.html', {
         'telephone': telephone,
         'current_otp': current_otp
     })
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 def password_reset_confirm_view(request):
     """Vue de confirmation de nouveau mot de passe"""
@@ -323,33 +309,42 @@ def password_reset_confirm_view(request):
         return redirect('authentication:password_reset_request')
     
     if request.method == 'POST':
-        form = PasswordResetForm(request.POST)
-        if form.is_valid():
-            new_password = form.cleaned_data['new_password']
-            
+        # Récupérer les champs tels qu'envoyés par le template (new_password1/new_password2)
+        new_password1 = request.POST.get('new_password1')
+        new_password2 = request.POST.get('new_password2')
+
+        # Validations de base
+        if not new_password1 or not new_password2:
+            messages.error(request, "Veuillez saisir et confirmer le nouveau mot de passe.")
+        elif new_password1 != new_password2:
+            messages.error(request, "Les mots de passe ne correspondent pas.")
+        elif len(new_password1) < 8:
+            messages.error(request, "Le mot de passe doit contenir au moins 8 caractères.")
+        else:
             try:
                 user = CustomUser.objects.get(telephone=telephone)
-                user.set_password(new_password)
+                user.set_password(new_password1)
                 user.save()
-                
+
                 # Nettoyer la session
                 del request.session['reset_telephone']
                 del request.session['reset_verified']
                 cache.delete(f"reset_otp_{telephone}")
-                
+
                 messages.success(request, "Mot de passe réinitialisé avec succès!")
                 return redirect('authentication:login')
-                
+
             except CustomUser.DoesNotExist:
                 messages.error(request, "Erreur lors de la réinitialisation.")
-                
-    else:
-        form = PasswordResetForm()
     
-    return render(request, 'authentication/password_reset_confirm.html', {
-        'form': form,
+    # Afficher la page de confirmation (le template gère les champs)
+    response = render(request, 'authentication/password_reset_confirm.html', {
         'telephone': telephone
     })
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -448,4 +443,7 @@ def admin_chine_login_view(request):
 
 def home_view(request):
     """Page d'accueil avec liens de connexion par rôle"""
+    # Si l'utilisateur est déjà connecté, le rediriger vers son dashboard
+    if request.user.is_authenticated:
+        return redirect(get_dashboard_url_by_role(request.user))
     return render(request, 'authentication/home.html')

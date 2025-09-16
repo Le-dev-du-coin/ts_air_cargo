@@ -27,23 +27,15 @@ class LoginForm(forms.Form):
     )
     
     def __init__(self, *args, **kwargs):
-        print(f"\n=== DEBUG LoginForm.__init__ ===")
-        print(f"args: {args}")
-        print(f"kwargs: {kwargs}")
         # Extract request from kwargs if present
         self.request = kwargs.pop('request', None)
-        print(f"self.request: {self.request}")
         super().__init__(*args, **kwargs)
-        print(f"Final fields: {list(self.fields.keys())}")
     
     def clean_phone_number(self):
         phone_number = self.cleaned_data.get('phone_number')
-        print(f"\n=== DEBUG clean_phone_number ===")
-        print(f"Original phone_number: {phone_number}")
         if phone_number:
             # Remove any non-digit characters except +
             phone_number = re.sub(r'[^\d+]', '', phone_number)
-            print(f"Cleaned phone_number: {phone_number}")
             
             # Validation pour numéros maliens et chinois
             malian_patterns = [
@@ -62,43 +54,28 @@ class LoginForm(forms.Form):
             is_valid = any(re.match(pattern, phone_number) for pattern in all_patterns)
             
             if not is_valid:
-                print(f"Phone number validation FAILED for: {phone_number}")
                 raise ValidationError('Numéro invalide. Formats acceptés: Mali (+223XXXXXXXX) ou Chine (+86XXXXXXXXXXX)')
-            print(f"Phone number validation PASSED for: {phone_number}")
         return phone_number
     
     def clean(self):
-        print(f"\n=== DEBUG clean() method ===")
-        print(f"self.cleaned_data before: {getattr(self, 'cleaned_data', 'No cleaned_data yet')}")
-        
         cleaned_data = super().clean()
-        print(f"cleaned_data after super().clean(): {cleaned_data}")
-        
         phone_number = cleaned_data.get('phone_number')
         password = cleaned_data.get('password')
-        
-        print(f"phone_number: {phone_number}")
-        print(f"password: {'***' if password else 'None'}")
-        
         if phone_number and password:
-            print(f"Attempting authentication with telephone={phone_number}")
             # Use phone_number as telephone for authentication (USERNAME_FIELD = 'telephone')
             self.user_cache = authenticate(
                 self.request,
                 telephone=phone_number,
                 password=password
             )
-            print(f"Authentication result: {self.user_cache}")
             if self.user_cache is None:
-                print(f"Authentication FAILED")
                 raise ValidationError('Invalid phone number or password')
             else:
-                print(f"Authentication SUCCESS for user: {self.user_cache}")
                 # Vérifier si l'utilisateur est actif
                 if not self.user_cache.is_active:
                     raise ValidationError('This account is inactive.')
         else:
-            print(f"Missing phone_number or password")
+            pass
         
         return cleaned_data
 
@@ -272,12 +249,6 @@ class PasswordResetRequestForm(forms.Form):
             # Basic phone number validation
             if not re.match(r'^\+?[\d]{10,15}$', phone_number):
                 raise ValidationError('Please enter a valid phone number')
-            
-            # Check if phone number exists
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            if not User.objects.filter(telephone=phone_number).exists():
-                raise ValidationError('No account found with this phone number')
         
         return phone_number
 
@@ -380,39 +351,28 @@ class AdminChinaLoginForm(forms.Form):
     def clean_phone_number(self):
         phone_number = self.cleaned_data.get('phone_number')
         if phone_number:
-            print(f"DEBUG: Numéro original reçu: '{phone_number}'")  # Debug
             
             # Nettoyer le numéro: enlever espaces, tirets, parenthèses
             cleaned_number = re.sub(r'[\s\-\(\)]', '', phone_number)
-            print(f"DEBUG: Après nettoyage: '{cleaned_number}'")  # Debug
             
             # Si commence par 86 sans +, ajouter +
             if cleaned_number.startswith('86') and not cleaned_number.startswith('+'):
                 cleaned_number = '+' + cleaned_number
-                print(f"DEBUG: Ajout + au début: '{cleaned_number}'")  # Debug
             
             # Si commence par 1 et a 11 chiffres, ajouter +86 (format chinois)
             elif re.match(r'^1[3-9]\d{9}$', cleaned_number):
                 cleaned_number = '+86' + cleaned_number
-                print(f"DEBUG: Ajout +86: '{cleaned_number}'")  # Debug
             
             # Vérification finale du format
             if cleaned_number.startswith('+86'):
                 # Validation stricte pour les numéros chinois
                 if not re.match(r'^\+861[3-9]\d{9}$', cleaned_number):
-                    print(f"DEBUG: Échec validation chinoise pour: '{cleaned_number}'")  # Debug
                     raise ValidationError('Numéro chinois invalide. Format attendu: +8613XXXXXXXXX (11 chiffres après +86, commençant par 1)')
-                else:
-                    print(f"DEBUG: Validation chinoise OK: '{cleaned_number}'")  # Debug
             else:
                 # Validation générale pour autres pays
                 if not re.match(r'^\+?[\d]{10,15}$', cleaned_number):
-                    print(f"DEBUG: Échec validation générale pour: '{cleaned_number}'")  # Debug
                     raise ValidationError('Numéro de téléphone invalide')
-                else:
-                    print(f"DEBUG: Validation générale OK: '{cleaned_number}'")  # Debug
         
-            print(f"DEBUG: Numéro final retourné: '{cleaned_number}'")  # Debug
             return cleaned_number
         
         return phone_number

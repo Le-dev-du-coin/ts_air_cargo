@@ -83,7 +83,7 @@ class UserCreationService:
             }
     
     @staticmethod
-    def send_credentials_notification(user, temp_password, method='sms'):
+    def send_credentials_notification(user, temp_password, method='whatsapp'):
         """
         Envoie les identifiants de connexion au client
         
@@ -95,30 +95,30 @@ class UserCreationService:
         from notifications_app.services import NotificationService
         
         message = f"""
-        Bonjour {user.get_full_name()},
-        
-        Votre compte TS Air Cargo a été créé automatiquement.
-        
-        🔐 Identifiants de connexion :
-        📱 Téléphone : {user.telephone}
-        🔑 Mot de passe : {temp_password}
-        
-        ⚠️ IMPORTANT : 
-        - Connectez-vous et changez votre mot de passe
-        - Ce mot de passe est temporaire et doit être modifié
-        
-        🌐 Connexion : https://ts-aircargo.com/login
-        
-        Équipe TS Air Cargo
-        """
+Bonjour {user.get_full_name()},
+
+Votre compte TS Air Cargo a été créé.
+
+Identifiants de connexion:
+- Téléphone: {user.telephone}
+- Mot de passe temporaire: {temp_password}
+
+Important:
+- Connectez-vous et changez votre mot de passe dès que possible.
+- Ce mot de passe temporaire expire rapidement pour des raisons de sécurité.
+
+Lien de connexion: https://ts-aircargo.com/login
+
+TS Air Cargo
+"""
         
         # Utiliser le service de notifications
         NotificationService.send_notification(
             user=user,
             message=message,
             method=method,
-            title="Compte TS Air Cargo créé",
-            categorie='information_generale'
+            title="Création de compte TS Air Cargo",
+            categorie='creation_compte'
         )
 
 class PasswordResetService:

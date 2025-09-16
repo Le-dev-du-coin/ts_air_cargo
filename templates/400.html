@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Erreur 400 - Requête invalide | TS Air Cargo{% endblock %}
+{% block body_class %}bg-light{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="text-center p-4 p-md-5 bg-white shadow-sm rounded-4">
+        <div class="mb-3">
+          <i class="bi bi-exclamation-octagon text-warning" style="font-size: 4rem;"></i>
+        </div>
+        <h1 class="fw-bold mb-3">Erreur 400</h1>
+        <p class="lead text-muted mb-4">La requête envoyée est invalide. Vérifiez les informations et réessayez.</p>
+        <div class="d-flex gap-2 justify-content-center">
+          <a href="/" class="btn btn-primary"><i class="bi bi-house-door me-2"></i>Retour à l'accueil</a>
+          <a href="mailto:contact@ts-aircargo.com" class="btn btn-outline-secondary"><i class="bi bi-envelope me-2"></i>Nous contacter</a>
+        </div>
+        <p class="text-muted small mt-4 mb-0">Si le problème persiste, contactez le support avec une capture d'écran de cette page.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404
+import logging
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -9,6 +10,8 @@ import json
 
 from .models import Notification
 from .services import NotificationService
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def notifications_list_view(request):
@@ -115,6 +118,7 @@ def mark_notification_read_api(request, notification_id):
         })
         
     except Exception as e:
+        logger.error(f"Erreur création notification in-app: {e}")
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -226,5 +230,5 @@ def send_in_app_notification(user, title, message, categorie, colis=None, lot=No
         )
         return True
     except Exception as e:
-        print(f"Erreur création notification in-app: {e}")
+        logger.error(f"Erreur création notification in-app: {e}")
         return False

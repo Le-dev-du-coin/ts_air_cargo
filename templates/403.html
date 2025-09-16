@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Erreur 403 - Accès refusé | TS Air Cargo{% endblock %}
+{% block body_class %}bg-light{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="text-center p-4 p-md-5 bg-white shadow-sm rounded-4">
+        <div class="mb-3">
+          <i class="bi bi-shield-lock text-warning" style="font-size: 4rem;"></i>
+        </div>
+        <h1 class="fw-bold mb-3">Accès refusé</h1>
+        <p class="lead text-muted mb-4">Vous n'avez pas les permissions nécessaires pour accéder à cette ressource.</p>
+        <div class="d-flex gap-2 justify-content-center">
+          <a href="/" class="btn btn-primary"><i class="bi bi-house-door me-2"></i>Retour à l'accueil</a>
+          <a href="{% url 'authentication:login' %}" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-in-right me-2"></i>Se connecter</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

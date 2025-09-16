@@ -48,7 +48,7 @@ class NotificationService:
             message_id = None
             
             if method == 'whatsapp':
-                success, message_id = NotificationService._send_whatsapp(user, message)
+                success, message_id = NotificationService._send_whatsapp(user, message, categorie=categorie, title=title)
             elif method == 'sms':
                 success, message_id = NotificationService._send_sms(user, message)
             elif method == 'email':
@@ -71,7 +71,7 @@ class NotificationService:
             return False
     
     @staticmethod
-    def _send_whatsapp(user, message):
+    def _send_whatsapp(user, message, categorie=None, title=None):
         """
         Envoie un message WhatsApp via WaChap
         """
@@ -82,7 +82,20 @@ class NotificationService:
             destination_phone = test_phone if test_phone else user.telephone
             
             # Déterminer le rôle de l'expéditeur pour la sélection d'instance
-            sender_role = getattr(user, 'role', None)
+            # Déterminer le type de message et le rôle expéditeur
+            message_type = 'notification'
+            if categorie in ['creation_compte', 'otp', 'system', 'information_systeme']:
+                message_type = 'account' if categorie == 'creation_compte' else 'otp' if categorie == 'otp' else 'system'
+            elif title and ('OTP' in title or 'Compte' in title or 'Système' in title):
+                # fallback basé sur le titre
+                if 'OTP' in title:
+                    message_type = 'otp'
+                elif 'Compte' in title:
+                    message_type = 'account'
+                elif 'Système' in title:
+                    message_type = 'system'
+
+            sender_role = 'system' if message_type in ['otp', 'account', 'system'] else getattr(user, 'role', None)
             
             # Enrichir le message en mode développement pour identification
             if test_phone and test_phone != user.telephone:
@@ -97,9 +110,11 @@ TS Air Cargo - Mode Développement"""
                 enriched_message = message
             
             # Envoyer via WaChap
-            success, result_message, message_id = wachap_service.send_message(
+            # Utiliser la version avec type pour router correctement les instances
+            success, result_message, message_id = wachap_service.send_message_with_type(
                 phone=destination_phone,
                 message=enriched_message,
+                message_type=message_type,
                 sender_role=sender_role
             )
             
@@ -120,9 +135,8 @@ TS Air Cargo - Mode Développement"""
         Envoie un SMS (à implémenter avec un provider SMS)
         """
         # TODO: Intégrer avec un service SMS selon les besoins
-        # Pour l'instant, simuler l'envoi
+        # Pour l'instant, simuler l'envoi (sans impression console)
         logger.info(f"SMS simulé à {user.telephone}: {message[:50]}...")
-        print(f"[SMS] À {user.telephone}: {message}")
         return True, 'sms_simulation_id'
         
     @staticmethod

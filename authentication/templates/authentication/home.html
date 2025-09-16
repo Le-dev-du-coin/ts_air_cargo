@@ -122,15 +122,11 @@
                     Solutions logistiques rapides, sécurisées et professionnelles.
                 </p>
                 
-                <!-- Boutons principaux pour clients -->
+                <!-- Bouton principal pour clients -->
                 <div class="d-flex flex-column flex-md-row gap-3 mb-4">
                     <a href="{% url 'authentication:login_client' %}" class="btn btn-primary-custom btn-lg">
                         <i class="bi bi-box-arrow-in-right me-2"></i>
                         Se connecter
-                    </a>
-                    <a href="{% url 'authentication:register' %}" class="btn btn-outline-custom btn-lg">
-                        <i class="bi bi-person-plus me-2"></i>
-                        Créer un compte
                     </a>
                 </div>
             </div>
@@ -226,7 +222,7 @@
                 <p class="lead text-muted mb-4">
                     Rejoignez des centaines de clients qui nous font confiance pour leurs expéditions
                 </p>
-                <a href="{% url 'authentication:register' %}" class="btn btn-primary-custom btn-lg">
+                <a href="{% url 'authentication:login_client' %}" class="btn btn-primary-custom btn-lg">
                     <i class="bi bi-rocket me-2"></i>
                     Commencer maintenant
                 </a>
@@ -235,26 +231,88 @@
     </div>
 </section>
 
+<!-- Contact Section -->
+<section class="py-5 bg-white">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h3 class="fw-bold mb-3">Contact</h3>
+                <p class="text-muted mb-4">Besoin d'aide ou d'informations ? Contactez nos équipes.</p>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-3 h-100">
+                            <div class="mb-2"><i class="bi bi-telephone-forward text-primary"></i></div>
+                            <div class="fw-semibold">Mali</div>
+                            <div>
+                                <a class="text-decoration-none" href="tel:+22370702150">+223 70 70 21 50</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-3 h-100">
+                            <div class="mb-2"><i class="bi bi-telephone-forward text-primary"></i></div>
+                            <div class="fw-semibold">Chine</div>
+                            <div>
+                                <a class="text-decoration-none" href="tel:+8615112223234">+86 151 1222 3234</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-3 h-100">
+                            <div class="mb-2"><i class="bi bi-envelope-paper text-primary"></i></div>
+                            <div class="fw-semibold">Email</div>
+                            <div>
+                                <a class="text-decoration-none" href="mailto:contact@ts-aircargo.com">contact@ts-aircargo.com</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-4 mt-2">
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 h-100">
+                            <div class="fw-semibold mb-1">Tandia (Chine)</div>
+                            <a class="text-decoration-none" href="tel:+8613005165731">+86 130 0516 5731</a>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3 h-100">
+                            <div class="fw-semibold mb-1">Sissoko (Mali)</div>
+                            <a class="text-decoration-none" href="tel:+22377223778">+223 77 22 37 78</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </section>
+
 <!-- Footer -->
 <footer class="bg-dark text-white py-4 mt-5">
     <div class="container">
         <div class="row">
-            <div class="col-12 col-md-6 mb-4 mb-md-0">
+            <div class="col-12 col-md-3 mb-3 mb-md-0">
                 <h5 class="mb-3">TS Air Cargo</h5>
                 <p class="mb-2">Votre partenaire de confiance pour le transport aérien entre la Chine et le Mali.</p>
-                <p class="small text-muted mb-0">© 2025 TS Air Cargo. Tous droits réservés.</p>
+                <p class="small text-muted mb-0">&copy; 2025 TS Air Cargo. Tous droits réservés.</p>
             </div>
             <div class="col-12 col-md-3 mb-4 mb-md-0">
                 <h6 class="mb-3">Liens Utiles</h6>
                 <ul class="list-unstyled">
                     <li><a href="#" class="text-light text-decoration-none">À propos</a></li>
                     <li><a href="#" class="text-light text-decoration-none">Services</a></li>
-                    <li><a href="#" class="text-light text-decoration-none">Contact</a></li>
                     <li><a href="#" class="text-light text-decoration-none">Suivi colis</a></li>
                 </ul>
             </div>
+            <div class="col-12 col-md-3 mb-4 mb-md-0">
+                <h6 class="mb-3">Coordonnées</h6>
+                <ul class="list-unstyled mb-3">
+                    <li class="mb-2"><i class="bi bi-telephone me-2"></i>Mali: <a class="link-light text-decoration-none" href="tel:+22370702150">+223 70 70 21 50</a></li>
+                    <li class="mb-2"><i class="bi bi-telephone me-2"></i>Chine: <a class="link-light text-decoration-none" href="tel:+8615112223234">+86 151 1222 3234</a></li>
+                    <li class="mb-2"><i class="bi bi-envelope me-2"></i><a class="link-light text-decoration-none" href="mailto:contact@ts-aircargo.com">contact@ts-aircargo.com</a></li>
+                </ul>
+            </div> 
             <div class="col-12 col-md-3">
-                <h6 class="mb-3">Personnel TS Air Cargo</h6>
+                <h6 class="mb-2">Personnel</h6>
                 <ul class="list-unstyled">
                     <li class="mb-2">
                         <a href="{% url 'authentication:login_agent_mali' %}" class="text-light text-decoration-none">

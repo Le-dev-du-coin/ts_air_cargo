@@ -86,11 +86,10 @@ class WaChapService:
         """
         preferred_region = 'mali'  # Défaut global
         
-        # PRIORITÉ 0: Messages système (OTP, alertes) - utiliser Mali temporairement
-        # TODO: Configurer vraiment l'instance système avec ses propres tokens
-        if sender_role == 'system' or message_type in ['otp', 'alert', 'admin_alert']:
-            preferred_region = 'mali'  # TEMPORAIRE: utiliser Mali au lieu de system
-            logger.debug(f"Message système ({message_type}) → Instance Mali (temporaire)")
+        # PRIORITÉ 0: Messages système (OTP, alertes, évènements système) → Instance Système
+        if sender_role == 'system' or message_type in ['otp', 'alert', 'admin_alert', 'system', 'account']:
+            preferred_region = 'system'
+            logger.debug(f"Message système ({message_type}) → Instance Système")
         
         # PRIORITÉ 1: Agents utilisent TOUJOURS leur instance régionale
         # Logique métier: chaque agent utilise son système WhatsApp régional
@@ -122,7 +121,16 @@ class WaChapService:
                 preferred_region = 'mali'
                 logger.debug(f"OTP numéro autre {recipient_phone} → Instance Mali (défaut)")
         
-        # PRIORITÉ 4: Clients et rôles génériques → Mali par défaut
+        # PRIORITÉ 4: Si on connaît le numéro du destinataire pour une notification standard, router par indicatif
+        elif recipient_phone and message_type in ['notification', 'account', 'creation_compte', 'colis_arrive', 'colis_livre', 'rapport', 'general']:
+            clean_phone = recipient_phone.replace('+', '').replace(' ', '')
+            if clean_phone.startswith('86'):
+                preferred_region = 'chine'
+            elif clean_phone.startswith('223'):
+                preferred_region = 'mali'
+            else:
+                preferred_region = 'mali'
+        # PRIORITÉ 5: Clients et rôles génériques → Mali par défaut
         elif sender_role in ['client', 'customer', 'user'] or sender_role is None:
             preferred_region = 'mali'
         
@@ -302,8 +310,7 @@ class WaChapService:
                 if attempt_id:
                     wachap_monitor.record_message_success(attempt_id, response_time, message_id)
                 
-                logger.info(f"✅ {success_msg} - ID: {message_id}")
-                print(f"[WACHAP {region.upper()}] ✅ Message envoyé à {formatted_phone}")
+                logger.info(f"{success_msg} - ID: {message_id}")
                 
                 return True, success_msg, message_id
             else:
@@ -314,7 +321,6 @@ class WaChapService:
                     wachap_monitor.record_message_error(attempt_id, f'http_{response.status_code}', error_msg, response_time)
                 
                 logger.error(error_msg)
-                print(f"[WACHAP {region.upper()}] ❌ Erreur: {response.status_code}")
                 
                 return False, error_msg, None
                 
@@ -623,31 +629,31 @@ def send_whatsapp_otp(phone: str, otp_code: str) -> Tuple[bool, str]:
     
     # Message OTP avec info du destinataire original en mode dev
     if test_phone and test_phone != phone:
-        otp_message = f"""🔐 [DEV] Code OTP TS Air Cargo
-        
+        otp_message = f"""[DEV] Code de vérification TS Air Cargo
+
 Destinataire: {phone}
-Votre code OTP: {otp_code}
+Code: {otp_code}
 
-⏰ Expire dans 10 minutes
-🔒 Confidentiel
+Ce code expire dans 10 minutes.
+Ne le partagez avec personne.
 
-✈️ TS Air Cargo - Transport sécurisé"""
+TS Air Cargo"""
     else:
-        otp_message = f"""🔐 Code de vérification TS Air Cargo
+        otp_message = f"""Code de vérification TS Air Cargo
 
-Votre code OTP: {otp_code}
+Code: {otp_code}
 
-⏰ Ce code expire dans 10 minutes.
-🔒 Ne le partagez avec personne.
+Ce code expire dans 10 minutes.
+Ne le partagez avec personne.
 
-✈️ TS Air Cargo - Transport sécurisé"""
+TS Air Cargo"""
     
     # Utiliser détection automatique avec type OTP
     success, msg, msg_id = wachap_service.send_message_with_type(
         phone=destination_phone, 
         message=otp_message, 
-        message_type='otp',  # Force le type OTP pour utiliser l'instance système ou fallback
-        sender_role=None
+        message_type='otp',  # Force l'instance Système (avec fallback si non configurée)
+        sender_role='system'
     )
     
     # Message de retour avec info de redirection

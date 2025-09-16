@@ -101,9 +101,6 @@ def dashboard_view(request):
         livraisons__statut_paiement='en_attente'
     ).distinct().count()
     
-    # Debug: imprimer la valeur pour vérifier
-    print(f"DEBUG - Colis en attente de paiement: {colis_attente_paiement}")
-    
     context = {
         'stats': {
             'lots_en_transit': lots_en_transit,
@@ -230,7 +227,8 @@ Veuillez nous contacter pour discuter des démarches de compensation.
                     )
                     
                 except Exception as notif_error:
-                    print(f"Erreur notification perte: {notif_error}")
+                    # Éviter les prints en production; message d'erreur via messages ou logs si nécessaire
+                    pass
             
             messages.success(
                 request, 
@@ -418,14 +416,13 @@ def recevoir_lot_view(request, lot_id):
             # Envoyer des notifications de masse via tâche asynchrone
             colis_recus_count = colis_a_recevoir.count()
             
-            print(f"DEBUG - Notification clients activée: {notifier_clients}")
-            print(f"DEBUG - Nombre de colis à notifier: {colis_recus_count}")
+            # Logs debug supprimés pour la production
             
             if notifier_clients:
                 # Utiliser la tâche asynchrone pour notifications de masse
                 from notifications_app.tasks import send_bulk_lot_notifications
                 
-                print(f"DEBUG - Lancement de la tâche asynchrone pour les notifications...")
+                # Logs debug supprimés pour la production
                 
                 try:
                     # Lancer la tâche asynchrone
@@ -435,11 +432,12 @@ def recevoir_lot_view(request, lot_id):
                         initiated_by_id=request.user.id
                     )
                     
-                    print(f"DEBUG - Tâche asynchrone lancée avec ID: {task_result.id}")
+                    # Logs debug supprimés pour la production
                     notifications_envoyees = f"Tâche asynchrone lancée (ID: {task_result.id})"
                     
                 except Exception as async_error:
-                    print(f"Erreur lancement tâche asynchrone: {async_error}")
+                    # En production on évite les prints; laisser remonter via messages/monitoring
+                    pass
                     notifications_envoyees = "Erreur lors du lancement"
             
             if notifier_clients:
@@ -578,7 +576,8 @@ Merci d'avoir choisi TS Air Cargo !
                     categorie='colis_livre'
                 )
             except Exception as notif_error:
-                print(f"Erreur notification livraison: {notif_error}")
+                # Éviter les prints en production
+                pass
             
             messages.success(request, f"✅ Colis {colis.numero_suivi} marqué comme livré avec succès !")
             return redirect('agent_mali:colis_a_livrer')
@@ -997,8 +996,8 @@ Cordialement,
             email_sent_count = len(email_recipients)
             
         except Exception as email_error:
-            print(f"Erreur envoi email: {email_error}")
-            # Continuer même si l'email échoue
+            # Éviter les prints en production; continuer même si l'email échoue
+            pass
         
         # Construire le message de retour
         success_parts = []
