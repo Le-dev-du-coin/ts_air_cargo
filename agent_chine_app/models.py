@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 import uuid
+from ts_air_cargo.validators import validate_colis_image, validate_filename_security
 
 class Client(models.Model):
     """
@@ -163,7 +164,8 @@ class Colis(models.Model):
         upload_to='colis_images/',
         null=True,
         blank=True,
-        help_text="Photo du colis"
+        validators=[validate_colis_image, validate_filename_security],
+        help_text="Photo du colis (max 5MB, formats: JPG, PNG, GIF, WebP)"
     )
     
     # Dimensions selon le DEVBOOK

@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from ts_air_cargo.validators import validate_justificatif_file, validate_signature_file, validate_filename_security
 
 class Depense(models.Model):
     """
@@ -53,7 +54,8 @@ class Depense(models.Model):
         upload_to='depenses/justificatifs/',
         null=True,
         blank=True,
-        help_text="Pièce justificative (facture, reçu, etc.)"
+        validators=[validate_justificatif_file, validate_filename_security],
+        help_text="Pièce justificative (facture, reçu, etc.) - Max 15MB"
     )
     
     notes = models.TextField(
@@ -189,7 +191,8 @@ class Livraison(models.Model):
         upload_to='livraisons/signatures/',
         null=True,
         blank=True,
-        help_text="Signature du destinataire"
+        validators=[validate_signature_file, validate_filename_security],
+        help_text="Signature du destinataire - Max 2MB, formats: JPG, PNG"
     )
     
     notes_livraison = models.TextField(

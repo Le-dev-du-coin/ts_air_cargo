@@ -4,6 +4,6 @@ from . import views
 app_name = 'reporting_app'
 
 urlpatterns = [
-    # Ajoutez vos URLs ici quand les vues seront créées
-    # path('', views.index, name='index'),
+    path('', views.index, name='index'),
+    path('api/status/', views.api_status, name='api_status'),
 ]

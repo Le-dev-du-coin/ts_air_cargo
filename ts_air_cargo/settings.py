@@ -40,6 +40,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # Third party apps
+    'corsheaders',
+    
     # TS Air Cargo Applications
     'authentication',
     'admin_chine_app',
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -224,19 +228,97 @@ CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ACKS_LATE = True
 
+# CORS Configuration
+# En développement, permettre toutes les origines
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOW_CREDENTIALS = True
+else:
+    # En production, spécifier les domaines autorisés
+    CORS_ALLOWED_ORIGINS = [
+        "https://ts-aircargo.com",
+        "https://www.ts-aircargo.com",
+        "https://admin.ts-aircargo.com",
+    ]
+    CORS_ALLOW_CREDENTIALS = True
+
+# Headers autorisés pour les requêtes CORS
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Méthodes HTTP autorisées
+CORS_ALLOWED_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
 # Logging Configuration
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'json': {
+            'format': '%(asctime)s %(name)s %(levelname)s %(message)s',
+        },
+    },
     'handlers': {
         'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django.log',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'maxBytes': 1024*1024*10,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'file_error': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'django_error.log',
+            'maxBytes': 1024*1024*10,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
         },
         'console': {
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'maxBytes': 1024*1024*5,  # 5MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+        'transferts_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'transferts.log',
+            'maxBytes': 1024*1024*20,  # 20MB
+            'backupCount': 10,
+            'formatter': 'verbose',
         },
     },
     'loggers': {
@@ -245,9 +327,39 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'django.security': {
+            'handlers': ['security_file', 'file_error', 'console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['file_error', 'console'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
         'ts_air_cargo': {
             'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': True,
+        },
+        'authentication': {
+            'handlers': ['security_file', 'file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'admin_mali_app': {
+            'handlers': ['transferts_file', 'file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'admin_chine_app': {
+            'handlers': ['transferts_file', 'file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'notifications_app': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
             'propagate': True,
         },
         'celery': {
@@ -255,5 +367,14 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'celery.task': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'root': {
+        'level': 'WARNING',
+        'handlers': ['console', 'file'],
     },
 }
