@@ -11,7 +11,7 @@ def home_redirect(request):
 
 urlpatterns = [
     # Admin interface
-    path('admin/', admin.site.urls),
+    path('ts-cargo/secure-admin/', admin.site.urls),
     
     # Home redirect
     path('', auth_views.home_view, name='home'),
