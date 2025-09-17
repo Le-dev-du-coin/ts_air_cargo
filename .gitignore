@@ -295,7 +295,8 @@ debug_*.py
 playground.py
 scratch.py
 tmp_*.py
-
+DEPLOYMENT_GUIDE.md
+deploy.sh
 # Fichiers de configuration locale
 local_config.py
 dev_settings.py
