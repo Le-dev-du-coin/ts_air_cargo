@@ -1,55 +1,13 @@
-# ===================================
-# ts_air_cargo - .gitignore complet
-# ===================================
-
-# ========== FICHIERS SENSIBLES ==========
-# Variables d'environnement avec clés API
+# Environment variables
 .env
 .env.local
 .env.production
-.env.staging
-.env.development
 
-# Base de données SQLite de développement
-db.sqlite3
-db.sqlite3-journal
-*.db
-*.sqlite
-*.sqlite3
-
-# Fichiers de configuration sensibles
-local_settings.py
-secret_key.txt
-*.key
-*.pem
-*.cert
-*.crt
-*.p12
-*.pfx
-
-# ========== FICHIERS DE DÉVELOPPEMENT PERSONNELS ==========
-# Documentation de développement personnelle
-COMPTES_TEST.md
-DEVBOOK.md
-DEVBOOK_UPDATE.md
-"Mémoire.md"
-REORGANISATION_AUTH.md
-FONCTIONNALITES_COMPLETEES.md
-
-# Scripts de test personnalisés
-test_notifications.py
-test_notifications_whatsapp.py
-
-# ========== PYTHON & DJANGO ==========
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -68,260 +26,39 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-PYTHONPATH
+MANIFEST
 
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff
+# Django
 *.log
 local_settings.py
-
-# Flask stuff
-instance/
-.webassets-cache
-
-# Scrapy stuff
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# pipenv
-Pipfile.lock
-
-# PEP 582
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
-.venv
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# ========== DJANGO SPÉCIFIQUE ==========
-# Fichiers média uploadés par les utilisateurs
-media/
-# Mais garder la structure des dossiers
-!media/.gitkeep
-
-# Fichiers statiques collectés
+db.sqlite3
+db.sqlite3-journal
 staticfiles/
-static/CACHE/
-/static/
+media/
 
-# Migrations en cas de développement partagé (optionnel)
-# */migrations/*.py
-# !*/migrations/__init__.py
+# Production specific
+logs/
+run/
+backups/
 
-# ========== BASE DE DONNÉES ==========
-# PostgreSQL
-*.sql
-*.dump
-
-# Redis dumps
-dump.rdb
-
-# ========== DÉVELOPPEMENT ==========
-# IDE et éditeurs
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-*.sublime-project
-*.sublime-workspace
 
-# Vim
-.*.swp
-.*.swo
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-.\#*
-
-# ========== SYSTÈME ==========
-# OS generated files
+# OS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-eThumbs.db
 Thumbs.db
-desktop.ini
 
-# Windows
-*.lnk
-
-# Linux
-*~
-
-# ========== NODE.JS (si utilisé) ==========
+# Node (if using frontend tools)
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
-
-# ========== LOGS ET TEMPORAIRES ==========
-# Logs
-*.log
-logs/
-*.log.*
-
-# Fichiers temporaires
-*.tmp
-*.temp
-*.bak
-*.backup
-*.swp
-*.swo
-
-# ========== SÉCURITÉ ==========
-# Clés et certificats
-*.pem
-*.key
-*.crt
-*.cer
-*.p7b
-*.p7r
-*.srl
-
-# ========== AUTRES ==========
-# Sauvegardes
-*.orig
-*.rej
-
-# Archives
-*.zip
-*.tar.gz
-*.rar
-*.7z
-
-# Cache
-.cache/
-.parcel-cache/
-
-# Monitoring
-.monitoring/
-
-# Documentation générée
-docs/build/
-
-# Coverage reports
-.coverage.*
-htmlcov/
-
-# Pytest
-.pytest_cache/
-
-# ========== FICHIERS SPÉCIFIQUES AU PROJET ==========
-# Fichiers de test et développement personnel
-test_*.py
-*_test.py
-debug_*.py
-playground.py
-scratch.py
-tmp_*.py
-
-# Fichiers de configuration locale
-local_config.py
-dev_settings.py
-
-# Exports et rapports de test
-exports/
-reports/test_*
-
-# Dossier de documentation personnelle développeur
-docs/
-docs/dev/
-docs/personal/
-
-# ========== EXCEPTIONS (fichiers à garder) ==========
-# Garder les exemples de configuration
-!.env.example
-!config.example.py
-!settings.example.py
-
-# Garder les fichiers README et documentation officielle
-!README.md
-!CHANGELOG.md
-!LICENSE
-!requirements.txt
-
-# Garder la structure des dossiers importants
-!media/.gitkeep
-!staticfiles/.gitkeep
-!logs/.gitkeep
