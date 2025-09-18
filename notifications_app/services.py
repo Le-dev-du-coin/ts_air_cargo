@@ -77,9 +77,11 @@ class NotificationService:
         """
         try:
             # Déterminer le numéro de destination
-            # En mode développement, utiliser le numéro de test
-            test_phone = getattr(settings, 'DEBUG', False) and '+22373451676'
-            destination_phone = test_phone if test_phone else user.telephone
+            # En mode développement, rediriger UNIQUEMENT si ADMIN_PHONE est défini
+            dev_mode = getattr(settings, 'DEBUG', False)
+            admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
+            test_phone = admin_phone if (dev_mode and admin_phone) else None
+            destination_phone = test_phone or user.telephone
             
             # Déterminer le rôle de l'expéditeur pour la sélection d'instance
             # Déterminer le type de message et le rôle expéditeur
@@ -201,9 +203,11 @@ TS Air Cargo - Mode Développement"""
             bool: Succès de l'envoi
         """
         try:
-            # Redirection vers numéro de test en mode développement
-            test_phone = getattr(settings, 'DEBUG', False) and '+22373451676'
-            destination_phone = test_phone if test_phone else phone_number
+            # Redirection vers numéro de test en mode développement (si ADMIN_PHONE défini)
+            dev_mode = getattr(settings, 'DEBUG', False)
+            admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
+            test_phone = admin_phone if (dev_mode and admin_phone) else None
+            destination_phone = test_phone or phone_number
             
             # Message avec info de redirection si nécessaire
             if test_phone and test_phone != phone_number:

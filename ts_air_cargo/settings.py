@@ -233,6 +233,8 @@ CELERY_TASK_ACKS_LATE = True
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOW_CREDENTIALS = True
+    # Exécuter les tâches Celery en mode synchrone pour le DEV (pas besoin de worker)
+    CELERY_TASK_ALWAYS_EAGER = True
 else:
     # En production, spécifier les domaines autorisés
     CORS_ALLOWED_ORIGINS = [

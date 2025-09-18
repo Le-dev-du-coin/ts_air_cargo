@@ -280,17 +280,17 @@ class Colis(models.Model):
             if prix_max == 0:
                 if self.type_transport in ['cargo', 'express']:
                     # Prix basé sur le poids
-                    multiplier = 600 if self.type_transport == 'express' else 500
+                    multiplier = 12000 if self.type_transport == 'express' else 10000
                     prix_max = float(self.poids) * multiplier
                 else:  # bateau
                     # Prix basé sur le volume
-                    prix_max = volume_m3 * 50000  # 50 000 CFA par m³
+                    prix_max = volume_m3 * 300000  # 50 000 CFA par m³
                     
             return max(prix_max, 1000)  # Prix minimum de 1000 CFA
             
         except Exception as e:
             # En cas d'erreur, retourner un prix basique
             if self.type_transport in ['cargo', 'express']:
-                return float(self.poids) * 500
+                return float(self.poids) * 10000
             else:
-                return self.volume_m3() * 50000
+                return self.volume_m3() * 300000

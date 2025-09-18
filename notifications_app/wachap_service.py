@@ -624,8 +624,11 @@ def send_whatsapp_otp(phone: str, otp_code: str) -> Tuple[bool, str]:
     from django.conf import settings
     
     # Redirection vers numéro de test en mode développement
-    test_phone = getattr(settings, 'DEBUG', False) and getattr(settings, 'ADMIN_PHONE', '+22373451676')
-    destination_phone = test_phone if test_phone else phone
+    dev_mode = getattr(settings, 'DEBUG', False)
+    admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
+    # En dev, ne rediriger que si ADMIN_PHONE est défini explicitement
+    test_phone = admin_phone if (dev_mode and admin_phone) else None
+    destination_phone = test_phone or phone
     
     # Message OTP avec info du destinataire original en mode dev
     if test_phone and test_phone != phone:
