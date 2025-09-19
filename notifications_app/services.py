@@ -82,6 +82,15 @@ class NotificationService:
             admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
             test_phone = admin_phone if (dev_mode and admin_phone) else None
             destination_phone = test_phone or user.telephone
+            logger.debug(
+                "WA DEBUG _send_whatsapp: original=%s destination=%s dev=%s admin_phone_set=%s categorie=%s title=%s",
+                user.telephone,
+                destination_phone,
+                dev_mode,
+                bool(admin_phone),
+                categorie,
+                title,
+            )
             
             # Déterminer le rôle de l'expéditeur pour la sélection d'instance
             # Déterminer le type de message et le rôle expéditeur
@@ -121,10 +130,25 @@ TS Air Cargo - Mode Développement"""
             )
             
             if success:
-                logger.info(f"Message WhatsApp WaChap envoyé à {user.telephone} (via {destination_phone})")
+                logger.info(
+                    "WA OK: to_user=%s via=%s type=%s sender_role=%s msg_id=%s result=%s",
+                    user.telephone,
+                    destination_phone,
+                    message_type,
+                    sender_role,
+                    message_id,
+                    result_message,
+                )
                 return True, message_id
             else:
-                logger.error(f"Erreur WaChap pour {user.telephone}: {result_message}")
+                logger.error(
+                    "WA ERROR: to_user=%s via=%s type=%s sender_role=%s result=%s",
+                    user.telephone,
+                    destination_phone,
+                    message_type,
+                    sender_role,
+                    result_message,
+                )
                 return False, None
                 
         except Exception as e:

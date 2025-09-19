@@ -7,6 +7,7 @@ Migration Twilio → WaChap pour TS Air Cargo
 import requests
 import logging
 import json
+import re
 from typing import Optional, Dict, Any, Tuple
 from django.conf import settings
 from django.core.cache import cache
@@ -204,15 +205,19 @@ class WaChapService:
         
         # Ajouter l'indicatif si manquant
         if not clean_phone.startswith('+'):
-            if clean_phone.startswith('223'):  # Mali
+            if clean_phone.startswith('223') or clean_phone.startswith('86'):
+                # Préfixes connus, on ajoute simplement '+'
                 clean_phone = '+' + clean_phone
-            elif clean_phone.startswith('86'):  # Chine
-                clean_phone = '+' + clean_phone
-            elif clean_phone.startswith('0'):  # Numéro local Mali
+            elif clean_phone.startswith('0') and len(clean_phone) in (9, 10):
+                # Numéro local Mali (0XXXXXXXX) → +223XXXXXXXX
                 clean_phone = '+223' + clean_phone[1:]
-            else:
-                # Défaut Mali si pas d'indicatif détecté
-                clean_phone = '+223' + clean_phone
+            elif re.match(r'^1[3-9]\d{9}$', clean_phone):
+                # Numéro mobile chinois sur 11 chiffres sans indicatif → +86
+                clean_phone = '+86' + clean_phone
+            elif clean_phone.isdigit():
+                # Numéro international avec indicatif sans + → préfixer seulement '+' (ne pas forcer +223)
+                clean_phone = '+' + clean_phone
+            # sinon: laisser tel quel, sera géré par validation côté provider
         
         return clean_phone
     
@@ -284,6 +289,21 @@ class WaChapService:
                 "instance_id": config['instance_id'],
                 "access_token": config['access_token']
             }
+            # Log sécurisé du contexte d'envoi
+            try:
+                safe_phone = formatted_phone[:-4].replace('+', '*') + formatted_phone[-4:]
+                safe_instance = (config['instance_id'][:6] + '...') if config.get('instance_id') else 'missing'
+                logger.debug(
+                    "WA DEBUG send_message: attempt=%s region=%s role=%s to=%s payload_type=%s instance=%s",
+                    attempt_id,
+                    region,
+                    sender_role,
+                    safe_phone,
+                    payload.get('type'),
+                    safe_instance,
+                )
+            except Exception:
+                pass
             
             # Envoyer via l'API WaChap
             response = requests.post(
@@ -300,7 +320,11 @@ class WaChapService:
             logger.info(f"WaChap {region.title()} - Envoi vers {formatted_phone}: {response.status_code}")
             
             if response.status_code == 200:
-                response_data = response.json()
+                # Tenter de parser la réponse
+                try:
+                    response_data = response.json()
+                except Exception:
+                    response_data = {"raw": response.text}
                 success_msg = f"Message envoyé via WaChap {region.title()}"
                 
                 # Extraire l'ID du message si disponible
@@ -311,6 +335,14 @@ class WaChapService:
                     wachap_monitor.record_message_success(attempt_id, response_time, message_id)
                 
                 logger.info(f"{success_msg} - ID: {message_id}")
+                if not message_id:
+                    logger.warning(
+                        "WA WARN: Réponse 200 sans message_id. attempt=%s region=%s resp_keys=%s resp_raw=%s",
+                        attempt_id,
+                        region,
+                        list(response_data.keys()) if isinstance(response_data, dict) else type(response_data).__name__,
+                        str(response_data)[:500],
+                    )
                 
                 return True, success_msg, message_id
             else:

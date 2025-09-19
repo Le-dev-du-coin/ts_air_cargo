@@ -22,7 +22,7 @@ def agent_mali_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_agent_mali:
             messages.error(request, "Accès refusé. Vous devez être un agent au Mali.")
-            return redirect('authentication:login')
+            return redirect('authentication:login_agent_mali')
         return view_func(request, *args, **kwargs)
     return wrapper
 
