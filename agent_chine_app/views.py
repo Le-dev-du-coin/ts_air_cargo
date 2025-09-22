@@ -22,7 +22,7 @@ def agent_chine_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_agent_chine:
             messages.error(request, "Accès refusé. Vous devez être un agent en Chine.")
-            return redirect('authentication:login')
+            return redirect('authentication:login_agent_chine')
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -803,15 +803,17 @@ def calculate_default_price(poids, volume_m3, type_transport):
     """
     # Tarifs par défaut en FCFA
     tarifs_defaut = {
-        'cargo': 2500,      # 2500 FCFA/kg
-        'express': 4000,    # 4000 FCFA/kg
-        'bateau': 800000,   # 800000 FCFA/m3
+        # Aligné avec Colis.calculer_prix_automatique() (fallback)
+        # cargo: 10000 FCFA/kg, express: 12000 FCFA/kg, bateau: 300000 FCFA/m3
+        'cargo': 10000,
+        'express': 12000,
+        'bateau': 300000,
     }
     
     if type_transport == 'bateau':
         return volume_m3 * tarifs_defaut['bateau']
     else:
-        return poids * tarifs_defaut.get(type_transport, 2500)
+        return poids * tarifs_defaut.get(type_transport, 10000)
 
 # === AUTRES VUES ===
 

@@ -7,7 +7,7 @@ from authentication import views as auth_views
 
 def home_redirect(request):
     """Redirect to authentication by default"""
-    return redirect('authentication:login')
+    return redirect('authentication:home')
 
 urlpatterns = [
     # Admin interface

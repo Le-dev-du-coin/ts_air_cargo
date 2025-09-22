@@ -7,6 +7,7 @@ Migration Twilio → WaChap pour TS Air Cargo
 import requests
 import logging
 import json
+import re
 from typing import Optional, Dict, Any, Tuple
 from django.conf import settings
 from django.core.cache import cache
@@ -204,15 +205,19 @@ class WaChapService:
         
         # Ajouter l'indicatif si manquant
         if not clean_phone.startswith('+'):
-            if clean_phone.startswith('223'):  # Mali
+            if clean_phone.startswith('223') or clean_phone.startswith('86'):
+                # Préfixes connus, on ajoute simplement '+'
                 clean_phone = '+' + clean_phone
-            elif clean_phone.startswith('86'):  # Chine
-                clean_phone = '+' + clean_phone
-            elif clean_phone.startswith('0'):  # Numéro local Mali
+            elif clean_phone.startswith('0') and len(clean_phone) in (9, 10):
+                # Numéro local Mali (0XXXXXXXX) → +223XXXXXXXX
                 clean_phone = '+223' + clean_phone[1:]
-            else:
-                # Défaut Mali si pas d'indicatif détecté
-                clean_phone = '+223' + clean_phone
+            elif re.match(r'^1[3-9]\d{9}$', clean_phone):
+                # Numéro mobile chinois sur 11 chiffres sans indicatif → +86
+                clean_phone = '+86' + clean_phone
+            elif clean_phone.isdigit():
+                # Numéro international avec indicatif sans + → préfixer seulement '+' (ne pas forcer +223)
+                clean_phone = '+' + clean_phone
+            # sinon: laisser tel quel, sera géré par validation côté provider
         
         return clean_phone
     
@@ -284,6 +289,21 @@ class WaChapService:
                 "instance_id": config['instance_id'],
                 "access_token": config['access_token']
             }
+            # Log sécurisé du contexte d'envoi
+            try:
+                safe_phone = formatted_phone[:-4].replace('+', '*') + formatted_phone[-4:]
+                safe_instance = (config['instance_id'][:6] + '...') if config.get('instance_id') else 'missing'
+                logger.debug(
+                    "WA DEBUG send_message: attempt=%s region=%s role=%s to=%s payload_type=%s instance=%s",
+                    attempt_id,
+                    region,
+                    sender_role,
+                    safe_phone,
+                    payload.get('type'),
+                    safe_instance,
+                )
+            except Exception:
+                pass
             
             # Envoyer via l'API WaChap
             response = requests.post(
@@ -300,19 +320,48 @@ class WaChapService:
             logger.info(f"WaChap {region.title()} - Envoi vers {formatted_phone}: {response.status_code}")
             
             if response.status_code == 200:
-                response_data = response.json()
-                success_msg = f"Message envoyé via WaChap {region.title()}"
-                
-                # Extraire l'ID du message si disponible
-                message_id = response_data.get('id') or response_data.get('message_id')
-                
-                # Enregistrer le succès dans le monitoring
-                if attempt_id:
-                    wachap_monitor.record_message_success(attempt_id, response_time, message_id)
-                
-                logger.info(f"{success_msg} - ID: {message_id}")
-                
-                return True, success_msg, message_id
+                # Tenter de parser la réponse
+                try:
+                    response_data = response.json()
+                except Exception:
+                    response_data = {"raw": response.text}
+
+                # Déterminer le succès métier (certaines réponses 200 peuvent contenir status=error)
+                top_status = str(response_data.get('status', '')).lower()
+                nested_status = ''
+                if isinstance(response_data.get('message'), dict):
+                    nested_status = str(response_data['message'].get('status', '')).lower()
+                success_flag = (top_status == 'success') or (nested_status == 'success')
+
+                # Extraire l'ID du message (peut être imbriqué)
+                message_id = (
+                    response_data.get('id') or
+                    response_data.get('message_id') or
+                    (response_data.get('message', {}).get('key', {}).get('id') if isinstance(response_data.get('message'), dict) else None)
+                )
+
+                if success_flag:
+                    success_msg = f"Message envoyé via WaChap {region.title()}"
+                    if attempt_id:
+                        wachap_monitor.record_message_success(attempt_id, response_time, message_id)
+                    logger.info(f"{success_msg} - ID: {message_id}")
+                    if not message_id:
+                        logger.warning(
+                            "WA WARN: Réponse 200 sans message_id. attempt=%s region=%s resp_keys=%s resp_raw=%s",
+                            attempt_id,
+                            region,
+                            list(response_data.keys()) if isinstance(response_data, dict) else type(response_data).__name__,
+                            str(response_data)[:500],
+                        )
+                    return True, success_msg, message_id
+                else:
+                    # Statut applicatif non succès malgré HTTP 200
+                    error_text = response_data.get('message') if not isinstance(response_data.get('message'), dict) else json.dumps(response_data.get('message'))
+                    error_msg = f"Erreur WaChap {region.title()} (200/app): {error_text}"
+                    if attempt_id:
+                        wachap_monitor.record_message_error(attempt_id, 'app_error', error_msg, response_time)
+                    logger.error(error_msg)
+                    return False, error_msg, None
             else:
                 error_msg = f"Erreur WaChap {region.title()}: {response.status_code} - {response.text}"
                 
@@ -624,8 +673,11 @@ def send_whatsapp_otp(phone: str, otp_code: str) -> Tuple[bool, str]:
     from django.conf import settings
     
     # Redirection vers numéro de test en mode développement
-    test_phone = getattr(settings, 'DEBUG', False) and getattr(settings, 'ADMIN_PHONE', '+22373451676')
-    destination_phone = test_phone if test_phone else phone
+    dev_mode = getattr(settings, 'DEBUG', False)
+    admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
+    # En dev, ne rediriger que si ADMIN_PHONE est défini explicitement
+    test_phone = admin_phone if (dev_mode and admin_phone) else None
+    destination_phone = test_phone or phone
     
     # Message OTP avec info du destinataire original en mode dev
     if test_phone and test_phone != phone:

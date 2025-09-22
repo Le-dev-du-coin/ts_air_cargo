@@ -77,9 +77,20 @@ class NotificationService:
         """
         try:
             # Déterminer le numéro de destination
-            # En mode développement, utiliser le numéro de test
-            test_phone = getattr(settings, 'DEBUG', False) and '+22373451676'
-            destination_phone = test_phone if test_phone else user.telephone
+            # En mode développement, rediriger UNIQUEMENT si ADMIN_PHONE est défini
+            dev_mode = getattr(settings, 'DEBUG', False)
+            admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
+            test_phone = admin_phone if (dev_mode and admin_phone) else None
+            destination_phone = test_phone or user.telephone
+            logger.debug(
+                "WA DEBUG _send_whatsapp: original=%s destination=%s dev=%s admin_phone_set=%s categorie=%s title=%s",
+                user.telephone,
+                destination_phone,
+                dev_mode,
+                bool(admin_phone),
+                categorie,
+                title,
+            )
             
             # Déterminer le rôle de l'expéditeur pour la sélection d'instance
             # Déterminer le type de message et le rôle expéditeur
@@ -96,6 +107,15 @@ class NotificationService:
                     message_type = 'system'
 
             sender_role = 'system' if message_type in ['otp', 'account', 'system'] else getattr(user, 'role', None)
+
+            # Forcer l'instance selon la catégorie métier (priorité produit)
+            region_override = None
+            if categorie in {'colis_cree', 'lot_expedie', 'colis_en_transit'}:
+                # Création colis, fermeture de lot (prêt/expédition), expédition/en transit → Instance Chine
+                region_override = 'chine'
+            elif categorie in {'colis_arrive', 'colis_livre'}:
+                # Arrivée et Livraison (côté Mali) → Instance Mali
+                region_override = 'mali'
             
             # Enrichir le message en mode développement pour identification
             if test_phone and test_phone != user.telephone:
@@ -110,19 +130,35 @@ TS Air Cargo - Mode Développement"""
                 enriched_message = message
             
             # Envoyer via WaChap
-            # Utiliser la version avec type pour router correctement les instances
+            # Utiliser la version avec type et override de région si défini
             success, result_message, message_id = wachap_service.send_message_with_type(
                 phone=destination_phone,
                 message=enriched_message,
                 message_type=message_type,
-                sender_role=sender_role
+                sender_role=sender_role,
+                region=region_override
             )
             
             if success:
-                logger.info(f"Message WhatsApp WaChap envoyé à {user.telephone} (via {destination_phone})")
+                logger.info(
+                    "WA OK: to_user=%s via=%s type=%s sender_role=%s msg_id=%s result=%s",
+                    user.telephone,
+                    destination_phone,
+                    message_type,
+                    sender_role,
+                    message_id,
+                    result_message,
+                )
                 return True, message_id
             else:
-                logger.error(f"Erreur WaChap pour {user.telephone}: {result_message}")
+                logger.error(
+                    "WA ERROR: to_user=%s via=%s type=%s sender_role=%s result=%s",
+                    user.telephone,
+                    destination_phone,
+                    message_type,
+                    sender_role,
+                    result_message,
+                )
                 return False, None
                 
         except Exception as e:
@@ -201,9 +237,11 @@ TS Air Cargo - Mode Développement"""
             bool: Succès de l'envoi
         """
         try:
-            # Redirection vers numéro de test en mode développement
-            test_phone = getattr(settings, 'DEBUG', False) and '+22373451676'
-            destination_phone = test_phone if test_phone else phone_number
+            # Redirection vers numéro de test en mode développement (si ADMIN_PHONE défini)
+            dev_mode = getattr(settings, 'DEBUG', False)
+            admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
+            test_phone = admin_phone if (dev_mode and admin_phone) else None
+            destination_phone = test_phone or phone_number
             
             # Message avec info de redirection si nécessaire
             if test_phone and test_phone != phone_number:

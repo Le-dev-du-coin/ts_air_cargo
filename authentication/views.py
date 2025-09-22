@@ -16,7 +16,7 @@ from notifications_app.wachap_service import send_whatsapp_otp
 import json
 
 from .models import CustomUser, PasswordResetToken
-from .forms import LoginForm, PasswordResetRequestForm, PasswordResetForm, AdminChinaLoginForm
+from .forms import LoginForm, PasswordResetRequestForm, PasswordResetForm
 
 
 def generate_otp_code():
@@ -88,7 +88,7 @@ def verify_otp_view(request):
     telephone = request.session.get('otp_telephone')
     if not telephone:
         messages.error(request, "Session expirée. Veuillez vous reconnecter.")
-        return redirect('authentication:login')
+        return redirect('authentication:home')
     
     # Récupérer l'OTP depuis le cache pour l'afficher (mode test)
     cache_key = f"otp_{telephone}"
@@ -131,7 +131,7 @@ def role_based_login_view(request, role):
     valid_roles = ['client', 'agent_chine', 'agent_mali', 'admin', 'admin_mali']
     if role not in valid_roles:
         messages.error(request, "Rôle invalide.")
-        return redirect('authentication:login')
+        return redirect('authentication:home')
     
     if request.user.is_authenticated:
         return redirect(get_dashboard_url_by_role(request.user))
@@ -332,7 +332,7 @@ def password_reset_confirm_view(request):
                 cache.delete(f"reset_otp_{telephone}")
 
                 messages.success(request, "Mot de passe réinitialisé avec succès!")
-                return redirect('authentication:login')
+                return redirect('authentication:home')
 
             except CustomUser.DoesNotExist:
                 messages.error(request, "Erreur lors de la réinitialisation.")
@@ -398,47 +398,7 @@ def resend_otp_view(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Erreur: {str(e)}'})
 
-def admin_chine_login_view(request):
-    """Vue de connexion spécifique pour Admin Chine avec gestion des numéros chinois"""
-    if request.user.is_authenticated and request.user.is_admin_chine:
-        return redirect('admin_chine_app:dashboard')
-    
-    if request.method == 'POST':
-        form = AdminChinaLoginForm(request.POST, request=request)
-        
-        if form.is_valid():
-            telephone = form.cleaned_data['phone_number']
-            user = form.user_cache
-            
-            # Générer et envoyer l'OTP
-            otp_code = generate_otp_code()
-            cache_key = f"otp_{telephone}"
-            cache.set(cache_key, {
-                'code': otp_code,
-                'user_id': user.id,
-                'role': 'admin_chine',
-                'timestamp': timezone.now().isoformat()
-            }, timeout=600)
-            
-            # Envoyer l'OTP via WaChap
-            success, message = send_whatsapp_otp(telephone, otp_code)
-            
-            if success:
-                request.session['otp_telephone'] = telephone
-                request.session['login_role'] = 'admin_chine'
-                request.session['pre_authenticated_user_id'] = user.id
-                messages.success(request, f"Identifiants validés ! {message}")
-                return redirect('authentication:verify_otp')
-            else:
-                messages.error(request, f"Erreur d'envoi du code: {message}")
-    else:
-        form = AdminChinaLoginForm()
-    
-    return render(request, 'authentication/login_admin_chine.html', {
-        'form': form,
-        'role': 'admin_chine',
-        'role_display': 'Administrateur Chine'
-    })
+## Vue admin_chine_login_view supprimée: l'admin passe par login_admin (role_based_login_view) et est redirigé selon son rôle
 
 
 def home_view(request):

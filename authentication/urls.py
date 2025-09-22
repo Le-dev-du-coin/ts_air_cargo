@@ -16,7 +16,7 @@ urlpatterns = [
     path('login/agent-mali/', views.role_based_login_view, {'role': 'agent_mali'}, name='login_agent_mali'),
     path('login/admin/', views.role_based_login_view, {'role': 'admin'}, name='login_admin'),
     path('login/admin-mali/', views.role_based_login_view, {'role': 'admin_mali'}, name='login_admin_mali'),
-    path('login/admin-chine/', views.admin_chine_login_view, name='login_admin_chine'),
+    # Vue supprimée: admin_chine_login_view n'est plus nécessaire
     
     # URL générique pour le login basé sur le rôle
     path('login/<str:role>/', views.role_based_login_view, name='role_based_login'),

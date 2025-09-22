@@ -40,7 +40,9 @@ def send_individual_notification(self, notification_id):
         if notification.type_notification == 'whatsapp':
             success, message_id = NotificationService._send_whatsapp(
                 user=notification.destinataire,
-                message=notification.message
+                message=notification.message,
+                categorie=notification.categorie,
+                title=notification.titre,
             )
         elif notification.type_notification == 'sms':
             success, message_id = NotificationService._send_sms(
@@ -146,9 +148,9 @@ def send_bulk_lot_notifications(self, lot_id, notification_type, message_templat
         
         task_record.mark_as_started()
         
-        # Récupérer tous les clients uniques du lot
+        # Récupérer tous les colis du lot et regrouper par client (agrégation)
         colis_list = lot.colis.select_related('client__user').all()
-        clients_notifies = set()  # Pour éviter les doublons
+        clients_map = {}
         notifications_created = []
         
         # Déterminer le message selon le type
@@ -210,31 +212,60 @@ Merci d'avoir choisi TS Air Cargo pour vos envois !
         template_info = messages_templates.get(notification_type, messages_templates['lot_closed'])
         final_template = message_template or template_info['template']
         
-        # Créer les notifications pour chaque colis
+        # Construire la map client -> liste de colis
         for colis in colis_list:
             client = colis.client
-            
-            # Éviter les doublons si un client a plusieurs colis dans le même lot
-            if client.id in clients_notifies:
-                continue
-            clients_notifies.add(client.id)
-            
-            # Préparer les variables pour le template
+            data = clients_map.setdefault(client.id, {
+                'client': client,
+                'user': client.user,
+                'colis': []
+            })
+            data['colis'].append(colis)
+
+        # Créer une notification par client en agrégeant les numéros de suivi
+        for _, data in clients_map.items():
+            client = data['client']
+            colis_du_client = data['colis']
+            numeros = [c.numero_suivi for c in colis_du_client]
+            numeros_bullets = "\n".join([f"- {num}" for num in numeros])
+            multi = len(numeros) > 1
+
+            # Préparer les variables communes
             template_vars = {
-                'numero_suivi': colis.numero_suivi,
+                'numero_suivi': numeros[0] if numeros else '',
                 'numero_lot': lot.numero_lot,
                 'date_expedition': lot.date_expedition.strftime('%d/%m/%Y à %H:%M') if lot.date_expedition else '',
                 'date_arrivee': lot.date_arrivee.strftime('%d/%m/%Y à %H:%M') if hasattr(lot, 'date_arrivee') and lot.date_arrivee else '',
-                'date_livraison': timezone.now().strftime('%d/%m/%Y à %H:%M'),  # Pour l'exemple
+                'date_livraison': timezone.now().strftime('%d/%m/%Y à %H:%M'),
             }
-            
-            # Formater le message
-            try:
-                formatted_message = final_template.format(**template_vars)
-            except KeyError as e:
-                formatted_message = final_template  # Si une variable manque, utiliser le template tel quel
-                logger.warning(f"Variable manquante dans template: {e}")
-            
+
+            # Générer un message adapté lot_closed / lot_shipped avec agrégation
+            if notification_type in ['lot_closed', 'lot_shipped']:
+                try:
+                    base_message = final_template.format(**template_vars)
+                except KeyError as e:
+                    base_message = final_template
+                    logger.warning(f"Variable manquante dans template: {e}")
+
+                if multi:
+                    # Adapter wording au pluriel et ajouter la liste des numéros
+                    if notification_type == 'lot_closed':
+                        header = f"📦 Lot fermé - Prêt à expédier !\n\nVos colis dans le lot {lot.numero_lot} sont maintenant prêts à être expédiés."
+                    else:  # lot_shipped
+                        header = f"🚚 Colis expédiés - En transit !\n\nVos colis du lot {lot.numero_lot} ont été expédiés.\n📅 Date d'expédition: {template_vars['date_expedition']}"
+
+                    formatted_message = f"{header}\n\nColis concernés:\n{numeros_bullets}\n\nÉquipe TS Air Cargo"
+                else:
+                    # Message mono-colis (conserver template existant)
+                    formatted_message = base_message
+            else:
+                # Pour les autres types (arrivée/livraison), conserver le message existant tel quel
+                try:
+                    formatted_message = final_template.format(**template_vars)
+                except KeyError as e:
+                    formatted_message = final_template
+                    logger.warning(f"Variable manquante dans template: {e}")
+
             # Ajouter info de développement si nécessaire
             if getattr(settings, 'DEBUG', False):
                 formatted_message = f"""[MODE DEV] {template_info['title']}
@@ -246,8 +277,8 @@ Merci d'avoir choisi TS Air Cargo pour vos envois !
 
 Merci de votre confiance !
 Équipe TS Air Cargo 🚀"""
-            
-            # Créer la notification en base
+
+            # Créer la notification en base (une par client)
             notification = Notification.objects.create(
                 destinataire=client.user,
                 type_notification='whatsapp',
@@ -257,10 +288,9 @@ Merci de votre confiance !
                 telephone_destinataire=client.user.telephone,
                 email_destinataire=client.user.email or '',
                 statut='en_attente',
-                lot_reference=lot,
-                colis_reference=colis
+                lot_reference=lot
             )
-            
+
             notifications_created.append(notification.id)
         
         # Mettre à jour le nombre total réel
@@ -290,7 +320,7 @@ Merci de votre confiance !
             'total_notifications': len(notifications_created),
             'notifications_queued': sent_count,
             'queue_failures': failed_count,
-            'clients_count': len(clients_notifies)
+            'clients_count': len(clients_map)
         }
         
         task_record.mark_as_completed(
@@ -437,10 +467,14 @@ def notify_colis_created(colis_id, initiated_by_id=None):
 
 {details_transport}{photo_message}
 
+🌐 Accédez à votre espace: https://ts-aircargo.com
+
 Merci de votre confiance !
 Équipe TS Air Cargo 🚀"""
         else:
-            message = f"""✅ Votre colis {colis.numero_suivi} a été enregistré dans le lot {colis.lot.numero_lot}. Type: {colis.get_type_transport_display()}. Prix: {colis.prix_calcule} FCFA. {details_transport}{photo_message}"""
+            message = f"""✅ Votre colis {colis.numero_suivi} a été enregistré dans le lot {colis.lot.numero_lot}. Type: {colis.get_type_transport_display()}. Prix: {colis.prix_calcule} FCFA. {details_transport}{photo_message}
+
+🌐 Accédez à votre espace: https://ts-aircargo.com"""
         
         # Créer la notification
         notification = Notification.objects.create(
