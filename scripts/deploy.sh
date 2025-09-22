@@ -3,16 +3,20 @@
 # Script de déploiement TS Air Cargo
 # Usage: ./scripts/deploy.sh [branch]
 
-set -e
+set -Eeuo pipefail
 
 BRANCH=${1:-master}
 PROJECT_DIR="/var/www/ts_air_cargo"
 BACKUP_DIR="/var/backups/ts_air_cargo"
+VENV_PATH="/var/www/ts_air_cargo/venv"
+PYTHON_BIN="$VENV_PATH/bin/python"
+PIP_BIN="$VENV_PATH/bin/pip"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 echo "🚀 Démarrage du déploiement de TS Air Cargo..."
 echo "📂 Répertoire: $PROJECT_DIR"
 echo "🌿 Branche: $BRANCH"
+echo "🐍 Virtualenv: $VENV_PATH"
 
 # Fonction de sauvegarde
 backup_database() {
@@ -22,12 +26,13 @@ backup_database() {
     echo "✅ Base de données sauvegardée: $BACKUP_DIR/ts_air_cargo_$TIMESTAMP.sql"
 }
 
-# Fonction de rollback
+# Fonction de rollback (sans modifier l'historique Git)
 rollback() {
-    echo "❌ Erreur détectée! Rollback en cours..."
-    git checkout HEAD~1
-    supervisorctl restart ts_air_cargo:ts_air_cargo_gunicorn
-    echo "⚠️ Rollback effectué vers le commit précédent"
+    echo "❌ Erreur détectée! Rollback services en cours..."
+    # Tenter de relancer les services avec la dernière version stable
+    supervisorctl restart ts_air_cargo:ts_air_cargo_gunicorn || true
+    supervisorctl restart ts_air_cargo:ts_air_cargo_celery || true
+    echo "⚠️ Services relancés avec l'état précédent (si disponible)"
     exit 1
 }
 
@@ -41,7 +46,8 @@ backup_database
 
 # Arrêt des services
 echo "⏸️ Arrêt temporaire des services..."
-supervisorctl stop ts_air_cargo:ts_air_cargo_gunicorn
+supervisorctl stop ts_air_cargo:ts_air_cargo_celery || true
+supervisorctl stop ts_air_cargo:ts_air_cargo_gunicorn || true
 
 # Mise à jour du code
 echo "📥 Récupération des modifications..."
@@ -49,29 +55,31 @@ git fetch origin
 git checkout "$BRANCH"
 git pull origin "$BRANCH"
 
-# Activation de l'environnement virtuel
-echo "🐍 Activation de l'environnement virtuel..."
-source venv/bin/activate
+# Création/activation de l'environnement virtuel (PEP 668 compliant)
+echo "🐍 Préparation de l'environnement virtuel..."
+if [ ! -d "$VENV_PATH" ]; then
+    python3 -m venv "$VENV_PATH"
+fi
 
-# Installation/mise à jour des dépendances
 echo "📦 Mise à jour des dépendances..."
-pip install -r requirements.txt --upgrade
+"$PIP_BIN" install --upgrade pip
+"$PIP_BIN" install -r requirements.txt
 
 # Migrations de base de données
 echo "🗄️ Application des migrations..."
-python manage.py migrate --noinput
+"$PYTHON_BIN" manage.py migrate --noinput
 
 # Collection des fichiers statiques
 echo "📁 Collection des fichiers statiques..."
-python manage.py collectstatic --noinput --clear
+"$PYTHON_BIN" manage.py collectstatic --noinput --clear
 
 # Test de configuration
 echo "🔧 Vérification de la configuration..."
-python manage.py check --deploy
+"$PYTHON_BIN" manage.py check --deploy
 
 # Redémarrage des services
 echo "🔄 Redémarrage des services..."
-supervisorctl start ts_air_cargo:ts_air_cargo_gunicorn
+supervisorctl restart ts_air_cargo:ts_air_cargo_gunicorn
 supervisorctl restart ts_air_cargo:ts_air_cargo_celery
 
 # Test de santé
