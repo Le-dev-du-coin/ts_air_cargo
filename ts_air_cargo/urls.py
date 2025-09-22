@@ -34,6 +34,6 @@ if settings.DEBUG:
 
 # Custom error handlers
 handler400 = 'ts_air_cargo.views.bad_request'
-handler403 = 'ts_air_cargo.views.permission_denied'
-handler404 = 'ts_air_cargo.views.page_not_found'
-handler500 = 'ts_air_cargo.views.server_error'
+handler403 = "ts_air_cargo.error_handlers.handler403"
+handler404 = "ts_air_cargo.error_handlers.handler404"
+handler500 = "ts_air_cargo.error_handlers.handler500"

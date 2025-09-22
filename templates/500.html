@@ -1,25 +1,110 @@
-{% extends "base.html" %}
-{% load static %}
-{% block title %}Erreur 500 - Erreur serveur | TS Air Cargo{% endblock %}
-{% block body_class %}bg-light{% endblock %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erreur Interne - TS Air Cargo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        .error-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            margin: 1rem;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .error-title {
+            font-size: 1.8rem;
+            margin: 1rem 0;
+            color: #2c3e50;
+        }
+        .error-message {
+            font-size: 1.1rem;
+            color: #7f8c8d;
+            margin: 1.5rem 0;
+            line-height: 1.6;
+        }
+        .btn-home {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 2rem;
+            transition: transform 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 2rem;
+        }
+        .support-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+            border-left: 4px solid #667eea;
+        }
+        .support-info h4 {
+            margin: 0 0 0.5rem 0;
+            color: #2c3e50;
+        }
+        .contact-item {
+            margin: 0.5rem 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="logo">🚀 TS Air Cargo</div>
+        <div class="error-code">500</div>
+        <h1 class="error-title">Erreur Interne du Serveur</h1>
+        <p class="error-message">
+            Nous rencontrons actuellement un problème technique temporaire.
+            Notre équipe technique a été automatiquement notifiée et travaille 
+            à résoudre ce problème dans les plus brefs délais.
+        </p>
+        
+        <div class="support-info">
+            <h4>🆘 Besoin d'aide urgente ?</h4>
+            <div class="contact-item">📞 Téléphone : +223 70 00 00 00</div>
+            <div class="contact-item">💬 WhatsApp : +223 70 00 00 00</div>
+            <div class="contact-item">✉️ Email : support@ts-aircargo.com</div>
+        </div>
 
-{% block content %}
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <div class="text-center p-4 p-md-5 bg-white shadow-sm rounded-4">
-        <div class="mb-3">
-          <i class="bi bi-server text-danger" style="font-size: 4rem;"></i>
-        </div>
-        <h1 class="fw-bold mb-3">Erreur 500</h1>
-        <p class="lead text-muted mb-4">Une erreur interne est survenue. Nos équipes ont été notifiées.</p>
-        <div class="d-flex gap-2 justify-content-center">
-          <a href="/" class="btn btn-primary"><i class="bi bi-house-door me-2"></i>Retour à l'accueil</a>
-          <a href="mailto:contact@ts-aircargo.com" class="btn btn-outline-secondary"><i class="bi bi-envelope me-2"></i>Nous contacter</a>
-        </div>
-        <p class="text-muted small mt-4 mb-0">Veuillez réessayer dans quelques instants.</p>
-      </div>
+        <a href="/" class="btn-home">🏠 Retour à l'Accueil</a>
+        
+        <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">
+            Code d'erreur: ERR_500 - {{ error_id }}
+        </p>
     </div>
-  </div>
-</div>
-{% endblock %}
+</body>
+</html>

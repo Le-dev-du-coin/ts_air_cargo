@@ -1,24 +1,98 @@
-{% extends "base.html" %}
-{% load static %}
-{% block title %}Erreur 403 - Accès refusé | TS Air Cargo{% endblock %}
-{% block body_class %}bg-light{% endblock %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accès refusé - TS Air Cargo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        .error-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            margin: 1rem;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .error-title {
+            font-size: 1.8rem;
+            margin: 1rem 0;
+            color: #2c3e50;
+        }
+        .error-message {
+            font-size: 1.1rem;
+            color: #7f8c8d;
+            margin: 1.5rem 0;
+            line-height: 1.6;
+        }
+        .btn-home {
+            background: linear-gradient(45deg, #ff9a9e, #fecfef);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 1rem 0.5rem;
+            transition: transform 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin-bottom: 2rem;
+        }
+        .auth-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+            border-left: 4px solid #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="logo">🚀 TS Air Cargo</div>
+        <div class="error-code">403</div>
+        <h1 class="error-title">Accès Refusé</h1>
+        <p class="error-message">
+            Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+            Veuillez vous connecter avec un compte autorisé.
+        </p>
+        
+        <div class="auth-info">
+            <h4>🔐 Besoin d'accès ?</h4>
+            <p>Contactez votre administrateur ou connectez-vous avec vos identifiants appropriés.</p>
+        </div>
 
-{% block content %}
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <div class="text-center p-4 p-md-5 bg-white shadow-sm rounded-4">
-        <div class="mb-3">
-          <i class="bi bi-shield-lock text-warning" style="font-size: 4rem;"></i>
+        <div style="margin-top: 2rem;">
+            <a href="/" class="btn-home">🏠 Retour à l'Accueil</a>
+            <a href="/authentication/" class="btn-home">🔑 Se Connecter</a>
         </div>
-        <h1 class="fw-bold mb-3">Accès refusé</h1>
-        <p class="lead text-muted mb-4">Vous n'avez pas les permissions nécessaires pour accéder à cette ressource.</p>
-        <div class="d-flex gap-2 justify-content-center">
-          <a href="/" class="btn btn-primary"><i class="bi bi-house-door me-2"></i>Retour à l'accueil</a>
-          <a href="{% url 'authentication:home' %}" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-in-right me-2"></i>Se connecter</a>
-        </div>
-      </div>
     </div>
-  </div>
-</div>
-{% endblock %}
+</body>
+</html>

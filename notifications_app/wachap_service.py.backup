@@ -13,7 +13,6 @@ from django.conf import settings
 from django.core.cache import cache
 from urllib.parse import quote
 from django.utils import timezone
-from .timeout_handler import timeout_handler, circuit_breaker
 
 logger = logging.getLogger(__name__)
 
