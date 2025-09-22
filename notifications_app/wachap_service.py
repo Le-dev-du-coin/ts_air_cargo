@@ -325,26 +325,43 @@ class WaChapService:
                     response_data = response.json()
                 except Exception:
                     response_data = {"raw": response.text}
-                success_msg = f"Message envoyé via WaChap {region.title()}"
-                
-                # Extraire l'ID du message si disponible
-                message_id = response_data.get('id') or response_data.get('message_id')
-                
-                # Enregistrer le succès dans le monitoring
-                if attempt_id:
-                    wachap_monitor.record_message_success(attempt_id, response_time, message_id)
-                
-                logger.info(f"{success_msg} - ID: {message_id}")
-                if not message_id:
-                    logger.warning(
-                        "WA WARN: Réponse 200 sans message_id. attempt=%s region=%s resp_keys=%s resp_raw=%s",
-                        attempt_id,
-                        region,
-                        list(response_data.keys()) if isinstance(response_data, dict) else type(response_data).__name__,
-                        str(response_data)[:500],
-                    )
-                
-                return True, success_msg, message_id
+
+                # Déterminer le succès métier (certaines réponses 200 peuvent contenir status=error)
+                top_status = str(response_data.get('status', '')).lower()
+                nested_status = ''
+                if isinstance(response_data.get('message'), dict):
+                    nested_status = str(response_data['message'].get('status', '')).lower()
+                success_flag = (top_status == 'success') or (nested_status == 'success')
+
+                # Extraire l'ID du message (peut être imbriqué)
+                message_id = (
+                    response_data.get('id') or
+                    response_data.get('message_id') or
+                    (response_data.get('message', {}).get('key', {}).get('id') if isinstance(response_data.get('message'), dict) else None)
+                )
+
+                if success_flag:
+                    success_msg = f"Message envoyé via WaChap {region.title()}"
+                    if attempt_id:
+                        wachap_monitor.record_message_success(attempt_id, response_time, message_id)
+                    logger.info(f"{success_msg} - ID: {message_id}")
+                    if not message_id:
+                        logger.warning(
+                            "WA WARN: Réponse 200 sans message_id. attempt=%s region=%s resp_keys=%s resp_raw=%s",
+                            attempt_id,
+                            region,
+                            list(response_data.keys()) if isinstance(response_data, dict) else type(response_data).__name__,
+                            str(response_data)[:500],
+                        )
+                    return True, success_msg, message_id
+                else:
+                    # Statut applicatif non succès malgré HTTP 200
+                    error_text = response_data.get('message') if not isinstance(response_data.get('message'), dict) else json.dumps(response_data.get('message'))
+                    error_msg = f"Erreur WaChap {region.title()} (200/app): {error_text}"
+                    if attempt_id:
+                        wachap_monitor.record_message_error(attempt_id, 'app_error', error_msg, response_time)
+                    logger.error(error_msg)
+                    return False, error_msg, None
             else:
                 error_msg = f"Erreur WaChap {region.title()}: {response.status_code} - {response.text}"
                 

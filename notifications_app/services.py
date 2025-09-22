@@ -107,6 +107,15 @@ class NotificationService:
                     message_type = 'system'
 
             sender_role = 'system' if message_type in ['otp', 'account', 'system'] else getattr(user, 'role', None)
+
+            # Forcer l'instance selon la catégorie métier (priorité produit)
+            region_override = None
+            if categorie in {'colis_cree', 'lot_expedie', 'colis_en_transit'}:
+                # Création colis, fermeture de lot (prêt/expédition), expédition/en transit → Instance Chine
+                region_override = 'chine'
+            elif categorie in {'colis_arrive', 'colis_livre'}:
+                # Arrivée et Livraison (côté Mali) → Instance Mali
+                region_override = 'mali'
             
             # Enrichir le message en mode développement pour identification
             if test_phone and test_phone != user.telephone:
@@ -121,12 +130,13 @@ TS Air Cargo - Mode Développement"""
                 enriched_message = message
             
             # Envoyer via WaChap
-            # Utiliser la version avec type pour router correctement les instances
+            # Utiliser la version avec type et override de région si défini
             success, result_message, message_id = wachap_service.send_message_with_type(
                 phone=destination_phone,
                 message=enriched_message,
                 message_type=message_type,
-                sender_role=sender_role
+                sender_role=sender_role,
+                region=region_override
             )
             
             if success:
