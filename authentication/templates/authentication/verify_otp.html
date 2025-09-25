@@ -64,6 +64,40 @@
             color: #667eea;
             font-size: 18px;
         }
+        
+        .status-indicator {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .status-pending {
+            background: rgba(241, 196, 15, 0.1);
+            color: #f39c12;
+            border-left: 4px solid #f39c12;
+        }
+        
+        .status-sending {
+            background: rgba(52, 152, 219, 0.1);
+            color: #3498db;
+            border-left: 4px solid #3498db;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-sent {
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+            border-left: 4px solid #27ae60;
+        }
+        
+        .status-failed {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+            border-left: 4px solid #e74c3c;
+        }
 
         .form-group {
             margin-bottom: 25px;
@@ -372,6 +406,11 @@
         <div class="phone-display">
             Code envoyé au: <strong>{{ telephone|default:"N° masqué" }}</strong>
         </div>
+        
+        <!-- Indicateur de statut d'envoi -->
+        <div id="statusIndicator" class="status-indicator status-{{ sending_status|default:'pending' }}">
+            <span id="statusMessage">{{ status_message|default:'Préparation de l\'envoi...' }}</span>
+        </div>
 
         {% if messages %}
         <div class="messages">
@@ -564,6 +603,98 @@
             if (e.key === 'Escape') {
                 window.location.href = "{% url 'authentication:home' %}";
             }
+        });
+        
+        // Polling pour vérifier le statut d'envoi de l'OTP
+        {% if cache_key %}
+        const cacheKey = '{{ cache_key }}';
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusMessage = document.getElementById('statusMessage');
+        let pollCount = 0;
+        const maxPolls = 20; // Maximum 20 tentatives (1 minute)
+        
+        function checkOTPStatus() {
+            if (pollCount >= maxPolls) {
+                console.log('⚠️ Arrêt du polling OTP (timeout)');
+                statusIndicator.className = 'status-indicator status-failed';
+                statusMessage.textContent = 'Vérification du statut expirée';
+                return;
+            }
+            
+            fetch('{% url "authentication:otp_status_ajax" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: 'cache_key=' + encodeURIComponent(cacheKey)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.found && !data.expired) {
+                    // Mettre à jour l'indicateur de statut
+                    statusIndicator.className = 'status-indicator status-' + data.status;
+                    statusMessage.textContent = data.user_message;
+                    
+                    // Afficher le code en mode debug
+                    if (data.show_code && data.code) {
+                        const debugElement = document.getElementById('current_otp');
+                        if (!debugElement) {
+                            const debugDiv = document.createElement('div');
+                            debugDiv.id = 'current_otp';
+                            debugDiv.style.cssText = 'background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; font-family: monospace; color: #333; border: 1px dashed #ddd;';
+                            debugDiv.innerHTML = '🐛 <strong>Mode Debug:</strong> Code OTP = <code>' + data.code + '</code>';
+                            statusIndicator.parentNode.insertBefore(debugDiv, statusIndicator.nextSibling);
+                        } else {
+                            debugElement.innerHTML = '🐛 <strong>Mode Debug:</strong> Code OTP = <code>' + data.code + '</code>';
+                        }
+                    }
+                    
+                    // Continuer le polling si encore en cours d'envoi
+                    if (data.status === 'pending' || data.status === 'sending') {
+                        pollCount++;
+                        setTimeout(checkOTPStatus, 3000); // Vérifier toutes les 3 secondes
+                    } else {
+                        console.log('✓ Polling OTP terminé. Statut final:', data.status);
+                        
+                        // Activer le champ de saisie si l'envoi a réussi
+                        if (data.status === 'sent') {
+                            otpInput.disabled = false;
+                            otpInput.focus();
+                        }
+                    }
+                } else {
+                    // Session expirée ou non trouvée
+                    statusIndicator.className = 'status-indicator status-failed';
+                    statusMessage.textContent = data.user_message || 'Session expirée';
+                    console.log('⚠️ Session OTP expirée');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur polling OTP:', error);
+                pollCount++;
+                if (pollCount < maxPolls) {
+                    setTimeout(checkOTPStatus, 5000); // Réessayer dans 5 secondes en cas d'erreur
+                } else {
+                    statusIndicator.className = 'status-indicator status-failed';
+                    statusMessage.textContent = 'Erreur de vérification du statut';
+                }
+            });
+        }
+        
+        // Démarrer le polling si le statut n'est pas déjà final
+        const currentStatus = '{{ sending_status|default:"pending" }}';
+        if (currentStatus === 'pending' || currentStatus === 'sending') {
+            console.log('🔄 Démarrage du polling OTP, statut initial:', currentStatus);
+            setTimeout(checkOTPStatus, 1000); // Premier check après 1 seconde
+        } else {
+            // Activer directement le champ si déjà envoyé
+            if (currentStatus === 'sent') {
+                otpInput.disabled = false;
+                otpInput.focus();
+            }
+        }
+        {% endif %}
         });
     </script>
 </div>

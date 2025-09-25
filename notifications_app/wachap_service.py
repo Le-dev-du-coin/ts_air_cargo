@@ -709,8 +709,18 @@ TS Air Cargo"""
         sender_role='system'
     )
     
-    # Message de retour avec info de redirection
-    if success and test_phone and test_phone != phone:
-        return success, f"OTP envoyé via instance système vers {destination_phone} (dev mode)"
+    # Messages de retour user-friendly (masquer WaChap)
+    if success:
+        if test_phone and test_phone != phone:
+            return success, f"Code envoyé vers {destination_phone} (mode dev)"
+        else:
+            return success, "Code de vérification envoyé avec succès"
     else:
-        return success, f"OTP envoyé via instance système - {msg}"
+        # Masquer les détails techniques dans les messages d'erreur
+        if "wachap" in msg.lower():
+            # Nettoyer les références à WaChap
+            cleaned_msg = msg.replace("WaChap System", "système").replace("WaChap Mali", "système").replace("WaChap Chine", "système")
+            cleaned_msg = cleaned_msg.replace("WaChap", "système").replace("wachap", "système")
+            return success, cleaned_msg
+        else:
+            return success, msg

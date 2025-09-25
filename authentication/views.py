@@ -13,6 +13,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.core.cache import cache
 from notifications_app.wachap_service import send_whatsapp_otp
+from .otp_service import AsyncOTPService, get_user_friendly_message
 import json
 
 from .models import CustomUser, PasswordResetToken
@@ -53,26 +54,23 @@ def login_view(request):
             telephone = form.cleaned_data['phone_number']
             user = form.user_cache  # L'utilisateur authentifié depuis le formulaire
             
-            # Générer et stocker l'OTP
-            otp_code = generate_otp_code()
-            cache_key = f"otp_{telephone}"
-            cache.set(cache_key, {
-                'code': otp_code,
-                'user_id': user.id,
-                'timestamp': timezone.now().isoformat()
-            }, timeout=600)  # 10 minutes
+            # Envoyer l'OTP de manière asynchrone
+            otp_result = AsyncOTPService.send_otp_async(
+                phone_number=telephone,
+                user_id=user.id,
+                extra_data={'timestamp': timezone.now().isoformat()}
+            )
             
-            # Envoyer l'OTP via WaChap
-            success, message = send_whatsapp_otp(telephone, otp_code)
-            
-            if success:
-                # Stocker le téléphone en session pour la vérification OTP
+            if otp_result['success']:
+                # Stocker les informations de session
+                request.session['otp_cache_key'] = otp_result['cache_key']
                 request.session['otp_telephone'] = telephone
                 request.session['pre_authenticated_user_id'] = user.id
-                messages.success(request, f"Identifiants validés ! {message}")
+                messages.success(request, f"Identifiants validés ! {otp_result['user_message']}")
                 return redirect('authentication:verify_otp')
             else:
-                messages.error(request, f"Erreur d'envoi du code: {message}")
+                user_message = get_user_friendly_message(otp_result.get('error', 'Erreur inconnue'))
+                messages.error(request, f"Problème d'envoi du code: {user_message}")
                 
     else:
         form = LoginForm()
@@ -80,33 +78,46 @@ def login_view(request):
     return render(request, 'authentication/login.html', {'form': form})
 
 def verify_otp_view(request):
-    """Vue de vérification du code OTP"""
-    # Si déjà authentifié, rediriger vers le dashboard pour éviter d'afficher l'écran OTP
+    """Vue de vérification du code OTP avec support asynchrone"""
+    # Si déjà authentifié, rediriger vers le dashboard
     if request.user.is_authenticated:
         return redirect(get_dashboard_url_by_role(request.user))
 
     telephone = request.session.get('otp_telephone')
-    if not telephone:
+    cache_key = request.session.get('otp_cache_key')
+    
+    if not telephone or not cache_key:
         messages.error(request, "Session expirée. Veuillez vous reconnecter.")
         return redirect('authentication:home')
     
-    # Récupérer l'OTP depuis le cache pour l'afficher (mode test)
-    cache_key = f"otp_{telephone}"
-    otp_data = cache.get(cache_key)
-    current_otp = otp_data.get('code') if otp_data else None
+    # Récupérer le statut actuel de l'OTP
+    otp_status = AsyncOTPService.get_otp_status(cache_key)
+    
+    if not otp_status['found']:
+        messages.error(request, otp_status['user_message'])
+        return redirect('authentication:home')
+    
+    # Variables pour le template
+    current_otp = otp_status.get('code') if settings.DEBUG else None
+    sending_status = otp_status.get('status', 'pending')
+    user_message = otp_status.get('user_message', '')
     
     if request.method == 'POST':
         entered_otp = request.POST.get('otp_code')
         
-        if otp_data and entered_otp == otp_data['code']:
+        # Vérifier le code OTP
+        verification_result = AsyncOTPService.verify_otp(cache_key, entered_otp)
+        
+        if verification_result['success']:
             # OTP valide, connecter l'utilisateur
             try:
-                user = CustomUser.objects.get(id=otp_data['user_id'])
+                user = CustomUser.objects.get(id=verification_result['user_id'])
                 login(request, user)
                 
-                # Nettoyer la session et le cache
-                del request.session['otp_telephone']
-                cache.delete(cache_key)
+                # Nettoyer la session
+                request.session.pop('otp_telephone', None)
+                request.session.pop('otp_cache_key', None)
+                request.session.pop('pre_authenticated_user_id', None)
                 
                 messages.success(request, f"Connexion réussie. Bienvenue {user.get_full_name()}!")
                 return redirect(get_dashboard_url_by_role(user))
@@ -114,17 +125,55 @@ def verify_otp_view(request):
             except CustomUser.DoesNotExist:
                 messages.error(request, "Erreur de connexion. Utilisateur introuvable.")
         else:
-            messages.error(request, "Code OTP invalide ou expiré.")
+            messages.error(request, verification_result['user_message'])
     
-    # Empêcher la mise en cache de la page OTP (améliore l'expérience lors du bouton retour)
+    # Empêcher la mise en cache de la page OTP
     response = render(request, 'authentication/verify_otp.html', {
         'telephone': telephone,
-        'current_otp': current_otp  # Pour affichage en mode test
+        'current_otp': current_otp,  # Pour affichage en mode test
+        'sending_status': sending_status,
+        'status_message': user_message,
+        'cache_key': cache_key  # Pour le polling AJAX
     })
     response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response
+
+@csrf_exempt
+def otp_status_ajax(request):
+    """Vue AJAX pour vérifier le statut d'envoi de l'OTP"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    cache_key = request.POST.get('cache_key')
+    if not cache_key:
+        return JsonResponse({'error': 'Clé cache manquante'}, status=400)
+    
+    # Vérifier que la clé appartient à la session actuelle
+    session_cache_key = request.session.get('otp_cache_key')
+    if cache_key != session_cache_key:
+        return JsonResponse({'error': 'Clé cache non valide'}, status=400)
+    
+    # Récupérer le statut
+    otp_status = AsyncOTPService.get_otp_status(cache_key)
+    
+    if not otp_status['found']:
+        return JsonResponse({
+            'found': False,
+            'expired': True,
+            'user_message': otp_status['user_message']
+        })
+    
+    return JsonResponse({
+        'found': True,
+        'expired': False,
+        'status': otp_status.get('status', 'pending'),
+        'user_message': otp_status.get('user_message', ''),
+        'attempts': otp_status.get('attempts', 0),
+        'show_code': settings.DEBUG,
+        'code': otp_status.get('code') if settings.DEBUG else None
+    })
 
 def role_based_login_view(request, role):
     """Vue de connexion spécifique à un rôle"""

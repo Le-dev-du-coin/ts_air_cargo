@@ -586,3 +586,110 @@ def notify_lot_received_mali(lot_id, agent_mali_id=None):
             'error': error_msg,
             'lot_id': lot_id
         }
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3, 'countdown': 30})
+def send_otp_async(self, phone_number, otp_code, cache_key=None, user_id=None):
+    """
+    Tâche asynchrone pour envoyer un OTP via WhatsApp
+    Améliore la résilience et évite les plantages de l'interface utilisateur
+    
+    Args:
+        phone_number: Numéro de téléphone destinataire
+        otp_code: Code OTP à envoyer
+        cache_key: Clé cache pour mettre à jour le statut
+        user_id: ID utilisateur pour logging
+    
+    Returns:
+        dict: Résultat de l'envoi avec statut et message user-friendly
+    """
+    from .wachap_service import send_whatsapp_otp
+    from django.core.cache import cache
+    from django.utils import timezone
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Mettre à jour le statut en cache : envoi en cours
+        if cache_key:
+            otp_data = cache.get(cache_key, {})
+            otp_data.update({
+                'status': 'sending',
+                'sending_started_at': timezone.now().isoformat()
+            })
+            cache.set(cache_key, otp_data, timeout=600)
+        
+        logger.info(f"🔄 Envoi OTP asynchrone vers {phone_number} (tentative {self.request.retries + 1}/4)")
+        
+        # Envoi de l'OTP
+        success, raw_message = send_whatsapp_otp(phone_number, otp_code)
+        
+        # Messages utilisateur-friendly (masquer les détails techniques)
+        if success:
+            user_message = "Code de vérification envoyé avec succès"
+            final_status = 'sent'
+            logger.info(f"✅ OTP envoyé avec succès vers {phone_number}")
+        else:
+            # Convertir les erreurs techniques en messages compréhensibles
+            if "timeout" in raw_message.lower():
+                user_message = "Service temporairement indisponible. Nouvelle tentative en cours..."
+            elif "invalid" in raw_message.lower() or "invalidé" in raw_message.lower():
+                user_message = "Service de messagerie en maintenance. Réessayez dans quelques minutes."
+            elif "network" in raw_message.lower() or "connexion" in raw_message.lower():
+                user_message = "Problème de connexion. Nouvelle tentative automatique..."
+            else:
+                user_message = "Erreur temporaire. Nous réessayons automatiquement..."
+            
+            final_status = 'failed'
+            logger.error(f"❌ Échec envoi OTP vers {phone_number}: {raw_message}")
+            
+            # Déclencher un retry automatique si pas encore max retries
+            if self.request.retries < 3:
+                logger.warning(f"⏳ Retry #{self.request.retries + 2} dans 30 secondes...")
+                raise Exception(f"Retry OTP: {raw_message}")
+        
+        # Mettre à jour le statut final en cache
+        if cache_key:
+            otp_data = cache.get(cache_key, {})
+            otp_data.update({
+                'status': final_status,
+                'user_message': user_message,
+                'completed_at': timezone.now().isoformat(),
+                'attempts': self.request.retries + 1
+            })
+            cache.set(cache_key, otp_data, timeout=600)
+        
+        return {
+            'success': success,
+            'user_message': user_message,
+            'phone_number': phone_number,
+            'attempts': self.request.retries + 1,
+            'final_attempt': True
+        }
+        
+    except Exception as e:
+        logger.error(f"💥 Erreur critique envoi OTP vers {phone_number}: {str(e)}")
+        
+        # Statut d'échec définitif si on est au dernier retry
+        if self.request.retries >= 3:
+            if cache_key:
+                otp_data = cache.get(cache_key, {})
+                otp_data.update({
+                    'status': 'failed_final',
+                    'user_message': 'Impossible d\'envoyer le code actuellement. Contactez le support.',
+                    'completed_at': timezone.now().isoformat(),
+                    'attempts': self.request.retries + 1
+                })
+                cache.set(cache_key, otp_data, timeout=600)
+            
+            return {
+                'success': False,
+                'user_message': 'Impossible d\'envoyer le code actuellement. Contactez le support.',
+                'phone_number': phone_number,
+                'attempts': self.request.retries + 1,
+                'final_attempt': True
+            }
+        else:
+            # Re-raise pour déclencher le retry automatique
+            raise e
