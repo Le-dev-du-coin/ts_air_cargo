@@ -9,13 +9,15 @@ class LoginForm(forms.Form):
     """Custom login form using phone number instead of username"""
     
     phone_number = forms.CharField(
-        max_length=15,
+        max_length=20,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Enter your phone number',
-            'autofocus': True
+            'placeholder': '+223XXXXXXXX ou +86XXXXXXXXXXX',
+            'autofocus': True,
+            'type': 'tel'
         }),
-        label='Phone Number'
+        label='Phone Number',
+        help_text='Formats acceptés: Mali (+223) ou Chine (+86)'
     )
     
     password = forms.CharField(
@@ -35,26 +37,28 @@ class LoginForm(forms.Form):
         phone_number = self.cleaned_data.get('phone_number')
         if phone_number:
             # Remove any non-digit characters except +
+            original_phone = phone_number
             phone_number = re.sub(r'[^\d+]', '', phone_number)
             
-            # Validation pour numéros maliens et chinois
-            malian_patterns = [
-                r'^\+223[67]\d{7}$',     # +22360123456 ou +22370123456
-                r'^223[67]\d{7}$',       # 22360123456 ou 22370123456
-                r'^[67]\d{7}$'           # 60123456 ou 70123456
-            ]
+            # Si le numéro ne commence pas par +, essayer de deviner le format
+            if not phone_number.startswith('+'):
+                # Si c'est un numéro chinois (commence par 1 et a 11 chiffres)
+                if re.match(r'^1[3-9]\d{9}$', phone_number):
+                    phone_number = '+86' + phone_number
+                # Si c'est un numéro malien (commence par 6 ou 7 et a 8 chiffres)
+                elif re.match(r'^[67]\d{7}$', phone_number):
+                    phone_number = '+223' + phone_number
+                # Si commence par 86 (chinois sans +)
+                elif phone_number.startswith('86'):
+                    phone_number = '+' + phone_number
+                # Si commence par 223 (malien sans +)
+                elif phone_number.startswith('223'):
+                    phone_number = '+' + phone_number
             
-            chinese_patterns = [
-                r'^\+861[3-9]\d{9}$',    # +8613800138000
-                r'^861[3-9]\d{9}$',      # 8613800138000
-                r'^1[3-9]\d{9}$'         # 13800138000
-            ]
-            
-            all_patterns = malian_patterns + chinese_patterns
-            is_valid = any(re.match(pattern, phone_number) for pattern in all_patterns)
-            
-            if not is_valid:
-                raise ValidationError('Numéro invalide. Formats acceptés: Mali (+223XXXXXXXX) ou Chine (+86XXXXXXXXXXX)')
+            # Validation basique : au moins 10 chiffres avec +
+            if not re.match(r'^\+\d{10,15}$', phone_number):
+                raise ValidationError(f'Format de numéro invalide: {original_phone}. Formats acceptés: +223XXXXXXXX (Mali) ou +86XXXXXXXXXXX (Chine)')
+                
         return phone_number
     
     def clean(self):

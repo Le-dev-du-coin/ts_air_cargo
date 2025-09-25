@@ -187,23 +187,6 @@ def role_based_login_view(request, role):
     
     if request.method == 'POST':
         
-        # Vérifier le token CSRF avant de traiter le formulaire
-        from django.middleware.csrf import get_token
-        csrf_token = request.POST.get('csrfmiddlewaretoken')
-        if not csrf_token:
-            messages.error(request, "Erreur de sécurité: Token CSRF manquant.")
-            return render(request, f'authentication/login_{role}.html', {
-                'form': LoginForm(),
-                'role': role,
-                'role_display': {
-                    'client': 'Client',
-                    'agent_chine': 'Agent Chine',
-                    'agent_mali': 'Agent Mali',
-                    'admin': 'Administrateur',
-                    'admin_mali': 'Admin Mali'
-                }.get(role, role.title())
-            })
-        
         form = LoginForm(request.POST, request=request)
         
         if form.is_valid():
@@ -241,6 +224,10 @@ def role_based_login_view(request, role):
                 request.session['otp_telephone'] = telephone
                 request.session['pre_authenticated_user_id'] = user.id
                 request.session['login_role'] = role
+                
+                # Forcer la sauvegarde de la session
+                request.session.save()
+                
                 messages.success(request, f"Identifiants validés ! {otp_result['user_message']}")
                 return redirect('authentication:verify_otp')
             else:
