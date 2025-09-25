@@ -1,0 +1,377 @@
+{% extends 'components/base_agent.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - TS Air Cargo{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ title }}</h2>
+        <p class="text-muted mb-0">Organisez vos envois dans un nouveau lot avec type de transport</p>
+    </div>
+    <a href="{% url 'agent_chine:lot_list' %}" class="action-btn-outline">
+        <i class="bi bi-arrow-left"></i>
+        Retour à la liste
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="modern-card">
+            <div class="modern-card-header">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-box"></i>
+                    Informations du lot
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Type de transport (NOUVEAU) -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary border-bottom pb-2 mb-3">
+                                <i class="bi bi-truck"></i> Type de transport du lot
+                            </h6>
+                            <p class="text-muted small mb-3">
+                                Sélectionnez le type de transport principal pour ce lot. Cela influencera le numéro de lot généré.
+                            </p>
+                        </div>
+                        
+                        <div class="col-12 mb-3">
+                            <label for="type_lot" class="form-label">
+                                <strong>Type de transport <span class="text-danger">*</span></strong>
+                            </label>
+                            
+                            <!-- Options de transport avec cards -->
+                            <div class="transport-options">
+                                {% for value, label in transport_choices %}
+                                <div class="transport-option">
+                                    <input type="radio" 
+                                           id="type_{{ value }}" 
+                                           name="type_lot" 
+                                           value="{{ value }}" 
+                                           class="form-check-input transport-radio"
+                                           {% if value == 'cargo' %}checked{% endif %}
+                                           required>
+                                    <label for="type_{{ value }}" class="transport-label">
+                                        <div class="transport-card">
+                                            <div class="transport-icon">
+                                                {% if value == 'cargo' %}
+                                                    <i class="bi bi-box-seam"></i>
+                                                {% elif value == 'express' %}
+                                                    <i class="bi bi-lightning"></i>
+                                                {% else %}
+                                                    <i class="bi bi-water"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div class="transport-info">
+                                                <h6 class="transport-title">{{ label }}</h6>
+                                                <p class="transport-desc">
+                                                    {% if value == 'cargo' %}
+                                                        Transport standard par voie aérienne - Délai normal
+                                                    {% elif value == 'express' %}
+                                                        Transport express prioritaire - Délai rapide
+                                                    {% else %}
+                                                        Transport maritime - Délai long, tarif économique
+                                                    {% endif %}
+                                                </p>
+                                                <div class="transport-preview">
+                                                    Numéro: <strong>{{ value|upper }}-20250925XXX</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informations générées automatiquement -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary border-bottom pb-2 mb-3">
+                                <i class="bi bi-info-circle"></i> Informations générées automatiquement
+                            </h6>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Format du numéro de lot :</strong><br>
+                                        <span class="font-monospace" id="numero-preview">CARGO-20250925001</span>
+                                        <small class="d-block text-muted">
+                                            TYPE-AAAAMMJJ + compteur séquentiel
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Statut initial :</strong><br>
+                                        <span class="status-badge status-ouvert">Ouvert</span>
+                                        <small class="d-block text-muted">
+                                            Prêt pour l'ajout de colis
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuration optionnelle -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary border-bottom pb-2 mb-3">
+                                <i class="bi bi-gear"></i> Configuration (optionnel)
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="prix_transport" class="form-label">
+                                Prix de transport (FCFA)
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-currency-exchange"></i>
+                                </span>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="prix_transport" 
+                                       name="prix_transport"
+                                       placeholder="0"
+                                       step="0.01"
+                                       min="0">
+                                <span class="input-group-text">FCFA</span>
+                            </div>
+                            <div class="form-text">
+                                Peut être défini maintenant ou lors de la fermeture du lot
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="description" class="form-label">
+                                Description (optionnel)
+                            </label>
+                            <textarea class="form-control" 
+                                      id="description" 
+                                      name="description" 
+                                      rows="3"
+                                      placeholder="Description du lot, notes particulières..."></textarea>
+                            <div class="form-text">
+                                Notes internes pour identifier ce lot
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Récapitulatif -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="bi bi-eye"></i> Récapitulatif du lot
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <strong>Type :</strong><br>
+                                            <span id="recap-type">Cargo</span>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Numéro :</strong><br>
+                                            <span id="recap-numero" class="font-monospace">CARGO-20250925XXX</span>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Statut :</strong><br>
+                                            <span class="status-badge status-ouvert">Ouvert</span>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Agent :</strong><br>
+                                            {{ user.get_full_name }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'agent_chine:lot_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Annuler
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle me-1"></i>
+                            {{ submit_text }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.transport-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.transport-option {
+    position: relative;
+}
+
+.transport-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.transport-label {
+    cursor: pointer;
+    display: block;
+    transition: all 0.3s ease;
+}
+
+.transport-card {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    background: white;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.transport-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+}
+
+.transport-radio:checked + .transport-label .transport-card {
+    border-color: #007bff;
+    background: linear-gradient(135deg, #f8f9ff, #e3f2fd);
+    box-shadow: 0 4px 12px rgba(0,123,255,0.2);
+}
+
+.transport-icon {
+    font-size: 2.5rem;
+    color: #6c757d;
+    min-width: 60px;
+    text-align: center;
+    transition: color 0.3s ease;
+}
+
+.transport-radio:checked + .transport-label .transport-icon {
+    color: #007bff;
+}
+
+.transport-info {
+    flex: 1;
+}
+
+.transport-title {
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.transport-desc {
+    margin: 0 0 10px 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.transport-preview {
+    font-size: 0.85rem;
+    color: #495057;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #007bff;
+}
+
+@media (max-width: 768px) {
+    .transport-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+    
+    .transport-icon {
+        min-width: auto;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Éléments pour la mise à jour en temps réel
+    const transportRadios = document.querySelectorAll('.transport-radio');
+    const numeroPreview = document.getElementById('numero-preview');
+    const recapType = document.getElementById('recap-type');
+    const recapNumero = document.getElementById('recap-numero');
+    
+    // Fonction pour mettre à jour l'aperçu
+    function updatePreview() {
+        const selectedType = document.querySelector('.transport-radio:checked');
+        if (selectedType) {
+            const typeValue = selectedType.value.toUpperCase();
+            const typeName = selectedType.nextElementSibling.querySelector('.transport-title').textContent;
+            const today = new Date();
+            const dateStr = today.getFullYear().toString() + 
+                          (today.getMonth() + 1).toString().padStart(2, '0') + 
+                          today.getDate().toString().padStart(2, '0');
+            
+            const previewNumero = `${typeValue}-${dateStr}XXX`;
+            
+            // Mise à jour des aperçus
+            numeroPreview.textContent = previewNumero;
+            recapType.textContent = typeName;
+            recapNumero.textContent = previewNumero;
+        }
+    }
+    
+    // Écouter les changements de type
+    transportRadios.forEach(radio => {
+        radio.addEventListener('change', updatePreview);
+    });
+    
+    // Mise à jour initiale
+    updatePreview();
+    
+    // Validation du formulaire
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    });
+    
+    // Auto-format prix transport
+    const prixInput = document.getElementById('prix_transport');
+    if (prixInput) {
+        prixInput.addEventListener('input', function(e) {
+            let value = parseFloat(e.target.value);
+            if (!isNaN(value) && value >= 0) {
+                e.target.setCustomValidity('');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

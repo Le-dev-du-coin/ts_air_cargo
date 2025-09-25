@@ -298,27 +298,51 @@ def lot_list_view(request):
 @agent_chine_required
 def lot_create_view(request):
     """
-    Création d'un nouveau lot
+    Création d'un nouveau lot avec type de transport
     """
     if request.method == 'POST':
         try:
-            # Créer le lot avec l'agent comme créateur
-            lot = Lot.objects.create(
-                agent_createur=request.user,
-                statut='ouvert'
-            )
+            type_lot = request.POST.get('type_lot', 'cargo')
+            prix_transport = request.POST.get('prix_transport')
+            description = request.POST.get('description', '')
             
-            messages.success(request, f"✅ Lot {lot.numero_lot} créé avec succès.")
+            # Validation du type de lot
+            valid_types = [choice[0] for choice in Colis.TRANSPORT_CHOICES]
+            if type_lot not in valid_types:
+                messages.error(request, f"❌ Type de transport invalide: {type_lot}")
+                raise ValueError("Type invalide")
+            
+            # Préparation des données
+            lot_data = {
+                'agent_createur': request.user,
+                'type_lot': type_lot,
+                'statut': 'ouvert'
+            }
+            
+            # Ajouter le prix si fourni et valide
+            if prix_transport and prix_transport.strip():
+                prix_float = float(prix_transport)
+                if prix_float > 0:
+                    lot_data['prix_transport'] = prix_float
+            
+            # Créer le lot avec type
+            lot = Lot.objects.create(**lot_data)
+            
+            messages.success(request, f"✅ Lot {lot.numero_lot} ({lot.get_type_lot_display()}) créé avec succès.")
             return redirect('agent_chine:lot_detail', lot_id=lot.id)
             
+        except ValueError as ve:
+            # Erreurs de validation déjà traitées
+            pass
         except Exception as e:
             messages.error(request, f"❌ Erreur lors de la création du lot: {str(e)}")
     
     context = {
-        'title': 'Nouveau Lot',
-        'submit_text': 'Créer',
+        'title': 'Nouveau Lot avec Type',
+        'submit_text': 'Créer le lot',
+        'transport_choices': Colis.TRANSPORT_CHOICES,
     }
-    return render(request, 'agent_chine_app/lot_form.html', context)
+    return render(request, 'agent_chine_app/lot_form_with_type.html', context)
 
 @agent_chine_required
 def lot_detail_view(request, lot_id):

@@ -47,7 +47,7 @@ backups/
 *.swp
 *.swo
 *~
-
+DEVBOOK_ASYNC_COLIS
 # OS
 .DS_Store
 .DS_Store?

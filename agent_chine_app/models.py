@@ -52,11 +52,23 @@ class Lot(models.Model):
         ('livre', 'Livré'),
     ]
     
+    TRANSPORT_CHOICES = [
+        ('cargo', 'Cargo'),
+        ('express', 'Express'),
+        ('bateau', 'Bateau'),
+    ]
+    
     numero_lot = models.CharField(
-        max_length=20,
+        max_length=30,
         unique=True,
         editable=False,
-        help_text="Numéro auto-généré: date + chiffres"
+        help_text="Numéro auto-généré: TYPE-YYYYMMDDXXX"
+    )
+    type_lot = models.CharField(
+        max_length=20,
+        choices=TRANSPORT_CHOICES,
+        default='cargo',
+        help_text="Type de transport principal du lot"
     )
     prix_transport = models.DecimalField(
         max_digits=10,
@@ -96,12 +108,16 @@ class Lot(models.Model):
         
     def save(self, *args, **kwargs):
         if not self.numero_lot:
-            # Générer numéro de lot: date + chiffres
+            # Générer numéro de lot avec type: TYPE-YYYYMMDDXXX
             date_str = timezone.now().strftime('%Y%m%d')
+            type_prefix = self.type_lot.upper()
+            
             count = Lot.objects.filter(
-                numero_lot__startswith=date_str
+                numero_lot__startswith=f"{type_prefix}-{date_str}"
             ).count() + 1
-            self.numero_lot = f"{date_str}{count:03d}"
+            
+            self.numero_lot = f"{type_prefix}-{date_str}{count:03d}"
+            
         super().save(*args, **kwargs)
         
     def __str__(self):
