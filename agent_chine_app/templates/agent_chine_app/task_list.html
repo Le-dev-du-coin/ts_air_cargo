@@ -1,0 +1,424 @@
+{% extends 'agent_chine_app/base.html' %}
+{% load static %}
+
+{% block title %}Tâches Asynchrones{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 2em;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-pending .stat-number { color: #856404; }
+    .stat-running .stat-number { color: #0066cc; }
+    .stat-completed .stat-number { color: #155724; }
+    .stat-failed .stat-number { color: #721c24; }
+    
+    .filters-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .filters-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        align-items: end;
+    }
+    
+    .tasks-table {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .table {
+        margin: 0;
+    }
+    
+    .task-row {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .task-row:hover {
+        background-color: #f8f9fa !important;
+    }
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-running { background: #cce7ff; color: #0066cc; }
+    .status-completed { background: #d4edda; color: #155724; }
+    .status-failed_retry { background: #ffe6cc; color: #cc6600; }
+    .status-failed_final { background: #f8d7da; color: #721c24; }
+    .status-cancelled { background: #e2e3e5; color: #495057; }
+    
+    .task-id-short {
+        font-family: 'Monaco', 'Consolas', monospace;
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    
+    .operation-badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+    
+    .operation-create { background: #e3f2fd; color: #1976d2; }
+    .operation-update { background: #fff3e0; color: #f57c00; }
+    
+    .progress-mini {
+        width: 60px;
+        height: 6px;
+        background: #e0e0e0;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .progress-mini-bar {
+        height: 100%;
+        background: #007bff;
+        transition: width 0.3s;
+    }
+    
+    .no-tasks {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+    
+    .no-tasks i {
+        font-size: 3em;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    .refresh-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #007bff;
+        color: white;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+    }
+    
+    .refresh-button:hover {
+        background: #0056b3;
+        transform: scale(1.1);
+    }
+    
+    .refresh-button.spinning {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+        .table-responsive {
+            font-size: 14px;
+        }
+        
+        .filters-form {
+            grid-template-columns: 1fr;
+        }
+        
+        .stats-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>🔄 Tâches Asynchrones</h1>
+        <div>
+            <a href="{% url 'agent_chine:dashboard' %}" class="btn btn-outline-secondary">
+                ← Tableau de bord
+            </a>
+        </div>
+    </div>
+    
+    <!-- Statistiques -->
+    <div class="stats-cards">
+        <div class="stat-card stat-pending">
+            <div class="stat-number">{{ stats.pending }}</div>
+            <div class="stat-label">En attente</div>
+        </div>
+        <div class="stat-card stat-running">
+            <div class="stat-number">{{ stats.running }}</div>
+            <div class="stat-label">En cours</div>
+        </div>
+        <div class="stat-card stat-completed">
+            <div class="stat-number">{{ stats.completed }}</div>
+            <div class="stat-label">Terminées</div>
+        </div>
+        <div class="stat-card stat-failed">
+            <div class="stat-number">{{ stats.failed }}</div>
+            <div class="stat-label">Échouées</div>
+        </div>
+    </div>
+    
+    <!-- Filtres -->
+    <div class="filters-section">
+        <form method="get" class="filters-form">
+            <div>
+                <label for="status" class="form-label">Statut</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">Tous les statuts</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="operation" class="form-label">Opération</label>
+                <select name="operation" id="operation" class="form-select">
+                    <option value="">Toutes les opérations</option>
+                    {% for value, label in operation_choices %}
+                    <option value="{{ value }}" {% if operation_filter == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="search" class="form-label">Recherche</label>
+                <input type="text" name="search" id="search" class="form-control" 
+                       value="{{ search_query }}" 
+                       placeholder="ID tâche, lot, colis...">
+            </div>
+            
+            <div>
+                <button type="submit" class="btn btn-primary w-100">
+                    🔍 Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Liste des tâches -->
+    <div class="tasks-table">
+        {% if tasks %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID Tâche</th>
+                        <th>Opération</th>
+                        <th>Statut</th>
+                        <th>Progression</th>
+                        <th>Lot</th>
+                        <th>Colis</th>
+                        <th>Initié par</th>
+                        <th>Créé le</th>
+                        <th>Durée</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr class="task-row" onclick="window.location='{% url 'agent_chine:colis_task_status' task.task_id %}'">
+                        <td>
+                            <span class="task-id-short">{{ task.task_id|slice:":8" }}...</span>
+                        </td>
+                        <td>
+                            <span class="operation-badge operation-{{ task.operation_type }}">
+                                {% if task.operation_type == 'create' %}📦 Création{% else %}🔄 Modification{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ task.status }}">
+                                {{ task.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if task.status == 'running' and task.progress_percentage %}
+                            <div class="progress-mini">
+                                <div class="progress-mini-bar" style="width: {{ task.progress_percentage }}%"></div>
+                            </div>
+                            <small class="text-muted">{{ task.progress_percentage }}%</small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'agent_chine:lot_detail' task.lot.id %}" onclick="event.stopPropagation();">
+                                {{ task.lot.numero_lot }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if task.colis %}
+                            <a href="{% url 'agent_chine:colis_detail' task.colis.id %}" onclick="event.stopPropagation();">
+                                {{ task.colis.numero_suivi }}
+                            </a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ task.initiated_by.get_full_name|truncatechars:20 }}</td>
+                        <td>
+                            <small>{{ task.created_at|date:"d/m H:i" }}</small>
+                        </td>
+                        <td>
+                            {% if task.get_duration %}
+                            <small>{{ task.get_duration.total_seconds|floatformat:1 }}s</small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" onclick="event.stopPropagation();">
+                                <a href="{% url 'agent_chine:colis_task_status' task.task_id %}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    👁️
+                                </a>
+                                {% if task.status in 'failed_retry,failed_final' and task.can_retry %}
+                                <form method="post" action="{% url 'agent_chine:colis_task_retry' task.task_id %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-warning btn-sm" title="Relancer">
+                                        🔄
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if task.status in 'pending,running' %}
+                                <form method="post" action="{% url 'agent_chine:colis_task_cancel' task.task_id %}" 
+                                      style="display: inline;" 
+                                      onsubmit="return confirm('Annuler cette tâche ?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Annuler">
+                                        🚫
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-tasks">
+            <i>📋</i>
+            <h3>Aucune tâche trouvée</h3>
+            <p class="text-muted">
+                {% if status_filter or operation_filter or search_query %}
+                Aucune tâche ne correspond aux critères de recherche.
+                {% else %}
+                Aucune tâche asynchrone n'a encore été créée.
+                {% endif %}
+            </p>
+            {% if status_filter or operation_filter or search_query %}
+            <a href="{% url 'agent_chine:colis_task_list' %}" class="btn btn-primary">
+                Voir toutes les tâches
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bouton de rafraîchissement flottant -->
+<button class="refresh-button" onclick="refreshPage()" title="Actualiser la page">
+    <i id="refresh-icon">🔄</i>
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Fonction de rafraîchissement
+    function refreshPage() {
+        const button = document.querySelector('.refresh-button');
+        const icon = document.getElementById('refresh-icon');
+        
+        button.classList.add('spinning');
+        setTimeout(() => {
+            window.location.reload();
+        }, 300);
+    }
+    
+    // Auto-refresh toutes les 30 secondes si il y a des tâches en cours
+    const hasRunningTasks = {{ stats.running|default:0 }} + {{ stats.pending|default:0 }} > 0;
+    if (hasRunningTasks) {
+        setTimeout(() => {
+            window.location.reload();
+        }, 30000); // 30 secondes
+        
+        // Indicateur visuel du prochain refresh
+        let countdown = 30;
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+            }
+        }, 1000);
+    }
+    
+    // Raccourci clavier pour actualiser (F5 ou Ctrl+R)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+            e.preventDefault();
+            refreshPage();
+        }
+    });
+    
+    // Soumission automatique des filtres sur changement
+    document.getElementById('status').addEventListener('change', function() {
+        this.form.submit();
+    });
+    
+    document.getElementById('operation').addEventListener('change', function() {
+        this.form.submit();
+    });
+</script>
+{% endblock %}

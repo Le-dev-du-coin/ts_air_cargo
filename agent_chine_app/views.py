@@ -502,8 +502,15 @@ def colis_list_view(request):
 @agent_chine_required
 def colis_create_view(request, lot_id):
     """
-    Création d'un nouveau colis dans un lot
+    Création asynchrone d'un nouveau colis dans un lot
+    Utilise les tâches Celery pour un traitement en arrière-plan
     """
+    import tempfile
+    import os
+    import uuid
+    from .models import ColisCreationTask
+    from .tasks import create_colis_async
+    
     lot = get_object_or_404(Lot, id=lot_id)
     
     if lot.statut != 'ouvert':
@@ -521,7 +528,7 @@ def colis_create_view(request, lot_id):
             hauteur = request.POST.get('hauteur')
             poids = request.POST.get('poids')
             mode_paiement = request.POST.get('mode_paiement')
-            statut = request.POST.get('statut', 'en_attente')
+            statut = request.POST.get('statut', 'receptionne_chine')
             description = request.POST.get('description', '')
             
             # Validation des données obligatoires
@@ -537,40 +544,56 @@ def colis_create_view(request, lot_id):
                 messages.error(request, "❌ Veuillez ajouter une photo du colis.")
                 raise ValueError("Photo du colis requise")
             
-            # Récupérer le client
+            # Vérifier que le client existe
             client = get_object_or_404(Client, id=client_id)
             
-            # Créer le colis
-            colis = Colis.objects.create(
-                client=client,
+            # Sauvegarder l'image dans un fichier temporaire
+            temp_image_path = None
+            if image:
+                # Créer un fichier temporaire pour l'image
+                temp_dir = tempfile.gettempdir()
+                file_extension = os.path.splitext(image.name)[1] or '.jpg'
+                temp_filename = f"colis_temp_{uuid.uuid4().hex[:8]}{file_extension}"
+                temp_image_path = os.path.join(temp_dir, temp_filename)
+                
+                # Écrire l'image dans le fichier temporaire
+                with open(temp_image_path, 'wb') as temp_file:
+                    for chunk in image.chunks():
+                        temp_file.write(chunk)
+            
+            # Préparer les données pour la tâche asynchrone
+            colis_data = {
+                'client_id': client_id,
+                'type_transport': type_transport,
+                'longueur': longueur or 0,
+                'largeur': largeur or 0,
+                'hauteur': hauteur or 0,
+                'poids': poids or 0,
+                'mode_paiement': mode_paiement or 'non_paye',
+                'statut': statut,
+                'description': description
+            }
+            
+            # Créer la tâche de création asynchrone
+            task = ColisCreationTask.objects.create(
+                operation_type='create',
                 lot=lot,
-                type_transport=type_transport,
-                image=image,
-                longueur=float(longueur) if longueur else 0,
-                largeur=float(largeur) if largeur else 0,
-                hauteur=float(hauteur) if hauteur else 0,
-                poids=float(poids) if poids else 0,
-                mode_paiement=mode_paiement,
-                statut=statut,
-                description=description
+                colis_data=colis_data,
+                initiated_by=request.user,
+                original_image_path=temp_image_path
             )
             
-            # Envoyer notification WhatsApp de façon asynchrone
-            try:
-                from notifications_app.tasks import notify_colis_created
-                notify_colis_created.delay(colis.id, initiated_by_id=request.user.id)
-            except Exception as notif_error:
-                # Ne pas faire échouer la création si la notification échoue
-                pass
+            # Lancer la tâche Celery
+            create_colis_async.delay(task.task_id)
             
-            messages.success(request, f"✅ Colis {colis.numero_suivi} créé avec succès pour {client.user.get_full_name()}.")
-            return redirect('agent_chine:lot_detail', lot_id=lot_id)
+            messages.success(request, f"🚀 Création du colis lancée en arrière-plan (Tâche {task.task_id[:8]}). Le colis apparaîtra dans le lot une fois le traitement terminé.")
+            return redirect('agent_chine:colis_task_status', task_id=task.task_id)
             
         except ValueError as ve:
             # Erreurs de validation déjà traitées
             pass
         except Exception as e:
-            messages.error(request, f"❌ Erreur lors de la création du colis : {str(e)}")
+            messages.error(request, f"❌ Erreur lors du lancement de la création du colis : {str(e)}")
     
     # Récupérer tous les clients pour la sélection
     clients = Client.objects.all().order_by('user__first_name', 'user__last_name')
@@ -578,8 +601,8 @@ def colis_create_view(request, lot_id):
     context = {
         'lot': lot,
         'clients': clients,
-        'title': f'Nouveau Colis - Lot {lot.numero_lot}',
-        'submit_text': 'Créer',
+        'title': f'Nouveau Colis - Lot {lot.numero_lot} (Création asynchrone)',
+        'submit_text': 'Créer (Asynchrone)',
     }
     return render(request, 'agent_chine_app/colis_form.html', context)
 
@@ -598,8 +621,15 @@ def colis_detail_view(request, colis_id):
 @agent_chine_required
 def colis_edit_view(request, colis_id):
     """
-    Édition d'un colis
+    Édition asynchrone d'un colis
+    Utilise les tâches Celery pour un traitement en arrière-plan
     """
+    import tempfile
+    import os
+    import uuid
+    from .models import ColisCreationTask
+    from .tasks import update_colis_async
+    
     colis = get_object_or_404(Colis, id=colis_id)
     
     if request.method == 'POST':
@@ -625,42 +655,56 @@ def colis_edit_view(request, colis_id):
                 messages.error(request, "❌ Veuillez sélectionner un type de transport.")
                 raise ValueError("Type de transport requis")
             
-            # Récupérer le client
+            # Vérifier que le client existe
             client = get_object_or_404(Client, id=client_id)
             
-            # Mettre à jour le colis
-            colis.client = client
-            colis.type_transport = type_transport
-            colis.longueur = float(longueur) if longueur else 0
-            colis.largeur = float(largeur) if largeur else 0
-            colis.hauteur = float(hauteur) if hauteur else 0
-            colis.poids = float(poids) if poids else 0
-            colis.mode_paiement = mode_paiement
-            colis.statut = statut
-            colis.description = description
-            
-            # Mettre à jour l'image si une nouvelle est fournie
+            # Sauvegarder la nouvelle image dans un fichier temporaire (si fournie)
+            temp_image_path = None
             if image:
-                colis.image = image
+                temp_dir = tempfile.gettempdir()
+                file_extension = os.path.splitext(image.name)[1] or '.jpg'
+                temp_filename = f"colis_update_temp_{uuid.uuid4().hex[:8]}{file_extension}"
+                temp_image_path = os.path.join(temp_dir, temp_filename)
+                
+                # Écrire l'image dans le fichier temporaire
+                with open(temp_image_path, 'wb') as temp_file:
+                    for chunk in image.chunks():
+                        temp_file.write(chunk)
             
-            colis.save()
+            # Préparer les données pour la tâche asynchrone
+            colis_data = {
+                'client_id': client_id,
+                'type_transport': type_transport,
+                'longueur': longueur or colis.longueur,
+                'largeur': largeur or colis.largeur,
+                'hauteur': hauteur or colis.hauteur,
+                'poids': poids or colis.poids,
+                'mode_paiement': mode_paiement or colis.mode_paiement,
+                'statut': statut or colis.statut,
+                'description': description
+            }
             
-            # Envoyer notification de modification de façon asynchrone
-            try:
-                from notifications_app.tasks import notify_colis_updated
-                notify_colis_updated.delay(colis.id, initiated_by_id=request.user.id)
-            except Exception as notif_error:
-                # Ne pas faire échouer la modification si la notification échoue
-                pass
+            # Créer la tâche de modification asynchrone
+            task = ColisCreationTask.objects.create(
+                operation_type='update',
+                lot=colis.lot,  # Lot du colis existant
+                colis=colis,    # Référence au colis à modifier
+                colis_data=colis_data,
+                initiated_by=request.user,
+                original_image_path=temp_image_path
+            )
             
-            messages.success(request, f"✅ Colis {colis.numero_suivi} mis à jour avec succès.")
-            return redirect('agent_chine:colis_detail', colis_id=colis_id)
+            # Lancer la tâche Celery
+            update_colis_async.delay(task.task_id)
+            
+            messages.success(request, f"🔄 Modification du colis {colis.numero_suivi} lancée en arrière-plan (Tâche {task.task_id[:8]}). Les changements seront appliqués une fois le traitement terminé.")
+            return redirect('agent_chine:colis_task_status', task_id=task.task_id)
             
         except ValueError as ve:
             # Erreurs de validation déjà traitées
             pass
         except Exception as e:
-            messages.error(request, f"❌ Erreur lors de la modification du colis : {str(e)}")
+            messages.error(request, f"❌ Erreur lors du lancement de la modification du colis : {str(e)}")
     
     # Récupérer tous les clients pour la sélection
     clients = Client.objects.all().order_by('user__first_name', 'user__last_name')
@@ -668,8 +712,8 @@ def colis_edit_view(request, colis_id):
     context = {
         'colis': colis,
         'clients': clients,
-        'title': f'Modifier Colis {colis.numero_suivi}',
-        'submit_text': 'Mettre à jour',
+        'title': f'Modifier Colis {colis.numero_suivi} (Modification asynchrone)',
+        'submit_text': 'Mettre à jour (Asynchrone)',
     }
     return render(request, 'agent_chine_app/colis_form.html', context)
 
@@ -839,6 +883,229 @@ def calculate_default_price(poids, volume_m3, type_transport):
         return volume_m3 * tarifs_defaut['bateau']
     else:
         return poids * tarifs_defaut.get(type_transport, 10000)
+
+# === VUES GESTION TÂCHES ASYNCHRONES ===
+
+@agent_chine_required
+def colis_task_status(request, task_id):
+    """
+    Page de statut d'une tâche asynchrone de colis avec actualisation automatique
+    """
+    from .models import ColisCreationTask
+    
+    try:
+        task = ColisCreationTask.objects.get(task_id=task_id)
+    except ColisCreationTask.DoesNotExist:
+        messages.error(request, f"❌ Tâche {task_id} introuvable.")
+        return redirect('agent_chine:dashboard')
+    
+    # Vérifier si l'utilisateur a le droit de voir cette tâche
+    if task.initiated_by != request.user and not request.user.is_superuser:
+        messages.error(request, "❌ Vous n'avez pas accès à cette tâche.")
+        return redirect('agent_chine:dashboard')
+    
+    context = {
+        'task': task,
+        'task_id': task_id,
+        'refresh_interval': 3000 if task.status in ['pending', 'running'] else None,  # 3 secondes
+        'show_progress': task.status in ['running'],
+        'is_completed': task.status == 'completed',
+        'is_failed': task.status in ['failed_retry', 'failed_final'],
+        'can_retry': task.can_retry(),
+        'duration': task.get_duration()
+    }
+    
+    return render(request, 'agent_chine_app/task_status.html', context)
+
+@agent_chine_required
+def colis_task_list(request):
+    """
+    Liste des tâches asynchrones avec filtres et recherche
+    """
+    from .models import ColisCreationTask
+    from django.db.models import Q
+    
+    tasks = ColisCreationTask.objects.select_related('lot', 'colis', 'initiated_by')
+    
+    # Filtrer par utilisateur (sauf admin)
+    if not request.user.is_superuser:
+        tasks = tasks.filter(initiated_by=request.user)
+    
+    # Filtres
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        tasks = tasks.filter(status=status_filter)
+    
+    operation_filter = request.GET.get('operation', '')
+    if operation_filter:
+        tasks = tasks.filter(operation_type=operation_filter)
+    
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        tasks = tasks.filter(
+            Q(task_id__icontains=search_query) |
+            Q(lot__numero_lot__icontains=search_query) |
+            Q(colis__numero_suivi__icontains=search_query)
+        )
+    
+    # Tri par défaut : les plus récentes en premier
+    tasks = tasks.order_by('-created_at')[:100]  # Limiter à 100 résultats
+    
+    # Statistiques rapides
+    stats = {
+        'pending': tasks.filter(status='pending').count(),
+        'running': tasks.filter(status='running').count(),
+        'completed': tasks.filter(status='completed').count(),
+        'failed': tasks.filter(status__in=['failed_retry', 'failed_final']).count()
+    }
+    
+    context = {
+        'tasks': tasks,
+        'stats': stats,
+        'status_filter': status_filter,
+        'operation_filter': operation_filter,
+        'search_query': search_query,
+        'status_choices': ColisCreationTask.STATUS_CHOICES,
+        'operation_choices': ColisCreationTask.OPERATION_CHOICES,
+    }
+    
+    return render(request, 'agent_chine_app/task_list.html', context)
+
+@agent_chine_required
+@require_http_methods(["POST"])
+def colis_task_retry(request, task_id):
+    """
+    Relancer manuellement une tâche échouée
+    """
+    from .models import ColisCreationTask
+    from .tasks import create_colis_async, update_colis_async
+    
+    try:
+        task = ColisCreationTask.objects.get(task_id=task_id)
+    except ColisCreationTask.DoesNotExist:
+        messages.error(request, f"❌ Tâche {task_id} introuvable.")
+        return redirect('agent_chine:colis_task_list')
+    
+    # Vérifier les permissions
+    if task.initiated_by != request.user and not request.user.is_superuser:
+        messages.error(request, "❌ Vous n'avez pas accès à cette tâche.")
+        return redirect('agent_chine:colis_task_list')
+    
+    # Vérifier que la tâche peut être relancée
+    if not task.can_retry():
+        messages.error(request, f"❌ La tâche ne peut pas être relancée (statut: {task.get_status_display()}).")
+        return redirect('agent_chine:colis_task_status', task_id=task_id)
+    
+    try:
+        # Relancer la tâche appropriée
+        if task.operation_type == 'create':
+            create_colis_async.delay(task.task_id)
+        else:
+            update_colis_async.delay(task.task_id)
+        
+        task.retry_count += 1
+        task.status = 'pending'
+        task.error_message = None
+        task.save(update_fields=['retry_count', 'status', 'error_message'])
+        
+        messages.success(request, f"🔄 Tâche {task_id[:8]} relancée avec succès.")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de la relance: {str(e)}")
+    
+    return redirect('agent_chine:colis_task_status', task_id=task_id)
+
+@agent_chine_required
+@require_http_methods(["POST"])
+def colis_task_cancel(request, task_id):
+    """
+    Annuler une tâche en attente ou en cours
+    """
+    from .models import ColisCreationTask
+    
+    try:
+        task = ColisCreationTask.objects.get(task_id=task_id)
+    except ColisCreationTask.DoesNotExist:
+        messages.error(request, f"❌ Tâche {task_id} introuvable.")
+        return redirect('agent_chine:colis_task_list')
+    
+    # Vérifier les permissions
+    if task.initiated_by != request.user and not request.user.is_superuser:
+        messages.error(request, "❌ Vous n'avez pas accès à cette tâche.")
+        return redirect('agent_chine:colis_task_list')
+    
+    # Vérifier que la tâche peut être annulée
+    if task.status not in ['pending', 'running']:
+        messages.error(request, f"❌ La tâche ne peut pas être annulée (statut: {task.get_status_display()}).")
+        return redirect('agent_chine:colis_task_status', task_id=task_id)
+    
+    try:
+        # Révoquer la tâche Celery si possible
+        if task.celery_task_id:
+            from celery import current_app
+            current_app.control.revoke(task.celery_task_id, terminate=True)
+        
+        # Marquer comme annulée
+        task.status = 'cancelled'
+        task.completed_at = timezone.now()
+        task.error_message = f"Annulée par {request.user.get_full_name()}"
+        task.save(update_fields=['status', 'completed_at', 'error_message'])
+        
+        # Nettoyer les fichiers temporaires
+        from .tasks import cleanup_temp_files
+        cleanup_temp_files(task.original_image_path)
+        
+        messages.success(request, f"🚫 Tâche {task_id[:8]} annulée avec succès.")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Erreur lors de l'annulation: {str(e)}")
+    
+    return redirect('agent_chine:colis_task_list')
+
+@agent_chine_required
+def colis_task_api_status(request, task_id):
+    """
+    API JSON pour obtenir le statut d'une tâche (pour actualisation AJAX)
+    """
+    from .models import ColisCreationTask
+    
+    try:
+        task = ColisCreationTask.objects.get(task_id=task_id)
+    except ColisCreationTask.DoesNotExist:
+        return JsonResponse({'error': 'Tâche introuvable'}, status=404)
+    
+    # Vérifier les permissions
+    if task.initiated_by != request.user and not request.user.is_superuser:
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+    
+    # Préparer les données de réponse
+    response_data = {
+        'task_id': task.task_id,
+        'status': task.status,
+        'status_display': task.get_status_display(),
+        'progress_percentage': task.progress_percentage or 0,
+        'progress_message': task.progress_message or '',
+        'operation_type': task.operation_type,
+        'created_at': task.created_at.isoformat(),
+        'error_message': task.error_message,
+        'retry_count': task.retry_count,
+        'can_retry': task.can_retry(),
+        'is_completed': task.status == 'completed',
+        'is_failed': task.status in ['failed_retry', 'failed_final'],
+        'duration': task.get_duration().total_seconds() if task.get_duration() else None
+    }
+    
+    # Ajouter les informations du colis si la tâche est terminée
+    if task.status == 'completed' and task.colis:
+        response_data['colis'] = {
+            'id': task.colis.id,
+            'numero_suivi': task.colis.numero_suivi,
+            'prix_calcule': float(task.colis.prix_calcule) if task.colis.prix_calcule else 0
+        }
+        response_data['redirect_url'] = f'/agent-chine/colis/{task.colis.id}/'
+    
+    return JsonResponse(response_data)
 
 # === AUTRES VUES ===
 

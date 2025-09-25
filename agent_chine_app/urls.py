@@ -31,6 +31,13 @@ urlpatterns = [
     # API pour calcul de prix automatique
     path('api/calculate-price/', views.calculate_price_api, name='calculate_price_api'),
     
+    # Gestion des tâches asynchrones de colis
+    path('tasks/', views.colis_task_list, name='colis_task_list'),
+    path('tasks/<str:task_id>/', views.colis_task_status, name='colis_task_status'),
+    path('tasks/<str:task_id>/retry/', views.colis_task_retry, name='colis_task_retry'),
+    path('tasks/<str:task_id>/cancel/', views.colis_task_cancel, name='colis_task_cancel'),
+    path('api/tasks/<str:task_id>/status/', views.colis_task_api_status, name='colis_task_api_status'),
+    
     # Notifications
     path('notifications/', views.notifications_view, name='notifications'),
     

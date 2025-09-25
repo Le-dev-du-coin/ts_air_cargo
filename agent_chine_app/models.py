@@ -310,3 +310,232 @@ class Colis(models.Model):
                 return float(self.poids) * 10000
             else:
                 return self.volume_m3() * 300000
+
+
+class ColisCreationTask(models.Model):
+    """
+    Tâche de création/modification de colis en arrière-plan
+    Permet un traitement asynchrone pour améliorer les performances
+    """
+    TASK_STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('processing', 'En traitement'),
+        ('image_uploading', 'Upload image...'),
+        ('price_calculating', 'Calcul prix...'),
+        ('notification_sending', 'Envoi notification...'),
+        ('completed', 'Finalisé'),
+        ('failed', 'Échec'),
+        ('failed_retry', 'Échec - retry programmé'),
+        ('failed_final', 'Échec définitif'),
+        ('cancelled', 'Annulé'),
+    ]
+    
+    OPERATION_CHOICES = [
+        ('create', 'Création'),
+        ('update', 'Modification'),
+    ]
+    
+    # Identification de la tâche
+    task_id = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Identifiant unique de la tâche"
+    )
+    celery_task_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="ID de la tâche Celery"
+    )
+    operation_type = models.CharField(
+        max_length=10,
+        choices=OPERATION_CHOICES,
+        help_text="Type d'opération (création ou modification)"
+    )
+    
+    # État de la tâche
+    status = models.CharField(
+        max_length=20,
+        choices=TASK_STATUS_CHOICES,
+        default='pending',
+        help_text="État actuel de la tâche"
+    )
+    current_step = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Étape en cours de traitement"
+    )
+    progress_percentage = models.IntegerField(
+        default=0,
+        help_text="Pourcentage de progression (0-100)"
+    )
+    
+    # Données du colis (JSON)
+    colis_data = models.JSONField(
+        help_text="Données du formulaire colis sérialisées en JSON"
+    )
+    original_image_path = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Chemin vers l'image temporaire"
+    )
+    
+    # Relations
+    colis = models.ForeignKey(
+        'Colis',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="Colis créé (null pendant le traitement)"
+    )
+    lot = models.ForeignKey(
+        'Lot',
+        on_delete=models.CASCADE,
+        help_text="Lot de destination"
+    )
+    initiated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        help_text="Agent qui a initié la tâche"
+    )
+    
+    # Gestion des erreurs
+    error_message = models.TextField(
+        blank=True,
+        help_text="Message d'erreur en cas d'échec"
+    )
+    retry_count = models.IntegerField(
+        default=0,
+        help_text="Nombre de tentatives effectuées"
+    )
+    max_retries = models.IntegerField(
+        default=3,
+        help_text="Nombre maximum de tentatives"
+    )
+    next_retry_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de la prochaine tentative"
+    )
+    
+    # Métadonnées temporelles
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Date de création de la tâche"
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de début de traitement"
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de fin de traitement"
+    )
+    
+    class Meta:
+        verbose_name = "Tâche de Colis"
+        verbose_name_plural = "Tâches de Colis"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['initiated_by', 'status']),
+            models.Index(fields=['lot', 'status']),
+        ]
+        
+    def __str__(self):
+        return f"Tâche {self.task_id} - {self.get_status_display()}"
+    
+    def can_retry(self):
+        """
+        Vérifie si la tâche peut être relancée
+        """
+        return (
+            self.retry_count < self.max_retries and 
+            self.status in ['failed', 'failed_retry']
+        )
+    
+    def get_duration(self):
+        """
+        Calcule la durée de traitement si la tâche est terminée
+        """
+        if self.started_at and self.completed_at:
+            return self.completed_at - self.started_at
+        return None
+    
+    def get_estimated_completion_time(self):
+        """
+        Estimation du temps restant basée sur l'historique
+        """
+        if self.status == 'completed':
+            return None
+            
+        # Moyenne des tâches similaires récentes
+        similar_tasks = ColisCreationTask.objects.filter(
+            operation_type=self.operation_type,
+            status='completed',
+            completed_at__isnull=False,
+            started_at__isnull=False
+        ).order_by('-completed_at')[:10]
+        
+        if similar_tasks.exists():
+            total_duration = sum([
+                (task.completed_at - task.started_at).total_seconds() 
+                for task in similar_tasks
+            ])
+            avg_duration = total_duration / similar_tasks.count()
+            return avg_duration
+        
+        # Estimation par défaut selon le type d'opération
+        return 45.0 if self.operation_type == 'create' else 30.0
+    
+    def mark_as_started(self):
+        """
+        Marque la tâche comme démarrée
+        """
+        self.status = 'processing'
+        self.started_at = timezone.now()
+        self.current_step = "Traitement en cours"
+        self.progress_percentage = 10
+        self.save(update_fields=['status', 'started_at', 'current_step', 'progress_percentage'])
+    
+    def mark_as_completed(self, colis=None):
+        """
+        Marque la tâche comme terminée avec succès
+        """
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.current_step = "Terminé avec succès"
+        self.progress_percentage = 100
+        if colis:
+            self.colis = colis
+        self.save(update_fields=['status', 'completed_at', 'current_step', 'progress_percentage', 'colis'])
+    
+    def mark_as_failed(self, error_message):
+        """
+        Marque la tâche comme échouée
+        """
+        self.retry_count += 1
+        self.error_message = error_message
+        
+        if self.can_retry():
+            self.status = 'failed_retry'
+            self.next_retry_at = timezone.now() + timezone.timedelta(minutes=5 * self.retry_count)
+            self.current_step = f"Échec - retry {self.retry_count}/{self.max_retries} dans 5 min"
+        else:
+            self.status = 'failed_final'
+            self.current_step = "Échec définitif"
+            
+        self.save(update_fields=[
+            'status', 'error_message', 'retry_count', 
+            'next_retry_at', 'current_step'
+        ])
+    
+    def update_progress(self, step, percentage):
+        """
+        Met à jour la progression de la tâche
+        """
+        self.current_step = step
+        self.progress_percentage = min(percentage, 100)
+        self.save(update_fields=['current_step', 'progress_percentage'])
