@@ -1,12 +1,15 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.db.models import Count, Sum, Q
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Q
 from django.utils import timezone
-from notifications_app.utils import format_cfa
+from django.core.paginator import Paginator
+import json
+import tempfile
+import os
+import uuid
 import json
 
 from .models import Client, Lot, Colis
@@ -505,9 +508,6 @@ def colis_create_view(request, lot_id):
     Création asynchrone d'un nouveau colis dans un lot
     Utilise les tâches Celery pour un traitement en arrière-plan
     """
-    import tempfile
-    import os
-    import uuid
     from .models import ColisCreationTask
     from .tasks import create_colis_async
     
@@ -587,7 +587,9 @@ def colis_create_view(request, lot_id):
             create_colis_async.delay(task.task_id)
             
             messages.success(request, f"🚀 Création du colis lancée en arrière-plan (Tâche {task.task_id[:8]}). Le colis apparaîtra dans le lot une fois le traitement terminé.")
-            return redirect('agent_chine:colis_task_status', task_id=task.task_id)
+            
+            # Rester sur la page d'ajout pour permettre d'ajouter d'autres colis
+            return redirect('agent_chine:colis_create', lot_id=lot.id)
             
         except ValueError as ve:
             # Erreurs de validation déjà traitées
@@ -624,9 +626,6 @@ def colis_edit_view(request, colis_id):
     Édition asynchrone d'un colis
     Utilise les tâches Celery pour un traitement en arrière-plan
     """
-    import tempfile
-    import os
-    import uuid
     from .models import ColisCreationTask
     from .tasks import update_colis_async
     
@@ -698,7 +697,9 @@ def colis_edit_view(request, colis_id):
             update_colis_async.delay(task.task_id)
             
             messages.success(request, f"🔄 Modification du colis {colis.numero_suivi} lancée en arrière-plan (Tâche {task.task_id[:8]}). Les changements seront appliqués une fois le traitement terminé.")
-            return redirect('agent_chine:colis_task_status', task_id=task.task_id)
+            
+            # Retourner au détail du colis
+            return redirect('agent_chine:colis_detail', colis_id=colis.id)
             
         except ValueError as ve:
             # Erreurs de validation déjà traitées

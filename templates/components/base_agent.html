@@ -644,6 +644,16 @@
             </div>
 
             <div class="nav-section">
+                <div class="nav-section-title">Tâches asynchrones</div>
+                <div class="nav-item">
+                    <a href="{% url 'agent_chine:colis_task_list' %}" class="nav-link {% if 'task' in request.resolver_match.url_name %}active{% endif %}">
+                        <i class="bi bi-list-task"></i>
+                        <span>Toutes les tâches</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="nav-section">
                 <div class="nav-section-title">Autres</div>
                 <div class="nav-item">
                     <a href="{% url 'authentication:logout' %}" class="nav-link">

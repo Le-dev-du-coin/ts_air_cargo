@@ -198,6 +198,40 @@ ALERT_DB_ERROR_THRESHOLD = int(os.getenv('ALERT_DB_ERROR_THRESHOLD', '3'))
 # Email Report Recipients
 EMAIL_REPORT_RECIPIENTS = os.getenv('EMAIL_REPORT_RECIPIENTS', '').split(',')
 
+# === CELERY CONFIGURATION ===
+# Celery Settings pour tâches asynchrones
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+
+# Configuration des tâches
+CELERY_TASK_ROUTES = {
+    'agent_chine_app.tasks.create_colis_async': {'queue': 'colis_processing'},
+    'agent_chine_app.tasks.update_colis_async': {'queue': 'colis_processing'},
+    'notifications_app.tasks.*': {'queue': 'notifications'},
+}
+
+# Limites de workers
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
+
+# Configuration Beat pour tâches périodiques
+CELERY_BEAT_SCHEDULE = {
+    'retry-failed-tasks': {
+        'task': 'agent_chine_app.tasks.retry_failed_tasks',
+        'schedule': 300.0,  # Toutes les 5 minutes
+    },
+    'cleanup-old-tasks': {
+        'task': 'agent_chine_app.tasks.cleanup_old_tasks',
+        'schedule': 86400.0 * 7,  # Une fois par semaine
+    },
+}
+
 
 # Session Configuration
 SESSION_COOKIE_AGE = 3600  # 1 hour

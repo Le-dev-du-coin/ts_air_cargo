@@ -539,3 +539,22 @@ class ColisCreationTask(models.Model):
         self.current_step = step
         self.progress_percentage = min(percentage, 100)
         self.save(update_fields=['current_step', 'progress_percentage'])
+    
+    def save(self, *args, **kwargs):
+        """
+        Génère automatiquement un task_id unique si non fourni
+        """
+        if not self.task_id:
+            import uuid
+            import time
+            # Générer un ID unique avec timestamp pour éviter les collisions
+            timestamp = str(int(time.time() * 1000))  # millisecondes
+            unique_part = str(uuid.uuid4())[:8].upper()
+            self.task_id = f"TASK_{timestamp}_{unique_part}"
+            
+            # Vérifier l'unicité (double sécurité)
+            while ColisCreationTask.objects.filter(task_id=self.task_id).exists():
+                unique_part = str(uuid.uuid4())[:8].upper()
+                self.task_id = f"TASK_{timestamp}_{unique_part}"
+                
+        super().save(*args, **kwargs)
