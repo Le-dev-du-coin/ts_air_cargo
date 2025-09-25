@@ -10,6 +10,7 @@ from django.conf import settings
 from django.db import transaction
 from .models import Notification, NotificationTask
 from .services import NotificationService
+from .utils import format_cfa
 
 logger = logging.getLogger(__name__)
 
@@ -463,7 +464,7 @@ def notify_colis_created(colis_id, initiated_by_id=None):
 🚚 Type: {colis.get_type_transport_display()}
 📦 Lot: {colis.lot.numero_lot}
 📍 Statut: {colis.get_statut_display()}
-💰 Prix: {colis.prix_calcule} FCFA
+💰 Prix: {format_cfa(colis.prix_calcule)} FCFA
 
 {details_transport}{photo_message}
 
@@ -472,7 +473,7 @@ def notify_colis_created(colis_id, initiated_by_id=None):
 Merci de votre confiance !
 Équipe TS Air Cargo 🚀"""
         else:
-            message = f"""✅ Votre colis {colis.numero_suivi} a été enregistré dans le lot {colis.lot.numero_lot}. Type: {colis.get_type_transport_display()}. Prix: {colis.prix_calcule} FCFA. {details_transport}{photo_message}
+            message = f"""✅ Votre colis {colis.numero_suivi} a été enregistré dans le lot {colis.lot.numero_lot}. Type: {colis.get_type_transport_display()}. Prix: {format_cfa(colis.prix_calcule)} FCFA. {details_transport}{photo_message}
 
 🌐 Accédez à votre espace: https://ts-aircargo.com"""
         

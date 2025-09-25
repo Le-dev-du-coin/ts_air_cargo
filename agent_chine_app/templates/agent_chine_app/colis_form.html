@@ -74,7 +74,8 @@
                                                 data-name="{{ client.user.get_full_name }}"
                                                 data-phone="{{ client.user.telephone }}"
                                                 data-country="{{ client.pays_residence }}"
-                                                data-address="{{ client.adresse_complete }}">
+                                                data-address="{{ client.adresse_complete }}"
+                                                {% if colis and colis.client.id == client.id %}selected{% endif %}>
                                             {{ client.user.get_full_name }} - {{ client.user.telephone }} ({{ client.pays_residence }})
                                         </option>
                                     {% endfor %}
@@ -111,9 +112,9 @@
                                         Type de transport <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-select" id="type_transport" name="type_transport" required onchange="toggleTransportFields()">
-                                        <option value="cargo">Cargo (par poids)</option>
-                                        <option value="express">Express (par poids)</option>
-                                        <option value="bateau">Bateau (par dimensions)</option>
+                                        <option value="cargo" {% if colis and colis.type_transport == 'cargo' %}selected{% endif %}>Cargo (par poids)</option>
+                                        <option value="express" {% if colis and colis.type_transport == 'express' %}selected{% endif %}>Express (par poids)</option>
+                                        <option value="bateau" {% if colis and colis.type_transport == 'bateau' %}selected{% endif %}>Bateau (par dimensions)</option>
                                     </select>
                                     <div class="form-text">
                                         Le type de transport détermine le mode de calcul du prix.
@@ -121,9 +122,9 @@
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="image" class="form-label">
-                                        Photo du colis <span class="text-danger">*</span>
+                                        Photo du colis {% if not colis %}<span class="text-danger">*</span>{% endif %}
                                     </label>
-                                    <input type="file" class="form-control" id="image" name="image" accept="image/*" required>
+                                    <input type="file" class="form-control" id="image" name="image" accept="image/*" {% if not colis %}required{% endif %}>
                                     <div class="form-text">
                                         Photo obligatoire pour identification du colis.
                                     </div>
@@ -134,8 +135,13 @@
                             </div>
                             
                             <!-- Prévisualisation de l'image -->
-                            <div id="image-preview" class="mt-3" style="display: none;">
-                                <img id="preview-img" src="" alt="Aperçu" class="img-thumbnail" style="max-width: 200px; max-height: 150px;">
+                            <div id="image-preview" class="mt-3" {% if not colis or not colis.image %}style="display: none;"{% endif %}>
+                                <img id="preview-img" src="{% if colis and colis.image %}{{ colis.image.url }}{% endif %}" alt="Aperçu" class="img-thumbnail" style="max-width: 200px; max-height: 150px;">
+                                {% if colis and colis.image %}
+                                    <div class="form-text mt-2">
+                                        <i class="bi bi-image"></i> Image actuelle du colis
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -155,39 +161,39 @@
                         <div class="modern-card-body">
                             <div class="row">
                                 <!-- Champs de dimensions (visibles seulement pour transport par bateau) -->
-                                <div class="col-md-4 mb-3 dimension-field" style="display: none;">
+                                <div class="col-md-4 mb-3 dimension-field" {% if not colis or colis.type_transport != 'bateau' %}style="display: none;"{% endif %}>
                                     <label for="longueur" class="form-label">
                                         Longueur (cm) <span class="text-danger">*</span>
                                     </label>
                                     <div class="input-group">
                                         <input type="number" class="form-control" id="longueur" name="longueur" 
-                                               placeholder="0.0" step="0.1" min="0">
+                                               placeholder="0.0" step="0.1" min="0" value="{% if colis %}{{ colis.longueur|floatformat:'-1' }}{% endif %}">
                                         <span class="input-group-text">cm</span>
                                     </div>
                                 </div>
-                                <div class="col-md-4 mb-3 dimension-field" style="display: none;">
+                                <div class="col-md-4 mb-3 dimension-field" {% if not colis or colis.type_transport != 'bateau' %}style="display: none;"{% endif %}>
                                     <label for="largeur" class="form-label">
                                         Largeur (cm) <span class="text-danger">*</span>
                                     </label>
                                     <div class="input-group">
                                         <input type="number" class="form-control" id="largeur" name="largeur" 
-                                               placeholder="0.0" step="0.1" min="0">
+                                               placeholder="0.0" step="0.1" min="0" value="{% if colis %}{{ colis.largeur|floatformat:'-1' }}{% endif %}">
                                         <span class="input-group-text">cm</span>
                                     </div>
                                 </div>
-                                <div class="col-md-4 mb-3 dimension-field" style="display: none;">
+                                <div class="col-md-4 mb-3 dimension-field" {% if not colis or colis.type_transport != 'bateau' %}style="display: none;"{% endif %}>
                                     <label for="hauteur" class="form-label">
                                         Hauteur (cm) <span class="text-danger">*</span>
                                     </label>
                                     <div class="input-group">
                                         <input type="number" class="form-control" id="hauteur" name="hauteur" 
-                                               placeholder="0.0" step="0.1" min="0">
+                                               placeholder="0.0" step="0.1" min="0" value="{% if colis %}{{ colis.hauteur|floatformat:'-1' }}{% endif %}">
                                         <span class="input-group-text">cm</span>
                                     </div>
                                 </div>
                                 
                                 <!-- Champ de poids (visible seulement pour cargo/express) -->
-                                <div class="col-md-12 mb-3 weight-field">
+                                <div class="col-md-12 mb-3 weight-field" {% if colis and colis.type_transport == 'bateau' %}style="display: none;"{% endif %}>
                                     <label for="poids" class="form-label">
                                         Poids (kg) <span class="text-danger">*</span>
                                     </label>
@@ -196,7 +202,7 @@
                                             <i class="bi bi-weight"></i>
                                         </span>
                                         <input type="number" class="form-control" id="poids" name="poids" 
-                                               step="0.1" min="0" required>
+                                               step="0.1" min="0" required value="{% if colis %}{{ colis.poids|floatformat:'-1' }}{% endif %}">
                                         <span class="input-group-text">kg</span>
                                     </div>
                                 </div>
@@ -229,18 +235,18 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="mode_paiement" class="form-label">Mode de paiement</label>
                                     <select class="form-select" id="mode_paiement" name="mode_paiement">
-                                        <option value="non_paye">Non payé</option>
-                                        <option value="paye_chine">Payé en Chine</option>
-                                        <option value="paye_mali">Payé au Mali</option>
+                                        <option value="non_paye" {% if colis and colis.mode_paiement == 'non_paye' %}selected{% endif %}>Non payé</option>
+                                        <option value="paye_chine" {% if colis and colis.mode_paiement == 'paye_chine' %}selected{% endif %}>Payé en Chine</option>
+                                        <option value="paye_mali" {% if colis and colis.mode_paiement == 'paye_mali' %}selected{% endif %}>Payé au Mali</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="statut" class="form-label">Statut</label>
                                     <select class="form-select" id="statut" name="statut">
-                                        <option value="receptionne_chine" selected>Réceptionné en Chine</option>
-                                        <option value="en_transit">En Transit</option>
-                                        <option value="arrive_mali">Arrivé au Mali</option>
-                                        <option value="livre">Livré</option>
+                                        <option value="receptionne_chine" {% if not colis or colis.statut == 'receptionne_chine' %}selected{% endif %}>Réceptionné en Chine</option>
+                                        <option value="en_transit" {% if colis and colis.statut == 'en_transit' %}selected{% endif %}>En Transit</option>
+                                        <option value="arrive_mali" {% if colis and colis.statut == 'arrive_mali' %}selected{% endif %}>Arrivé au Mali</option>
+                                        <option value="livre" {% if colis and colis.statut == 'livre' %}selected{% endif %}>Livré</option>
                                     </select>
                                 </div>
                             </div>
@@ -281,7 +287,7 @@
                         <div class="modern-card-body">
                             <label for="description" class="form-label">Description du contenu</label>
                             <textarea class="form-control" id="description" name="description" rows="3" 
-                                      placeholder="Décrivez le contenu du colis (optionnel)"></textarea>
+                                      placeholder="Décrivez le contenu du colis (optionnel)">{% if colis %}{{ colis.description }}{% endif %}</textarea>
                         </div>
                     </div>
                 </div>
@@ -616,16 +622,18 @@ function toggleTransportFields() {
     const weightField = document.getElementById('poids');
     const transportInfo = document.getElementById('transport-info');
 
+    console.log('Toggle transport fields:', transportType);
+
     if (transportType === 'bateau') {
         // Pour bateau: afficher seulement les dimensions
         dimensionFieldsDivs.forEach(div => {
             div.style.display = 'block';
         });
-        weightFieldDiv.style.display = 'none';
+        if (weightFieldDiv) weightFieldDiv.style.display = 'none';
         
         // Rendre les dimensions obligatoires, poids optionnel
         dimensionFields.forEach(field => field.required = true);
-        weightField.required = false;
+        if (weightField) weightField.required = false;
         
         transportInfo.innerHTML = `
             <i class="bi bi-info-circle"></i>
@@ -636,11 +644,11 @@ function toggleTransportFields() {
         dimensionFieldsDivs.forEach(div => {
             div.style.display = 'none';
         });
-        weightFieldDiv.style.display = 'block';
+        if (weightFieldDiv) weightFieldDiv.style.display = 'block';
         
         // Rendre le poids obligatoire, dimensions optionnelles
         dimensionFields.forEach(field => field.required = false);
-        weightField.required = true;
+        if (weightField) weightField.required = true;
         
         const typeText = transportType === 'express' ? 'Express' : 'Cargo';
         transportInfo.innerHTML = `
@@ -717,7 +725,9 @@ function calculatePrice() {
         
         if (data.success) {
             const volume = data.volume_m3.toFixed(4);
-            const prix = data.prix.toLocaleString('fr-FR');
+            // Formater le prix CFA sans décimales et avec séparateurs de milliers
+            const prixArrondi = Math.round(data.prix); // Supprimer les décimales
+            const prix = prixArrondi.toLocaleString('fr-FR'); // Séparateur de milliers
             
             let debugInfo = '';
             if (data.debug_info && console) {
@@ -1013,6 +1023,17 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleTransportFields();
     setupImagePreview();
     
+    // Charger les données existantes en mode édition
+    {% if colis %}
+        // Charger les informations du client actuel
+        loadClientInfo('{{ colis.client.id }}');
+        
+        // Pré-calculer le prix avec les données existantes
+        setTimeout(function() {
+            calculatePrice();
+        }, 1000);
+    {% endif %}
+    
     // Écouteurs pour calcul automatique
     ['longueur', 'largeur', 'hauteur', 'poids'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', function() {
@@ -1020,13 +1041,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Validation formulaire
+    // Protection contre la double soumission et validation formulaire
     const form = document.getElementById('colisForm');
+    const submitButton = form.querySelector('button[type="submit"]');
+    let isSubmitting = false;
+    
     form.addEventListener('submit', function(event) {
+        // Prévenir la double soumission
+        if (isSubmitting) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+        }
+        
+        // Vérification de la validité du formulaire
         if (!form.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
+        } else {
+            // Formulaire valide - activer la protection
+            isSubmitting = true;
+            
+            // Changer l'état du bouton de soumission
+            if (submitButton) {
+                submitButton.disabled = true;
+                const originalContent = submitButton.innerHTML;
+                submitButton.innerHTML = `
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Enregistrement en cours...
+                `;
+                
+                // Réactiver le bouton après 10 secondes (au cas où il y a un problème)
+                setTimeout(() => {
+                    if (isSubmitting) {
+                        isSubmitting = false;
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalContent;
+                    }
+                }, 10000);
+            }
         }
+        
         form.classList.add('was-validated');
     });
 });

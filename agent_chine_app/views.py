@@ -6,6 +6,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from notifications_app.utils import format_cfa
 import json
 
 from .models import Client, Lot, Colis
@@ -393,9 +394,9 @@ def lot_close_view(request, lot_id):
                     notification_type='lot_closed',
                     initiated_by_id=request.user.id
                 )
-                messages.success(request, f"✅ Lot {lot.numero_lot} fermé avec succès ! Prix transport: {prix_float} CFA. Les notifications sont en cours d'envoi aux {colis_count} clients.")
+                messages.success(request, f"✅ Lot {lot.numero_lot} fermé avec succès ! Prix transport: {format_cfa(prix_float)} FCFA. Les notifications sont en cours d'envoi aux {colis_count} clients.")
             except Exception as notif_error:
-                messages.success(request, f"✅ Lot {lot.numero_lot} fermé avec succès ! Prix transport: {prix_float} CFA. Erreur lors du lancement des notifications.")
+                messages.success(request, f"✅ Lot {lot.numero_lot} fermé avec succès ! Prix transport: {format_cfa(prix_float)} FCFA. Erreur lors du lancement des notifications.")
             return redirect('agent_chine:lot_detail', lot_id=lot_id)
                 
         except ValueError as ve:

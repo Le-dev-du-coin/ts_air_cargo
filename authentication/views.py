@@ -228,27 +228,24 @@ def role_based_login_view(request, role):
                 messages.error(request, "Accès non autorisé pour ce rôle.")
                 return render(request, f'authentication/login_{role}.html', {'form': LoginForm()})
             
-            # Générer et envoyer l'OTP
-            otp_code = generate_otp_code()
-            cache_key = f"otp_{telephone}"
-            cache.set(cache_key, {
-                'code': otp_code,
-                'user_id': user.id,
-                'role': role,
-                'timestamp': timezone.now().isoformat()
-            }, timeout=600)
-            
-            # Envoyer l'OTP via WaChap
-            success, message = send_whatsapp_otp(telephone, otp_code)
-            
-            if success:
+            # Générer et envoyer l'OTP de manière asynchrone (aligné avec verify_otp_view)
+            otp_result = AsyncOTPService.send_otp_async(
+                phone_number=telephone,
+                user_id=user.id,
+                extra_data={'role': role, 'timestamp': timezone.now().isoformat()}
+            )
+
+            if otp_result['success']:
+                # Stocker les mêmes clés de session que verify_otp_view attend
+                request.session['otp_cache_key'] = otp_result['cache_key']
                 request.session['otp_telephone'] = telephone
-                request.session['login_role'] = role
                 request.session['pre_authenticated_user_id'] = user.id
-                messages.success(request, f"Identifiants validés ! {message}")
+                request.session['login_role'] = role
+                messages.success(request, f"Identifiants validés ! {otp_result['user_message']}")
                 return redirect('authentication:verify_otp')
             else:
-                messages.error(request, f"Erreur d'envoi du code: {message}")
+                user_message = get_user_friendly_message(otp_result.get('error', 'Erreur inconnue'))
+                messages.error(request, f"Problème d'envoi du code: {user_message}")
                 
     else:
         form = LoginForm()
