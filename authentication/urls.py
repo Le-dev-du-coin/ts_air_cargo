@@ -33,4 +33,7 @@ urlpatterns = [
     
     # Déconnexion
     path('logout/', views.logout_view, name='logout'),
+    
+    # Debug (temporaire)
+    path('debug/otp/', views.debug_otp_view, name='debug_otp'),
 ]

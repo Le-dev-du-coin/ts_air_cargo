@@ -440,3 +440,26 @@ def home_view(request):
     if request.user.is_authenticated:
         return redirect(get_dashboard_url_by_role(request.user))
     return render(request, 'authentication/home.html')
+
+def debug_otp_view(request):
+    """Vue de debug pour tester le template OTP - À SUPPRIMER EN PRODUCTION"""
+    from django.conf import settings
+    from django.core.cache import cache
+    
+    # Simuler des données de session OTP
+    debug_data = {
+        'telephone': '+22373451676',
+        'cache_key': 'debug_cache_key_123',
+        'sending_status': 'sent',
+        'status_message': 'Code envoyé avec succès (debug)',
+        'current_otp': '123456' if settings.DEBUG else None
+    }
+    
+    if request.method == 'POST':
+        entered_otp = request.POST.get('otp_code')
+        if entered_otp == '123456':
+            messages.success(request, 'Code OTP correct ! (mode debug)')
+        else:
+            messages.error(request, f'Code incorrect. Essayez 123456 (mode debug)')
+    
+    return render(request, 'authentication/verify_otp_debug.html', debug_data)
