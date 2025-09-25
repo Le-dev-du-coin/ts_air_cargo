@@ -18,12 +18,12 @@
 </div>
 
 <!-- Filtres -->
-<div class="modern-card mb-4">
-    <div class="modern-card-body">
-        <form method="get" class="row g-3">
+<div class="modern-card mb-3">
+    <div class="modern-card-body py-2">
+        <form method="get" class="row g-2">
             <div class="col-md-3">
-                <label for="statut" class="form-label">Filtrer par statut</label>
-                <select class="form-select" name="statut" id="statut">
+                <label for="statut" class="form-label fw-bold small">Statut</label>
+                <select class="form-select form-select-sm" name="statut" id="statut">
                     <option value="">Tous les statuts</option>
                     {% for value, label in statut_choices %}
                     <option value="{{ value }}" {% if statut_filter == value %}selected{% endif %}>
@@ -33,18 +33,18 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label for="search" class="form-label">Rechercher</label>
-                <input type="text" class="form-control" id="search" name="search" 
+                <label for="search" class="form-label fw-bold small">Recherche</label>
+                <input type="text" class="form-control form-control-sm" id="search" name="search" 
                        placeholder="N° suivi, client..." value="{{ request.GET.search }}">
             </div>
-            <div class="col-md-6 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary me-2">
+            <div class="col-md-6 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
                     <i class="bi bi-funnel me-1"></i>
                     Filtrer
                 </button>
-                <a href="{% url 'agent_chine:colis_list' %}" class="btn btn-outline-secondary">
+                <a href="{% url 'agent_chine:colis_list' %}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-clockwise me-1"></i>
-                    Réinitialiser
+                    Reset
                 </a>
             </div>
         </form>

@@ -603,8 +603,8 @@ def colis_create_view(request, lot_id):
     context = {
         'lot': lot,
         'clients': clients,
-        'title': f'Nouveau Colis - Lot {lot.numero_lot} (Création asynchrone)',
-        'submit_text': 'Créer (Asynchrone)',
+        'title': f'Nouveau Colis - Lot {lot.numero_lot}',
+        'submit_text': 'Créer le colis',
     }
     return render(request, 'agent_chine_app/colis_form.html', context)
 
