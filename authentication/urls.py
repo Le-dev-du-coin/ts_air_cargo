@@ -24,7 +24,7 @@ urlpatterns = [
     # Vérification OTP
     path('verify-otp/', views.verify_otp_view, name='verify_otp'),
     path('resend-otp/', views.resend_otp_view, name='resend_otp'),
-    path('otp-status/', views.otp_status_ajax, name='otp_status_ajax'),
+    # Vue AJAX supprimée - plus nécessaire avec le système synchrone
     
     # Réinitialisation de mot de passe
     path('password-reset/', views.password_reset_request_view, name='password_reset_request'),

@@ -376,6 +376,7 @@ class ColisCreationTask(models.Model):
     )
     original_image_path = models.CharField(
         max_length=500,
+        null=True,
         blank=True,
         help_text="Chemin vers l'image temporaire"
     )
