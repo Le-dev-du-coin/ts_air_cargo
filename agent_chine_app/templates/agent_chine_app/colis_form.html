@@ -73,10 +73,10 @@
                                         <option value="{{ client.id }}" 
                                                 data-name="{{ client.user.get_full_name }}"
                                                 data-phone="{{ client.user.telephone }}"
-                                                data-country="{{ client.pays_residence }}"
-                                                data-address="{{ client.adresse_complete }}"
+                                                data-country="{{ client.get_pays_display }}"
+                                                data-address="{{ client.adresse }}"
                                                 {% if colis and colis.client.id == client.id %}selected{% endif %}>
-                                            {{ client.user.get_full_name }} - {{ client.user.telephone }} ({{ client.pays_residence }})
+                                            🏴 {{ client.get_pays_display }} - {{ client.user.get_full_name }} ({{ client.user.telephone }})
                                         </option>
                                     {% endfor %}
                                 </select>

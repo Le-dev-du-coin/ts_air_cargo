@@ -597,8 +597,8 @@ def colis_create_view(request, lot_id):
         except Exception as e:
             messages.error(request, f"❌ Erreur lors du lancement de la création du colis : {str(e)}")
     
-    # Récupérer tous les clients pour la sélection
-    clients = Client.objects.all().order_by('user__first_name', 'user__last_name')
+    # Récupérer tous les clients pour la sélection, triés par pays puis par nom
+    clients = Client.objects.select_related('user').order_by('pays', 'user__first_name', 'user__last_name')
     
     context = {
         'lot': lot,
@@ -707,8 +707,8 @@ def colis_edit_view(request, colis_id):
         except Exception as e:
             messages.error(request, f"❌ Erreur lors du lancement de la modification du colis : {str(e)}")
     
-    # Récupérer tous les clients pour la sélection
-    clients = Client.objects.all().order_by('user__first_name', 'user__last_name')
+    # Récupérer tous les clients pour la sélection, triés par pays puis par nom
+    clients = Client.objects.select_related('user').order_by('pays', 'user__first_name', 'user__last_name')
     
     context = {
         'colis': colis,
