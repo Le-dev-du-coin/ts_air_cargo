@@ -16,24 +16,13 @@ urlpatterns = [
     path('login/agent-mali/', views.role_based_login_view, {'role': 'agent_mali'}, name='login_agent_mali'),
     path('login/admin/', views.role_based_login_view, {'role': 'admin'}, name='login_admin'),
     path('login/admin-mali/', views.role_based_login_view, {'role': 'admin_mali'}, name='login_admin_mali'),
-    # Vue supprimée: admin_chine_login_view n'est plus nécessaire
     
     # URL générique pour le login basé sur le rôle
     path('login/<str:role>/', views.role_based_login_view, name='role_based_login'),
     
-    # Vérification OTP
-    path('verify-otp/', views.verify_otp_view, name='verify_otp'),
-    path('resend-otp/', views.resend_otp_view, name='resend_otp'),
-    # Vue AJAX supprimée - plus nécessaire avec le système synchrone
-    
-    # Réinitialisation de mot de passe
-    path('password-reset/', views.password_reset_request_view, name='password_reset_request'),
-    path('password-reset/verify/', views.password_reset_verify_view, name='password_reset_verify'),
-    path('password-reset/confirm/', views.password_reset_confirm_view, name='password_reset_confirm'),
+    # Inscription pour les clients
+    path('register/', views.register_view, name='register'),
     
     # Déconnexion
     path('logout/', views.logout_view, name='logout'),
-    
-    # Debug (temporaire)
-    path('debug/otp/', views.debug_otp_view, name='debug_otp'),
 ]

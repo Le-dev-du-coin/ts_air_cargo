@@ -1,28 +1,11 @@
-import random
-import string
-from datetime import timedelta
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.utils import timezone
-from django.conf import settings
 from django.urls import reverse
-from django.core.cache import cache
-from notifications_app.wachap_service import send_whatsapp_otp
-from .simple_otp_service import SimpleOTPService
-import json
 
-from .models import CustomUser, PasswordResetToken
-from .forms import LoginForm, PasswordResetRequestForm, PasswordResetForm
-
-
-def generate_otp_code():
-    """Génère un code OTP aléatoire de 6 chiffres"""
-    return ''.join(random.choices(string.digits, k=6))
+from .models import CustomUser
+from .forms import LoginForm, RegistrationForm
 
 
 def get_dashboard_url_by_role(user):
@@ -43,115 +26,28 @@ def get_dashboard_url_by_role(user):
         return reverse('authentication:home')  # Fallback
 
 def login_view(request):
-    """Vue de connexion générale avec authentification téléphone + mot de passe puis OTP"""
+    """Vue de connexion générale avec authentification directe téléphone + mot de passe"""
     if request.user.is_authenticated:
         return redirect(get_dashboard_url_by_role(request.user))
     
     if request.method == 'POST':
         form = LoginForm(request.POST, request=request)
         if form.is_valid():
-            # Le formulaire a déjà vérifié le téléphone + mot de passe avec authenticate()
-            telephone = form.cleaned_data['phone_number']
             user = form.user_cache  # L'utilisateur authentifié depuis le formulaire
             
-            # Envoyer l'OTP de manière synchrone (plus simple et fiable)
-            otp_result = SimpleOTPService.send_otp_sync(
-                phone_number=telephone,
-                user_id=user.id,
-                role=user.role
-            )
-            
-            if otp_result['success']:
-                # Stocker les informations de session
-                request.session['otp_cache_key'] = otp_result['cache_key']
-                request.session['otp_telephone'] = telephone
-                request.session['pre_authenticated_user_id'] = user.id
-                messages.success(request, f"Identifiants validés ! {otp_result['user_message']}")
-                return redirect('authentication:verify_otp')
-            else:
-                messages.error(request, f"Problème d'envoi du code: {otp_result['user_message']}")
+            # Connecter directement l'utilisateur
+            login(request, user)
+            messages.success(request, f"Connexion réussie. Bienvenue {user.get_full_name()}!")
+            return redirect(get_dashboard_url_by_role(user))
                 
     else:
         form = LoginForm()
     
     return render(request, 'authentication/login.html', {'form': form})
 
-def verify_otp_view(request):
-    """Vue de vérification du code OTP simplifiée"""
-    # Si déjà authentifié, rediriger vers le dashboard
-    if request.user.is_authenticated:
-        return redirect(get_dashboard_url_by_role(request.user))
-
-    telephone = request.session.get('otp_telephone')
-    cache_key = request.session.get('otp_cache_key')
-    
-    if not telephone or not cache_key:
-        messages.error(request, "Session expirée. Veuillez vous reconnecter.")
-        return redirect('authentication:home')
-    
-    # Récupérer les informations de l'OTP
-    otp_info = SimpleOTPService.get_otp_info(cache_key)
-    
-    if not otp_info['found']:
-        messages.error(request, otp_info['user_message'])
-        return redirect('authentication:home')
-    
-    if request.method == 'POST':
-        entered_otp = request.POST.get('otp_code')
-        
-        if entered_otp:
-            # Vérifier le code OTP
-            verification_result = SimpleOTPService.verify_otp(cache_key, entered_otp)
-            
-            if verification_result['success']:
-                # OTP valide, connecter l'utilisateur
-                try:
-                    user = CustomUser.objects.get(id=verification_result['user_id'])
-                    login(request, user)
-                    
-                    # Nettoyer la session
-                    request.session.pop('otp_telephone', None)
-                    request.session.pop('otp_cache_key', None)
-                    request.session.pop('pre_authenticated_user_id', None)
-                    
-                    messages.success(request, f"Connexion réussie. Bienvenue {user.get_full_name()}!")
-                    return redirect(get_dashboard_url_by_role(user))
-                    
-                except CustomUser.DoesNotExist:
-                    messages.error(request, "Erreur de connexion. Utilisateur introuvable.")
-                    return redirect('authentication:home')
-            else:
-                if verification_result.get('expired', False):
-                    return redirect('authentication:home')
-                else:
-                    messages.error(request, verification_result['user_message'])
-        else:
-            messages.error(request, "Veuillez entrer le code OTP.")
-    
-    # Variables pour le template
-    context = {
-        'telephone': telephone,
-        'cache_key': cache_key,
-        'attempts': otp_info.get('attempts', 0)
-    }
-    
-    # En mode DEBUG, afficher le code pour faciliter les tests
-    if settings.DEBUG:
-        otp_data = cache.get(cache_key)
-        if otp_data:
-            context['current_otp'] = otp_data.get('code')
-    
-    # Empêcher la mise en cache de la page OTP
-    response = render(request, 'authentication/verify_otp.html', context)
-    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response['Pragma'] = 'no-cache'
-    response['Expires'] = '0'
-    return response
-
-# Vue AJAX supprimée - plus nécessaire avec le système synchrone
 
 def role_based_login_view(request, role):
-    """Vue de connexion spécifique à un rôle"""
+    """Vue de connexion spécifique à un rôle avec authentification directe"""
     valid_roles = ['client', 'agent_chine', 'agent_mali', 'admin', 'admin_mali']
     if role not in valid_roles:
         messages.error(request, "Rôle invalide.")
@@ -161,49 +57,32 @@ def role_based_login_view(request, role):
         return redirect(get_dashboard_url_by_role(request.user))
     
     if request.method == 'POST':
-        
         form = LoginForm(request.POST, request=request)
         
         if form.is_valid():
-            # Le formulaire a déjà vérifié téléphone + mot de passe avec authenticate()
-            telephone = form.cleaned_data['phone_number']
             user = form.user_cache  # L'utilisateur authentifié depuis le formulaire
             
             # Vérifier que l'utilisateur a le bon rôle
             if role == 'admin' and not (user.is_admin_chine or user.is_admin_mali):
                 messages.error(request, "Accès non autorisé pour ce rôle.")
-                return render(request, f'authentication/login_{role}.html', {'form': LoginForm()})
+                return render(request, f'authentication/login_{role}.html', {'form': LoginForm(), 'role': role})
             elif role == 'admin_mali' and not user.is_admin_mali:
                 messages.error(request, "Accès non autorisé pour ce rôle.")
-                return render(request, f'authentication/login_{role}.html', {'form': LoginForm()})
+                return render(request, f'authentication/login_{role}.html', {'form': LoginForm(), 'role': role})
             elif role == 'agent_chine' and not user.is_agent_chine:
                 messages.error(request, "Accès non autorisé pour ce rôle.")
-                return render(request, f'authentication/login_{role}.html', {'form': LoginForm()})
+                return render(request, f'authentication/login_{role}.html', {'form': LoginForm(), 'role': role})
             elif role == 'agent_mali' and not user.is_agent_mali:
                 messages.error(request, "Accès non autorisé pour ce rôle.")
-                return render(request, f'authentication/login_{role}.html', {'form': LoginForm()})
+                return render(request, f'authentication/login_{role}.html', {'form': LoginForm(), 'role': role})
             elif role == 'client' and not user.is_client:
                 messages.error(request, "Accès non autorisé pour ce rôle.")
-                return render(request, f'authentication/login_{role}.html', {'form': LoginForm()})
+                return render(request, f'authentication/login_{role}.html', {'form': LoginForm(), 'role': role})
             
-            # Générer et envoyer l'OTP de manière synchrone
-            otp_result = SimpleOTPService.send_otp_sync(
-                phone_number=telephone,
-                user_id=user.id,
-                role=role
-            )
-
-            if otp_result['success']:
-                # Stocker les informations de session
-                request.session['otp_cache_key'] = otp_result['cache_key']
-                request.session['otp_telephone'] = telephone
-                request.session['pre_authenticated_user_id'] = user.id
-                request.session['login_role'] = role
-                
-                messages.success(request, f"Identifiants validés ! {otp_result['user_message']}")
-                return redirect('authentication:verify_otp')
-            else:
-                messages.error(request, f"Problème d'envoi du code: {otp_result['user_message']}")
+            # Connecter directement l'utilisateur
+            login(request, user)
+            messages.success(request, f"Connexion réussie. Bienvenue {user.get_full_name()}!")
+            return redirect(get_dashboard_url_by_role(user))
                 
     else:
         form = LoginForm()
@@ -228,163 +107,25 @@ def logout_view(request):
     messages.success(request, f"Au revoir {user_name}! Vous êtes maintenant déconnecté.")
     return redirect('authentication:home')
 
-# register_view supprimée pour la production
-
-def password_reset_request_view(request):
-    """Vue de demande de réinitialisation de mot de passe"""
-    if request.method == 'POST':
-        form = PasswordResetRequestForm(request.POST)
-        if form.is_valid():
-            telephone = form.cleaned_data['phone_number']
-            
-            try:
-                user = CustomUser.objects.get(telephone=telephone)
-                
-                # Générer un code OTP pour la réinitialisation
-                otp_code = generate_otp_code()
-                cache_key = f"reset_otp_{telephone}"
-                cache.set(cache_key, {
-                    'code': otp_code,
-                    'user_id': user.id,
-                    'timestamp': timezone.now().isoformat()
-                }, timeout=600)
-                
-                # Envoyer l'OTP via WaChap
-                success, message = send_whatsapp_otp(telephone, otp_code)
-                
-                if success:
-                    request.session['reset_telephone'] = telephone
-                    messages.success(request, f"Code de réinitialisation envoyé. {message}")
-                    return redirect('authentication:password_reset_verify')
-                else:
-                    messages.error(request, f"Erreur d'envoi: {message}")
-                    
-            except CustomUser.DoesNotExist:
-                # Pour la sécurité, ne pas révéler si le compte existe ou non
-                messages.info(request, "Si ce numéro existe, un code de réinitialisation a été envoyé.")
-                
-    else:
-        form = PasswordResetRequestForm()
-    
-    return render(request, 'authentication/password_reset_request.html', {'form': form})
-
-def password_reset_verify_view(request):
-    """Vue de vérification OTP pour réinitialisation de mot de passe"""
-    # Si déjà authentifié, rediriger vers le dashboard
+def register_view(request):
+    """Vue d'inscription pour les nouveaux clients"""
     if request.user.is_authenticated:
         return redirect(get_dashboard_url_by_role(request.user))
-
-    telephone = request.session.get('reset_telephone')
-    if not telephone:
-        messages.error(request, "Session expirée. Veuillez recommencer.")
-        return redirect('authentication:password_reset_request')
-    
-    cache_key = f"reset_otp_{telephone}"
-    otp_data = cache.get(cache_key)
-    current_otp = otp_data.get('code') if otp_data else None
     
     if request.method == 'POST':
-        entered_otp = request.POST.get('otp_code')
-        
-        if otp_data and entered_otp == otp_data['code']:
-            # OTP valide, rediriger vers la réinitialisation
-            request.session['reset_verified'] = True
-            return redirect('authentication:password_reset_confirm')
-        else:
-            messages.error(request, "Code OTP invalide ou expiré.")
+        form = RegistrationForm(request.POST)
+        if form.is_valid():
+            # Créer le nouvel utilisateur
+            user = form.save()
+            messages.success(request, f"Compte créé avec succès ! Bienvenue {user.get_full_name()}!")
+            
+            # Connecter automatiquement l'utilisateur après inscription
+            login(request, user)
+            return redirect(get_dashboard_url_by_role(user))
+    else:
+        form = RegistrationForm()
     
-    # Empêcher la mise en cache
-    response = render(request, 'authentication/password_reset_verify.html', {
-        'telephone': telephone,
-        'current_otp': current_otp
-    })
-    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response['Pragma'] = 'no-cache'
-    response['Expires'] = '0'
-    return response
-
-def password_reset_confirm_view(request):
-    """Vue de confirmation de nouveau mot de passe"""
-    telephone = request.session.get('reset_telephone')
-    verified = request.session.get('reset_verified')
-    
-    if not telephone or not verified:
-        messages.error(request, "Session invalide. Veuillez recommencer.")
-        return redirect('authentication:password_reset_request')
-    
-    if request.method == 'POST':
-        # Récupérer les champs tels qu'envoyés par le template (new_password1/new_password2)
-        new_password1 = request.POST.get('new_password1')
-        new_password2 = request.POST.get('new_password2')
-
-        # Validations de base
-        if not new_password1 or not new_password2:
-            messages.error(request, "Veuillez saisir et confirmer le nouveau mot de passe.")
-        elif new_password1 != new_password2:
-            messages.error(request, "Les mots de passe ne correspondent pas.")
-        elif len(new_password1) < 8:
-            messages.error(request, "Le mot de passe doit contenir au moins 8 caractères.")
-        else:
-            try:
-                user = CustomUser.objects.get(telephone=telephone)
-                user.set_password(new_password1)
-                user.save()
-
-                # Nettoyer la session
-                del request.session['reset_telephone']
-                del request.session['reset_verified']
-                cache.delete(f"reset_otp_{telephone}")
-
-                messages.success(request, "Mot de passe réinitialisé avec succès!")
-                return redirect('authentication:home')
-
-            except CustomUser.DoesNotExist:
-                messages.error(request, "Erreur lors de la réinitialisation.")
-    
-    # Afficher la page de confirmation (le template gère les champs)
-    response = render(request, 'authentication/password_reset_confirm.html', {
-        'telephone': telephone
-    })
-    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response['Pragma'] = 'no-cache'
-    response['Expires'] = '0'
-    return response
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def resend_otp_view(request):
-    """API pour renvoyer un code OTP de manière simplifiée"""
-    cache_key = request.session.get('otp_cache_key')
-    telephone = request.session.get('otp_telephone')
-    
-    if not cache_key or not telephone:
-        return JsonResponse({'success': False, 'message': 'Session expirée. Veuillez vous reconnecter.'})
-    
-    # Vérifier le délai entre les envois (protection contre le spam)
-    last_sent_key = f"last_otp_sent_{telephone}"
-    last_sent = cache.get(last_sent_key)
-    
-    if last_sent:
-        time_diff = timezone.now() - timezone.fromisoformat(last_sent)
-        if time_diff < timedelta(minutes=1):
-            return JsonResponse({
-                'success': False, 
-                'message': 'Veuillez attendre 1 minute avant de renvoyer un code'
-            })
-    
-    # Utiliser le nouveau service pour renvoyer l'OTP
-    resend_result = SimpleOTPService.resend_otp(cache_key)
-    
-    if resend_result['success']:
-        # Enregistrer l'heure d'envoi pour la protection anti-spam
-        cache.set(last_sent_key, timezone.now().isoformat(), timeout=60)
-    
-    return JsonResponse({
-        'success': resend_result['success'],
-        'message': resend_result['user_message']
-    })
-
-## Vue admin_chine_login_view supprimée: l'admin passe par login_admin (role_based_login_view) et est redirigé selon son rôle
+    return render(request, 'authentication/register.html', {'form': form})
 
 
 def home_view(request):
@@ -393,26 +134,3 @@ def home_view(request):
     if request.user.is_authenticated:
         return redirect(get_dashboard_url_by_role(request.user))
     return render(request, 'authentication/home.html')
-
-def debug_otp_view(request):
-    """Vue de debug pour tester le template OTP - À SUPPRIMER EN PRODUCTION"""
-    from django.conf import settings
-    from django.core.cache import cache
-    
-    # Simuler des données de session OTP
-    debug_data = {
-        'telephone': '+22373451676',
-        'cache_key': 'debug_cache_key_123',
-        'sending_status': 'sent',
-        'status_message': 'Code envoyé avec succès (debug)',
-        'current_otp': '123456' if settings.DEBUG else None
-    }
-    
-    if request.method == 'POST':
-        entered_otp = request.POST.get('otp_code')
-        if entered_otp == '123456':
-            messages.success(request, 'Code OTP correct ! (mode debug)')
-        else:
-            messages.error(request, f'Code incorrect. Essayez 123456 (mode debug)')
-    
-    return render(request, 'authentication/verify_otp_debug.html', debug_data)

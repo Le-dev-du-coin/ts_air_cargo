@@ -1,226 +1,189 @@
-{% extends 'base.html' %}
-{% load static %}
-
-{% block title %}Connexion - TS Air Cargo{% endblock %}
-
-{% block extra_css %}
-<style>
-    .auth-container {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-        padding: 20px;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .auth-card {
-        background: white;
-        border-radius: 24px;
-        padding: 50px 40px;
-        box-shadow: 0 25px 50px rgba(0,0,0,0.15);
-        width: 100%;
-        max-width: 450px;
-        position: relative;
-        z-index: 1;
-        border-top: 6px solid #3b82f6;
-    }
-    
-    .back-btn {
-        position: absolute;
-        top: 30px;
-        left: 30px;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50px;
-        padding: 12px 20px;
-        text-decoration: none;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        backdrop-filter: blur(10px);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        z-index: 10;
-    }
-    
-    .back-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
-        color: white;
-        text-decoration: none;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    }
-    
-    .auth-header {
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    
-    .auth-header h1 {
-        color: #333;
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
-    
-    .auth-header p {
-        color: #666;
-        font-size: 16px;
-    }
-    
-    .role-badge {
-        display: inline-block;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        margin-bottom: 20px;
-    }
-    
-    .role-client { background-color: #e3f2fd; color: #1976d2; }
-    .role-agent { background-color: #fff3e0; color: #f57c00; }
-    .role-admin { background-color: #fce4ec; color: #c2185b; }
-    
-    .form-floating {
-        margin-bottom: 20px;
-    }
-    
-    .form-control {
-        border: 2px solid #e1e5e9;
-        border-radius: 12px;
-        padding: 12px 16px;
-        font-size: 16px;
-        transition: all 0.3s ease;
-    }
-    
-    .form-control:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-    }
-    
-    .btn-login {
-        background: #667eea;
-        border: none;
-        border-radius: 12px;
-        padding: 12px 30px;
-        font-size: 16px;
-        font-weight: 600;
-        color: white;
-        width: 100%;
-        transition: all 0.3s ease;
-        margin-top: 10px;
-    }
-    
-    .btn-login:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        color: white;
-    }
-    
-    .alert {
-        border-radius: 12px;
-        border: none;
-        margin-bottom: 20px;
-    }
-    
-    .auth-links {
-        text-align: center;
-        margin-top: 30px;
-    }
-    
-    .auth-links a {
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 500;
-        margin: 0 10px;
-        font-size: 14px;
-    }
-    
-    .auth-links a:hover {
-        color: #764ba2;
-        text-decoration: underline;
-    }
-    
-    .divider {
-        text-align: center;
-        margin: 20px 0;
-        color: #999;
-    }
-    
-    .back-home {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-    }
-    
-    .back-home:hover {
-        color: #764ba2;
-        text-decoration: none;
-    }
-    
-    @media (max-width: 576px) {
-        .auth-card {
-            padding: 30px 20px;
-            margin: 10px;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - TS Air Cargo</title>
+    {% load static %}
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        .auth-header h1 {
-            font-size: 24px;
-        }
-        
-        .back-home {
-            position: relative;
-            top: 0;
-            left: 0;
-            color: #667eea;
-            margin-bottom: 20px;
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #00BCD4 0%, #4DD0E1 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
             justify-content: center;
+            padding: 20px;
         }
-    }
-</style>
-{% endblock %}
 
-{% block content %}
-<div class="auth-container">
-    <a href="{% url 'authentication:home' %}" class="back-btn">
-        <i class="fas fa-arrow-left"></i>
-        Retour
-    </a>
-    
-    <div class="auth-card">
-        <div class="auth-header">
-            <h1>Connexion</h1>
-            {% if request.GET.role %}
-                {% if request.GET.role == 'client' %}
-                    <span class="role-badge role-client">Espace Client</span>
-                    <p>Accédez à votre espace personnel</p>
-                {% elif request.GET.role == 'agent' %}
-                    <span class="role-badge role-agent">Espace Agent</span>
-                    <p>Interface de gestion agent</p>
-                {% elif request.GET.role == 'admin' %}
-                    <span class="role-badge role-admin">Administration</span>
-                    <p>Panneau d'administration</p>
-                {% endif %}
-            {% else %}
-                <p>Connectez-vous à votre compte</p>
-            {% endif %}
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+            padding: 40px 35px;
+        }
+
+        .header-title {
+            color: #00BCD4;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+        }
+
+        .logo-container {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid #e0e0e0;
+        }
+
+        .logo-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            color: #4285F4;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 0;
+            border: none;
+            border-bottom: 2px solid #e0e0e0;
+            font-size: 16px;
+            background: transparent;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-bottom-color: #4285F4;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 15px;
+            background: #00BCD4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 30px;
+        }
+
+        .btn-login:hover {
+            background: #0097A7;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(0, 188, 212, 0.3);
+        }
+
+        .form-links {
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        .form-links a {
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+            margin: 0 10px;
+        }
+
+        .form-links a:hover {
+            color: #00BCD4;
+            text-decoration: underline;
+        }
+
+        .register-section {
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+
+        .register-section a {
+            color: #00BCD4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .register-section a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background-color: #e8f5e8;
+            border: 1px solid #4caf50;
+            color: #2e7d32;
+        }
+
+        .alert-error, .alert-danger {
+            background-color: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+        }
+
+        .field-error {
+            color: #f44336;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 30px 25px;
+                margin: 10px;
+            }
+            
+            .header-title {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="header-title">TS AIR CARGO</div>
+        
+        <div class="logo-container">
+            <img src="{% static 'img/logo.jpeg' %}" alt="TS Air Cargo Logo">
         </div>
 
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <div class="alert alert-{{ message.tags }}">
                     {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             {% endfor %}
         {% endif %}
@@ -228,71 +191,65 @@
         <form method="post" novalidate>
             {% csrf_token %}
             
-            {% if request.GET.role %}
-                <input type="hidden" name="role" value="{{ request.GET.role }}">
-            {% endif %}
-            
-            <div class="form-floating">
-                {{ form.phone_number }}
-                <label for="{{ form.phone_number.id_for_label }}">
-                    <i class="fas fa-phone me-2"></i>Numéro de téléphone
+            <div class="form-group">
+                <label class="form-label" for="{{ form.phone_number.id_for_label }}">
+                    Numéro whatsapp
                 </label>
+                {{ form.phone_number }}
                 {% if form.phone_number.errors %}
-                    <div class="text-danger small mt-1">
-                        {% for error in form.phone_number.errors %}
-                            <div>{{ error }}</div>
-                        {% endfor %}
-                    </div>
+                    {% for error in form.phone_number.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
                 {% endif %}
             </div>
 
-            <div class="form-floating">
-                {{ form.password }}
-                <label for="{{ form.password.id_for_label }}">
-                    <i class="fas fa-lock me-2"></i>Mot de passe
+            <div class="form-group">
+                <label class="form-label" for="{{ form.password.id_for_label }}">
+                    Mot de passe
                 </label>
+                {{ form.password }}
                 {% if form.password.errors %}
-                    <div class="text-danger small mt-1">
-                        {% for error in form.password.errors %}
-                            <div>{{ error }}</div>
-                        {% endfor %}
-                    </div>
+                    {% for error in form.password.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
                 {% endif %}
             </div>
 
             {% if form.non_field_errors %}
-                <div class="alert alert-danger">
+                <div class="alert alert-error">
                     {% for error in form.non_field_errors %}
                         <div>{{ error }}</div>
                     {% endfor %}
                 </div>
             {% endif %}
 
-            <button type="submit" class="btn btn-login">
-                <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+            <button type="submit" class="btn-login">
+                Connexion
             </button>
         </form>
 
-        <div class="auth-links">
-            <div class="divider">
-                <span>───────── ou ─────────</span>
-            </div>
-            
-            <div class="mb-3">
-                <a href="{% url 'authentication:password_reset_request' %}">
-                    <i class="fas fa-key me-1"></i>Mot de passe oublié ?
-                </a>
-            </div>
-            
-            {% if not request.GET.role or request.GET.role == 'client' %}
-                <div>
-                    <span class="text-muted">Pas encore de compte ?</span><br>
-                    <a href="#">
-                        <i class="fas fa-user-plus me-1"></i>Créer un compte
-                    </a>
-                </div>
-            {% endif %}
+        <div class="form-links">
+            <a href="{% url 'authentication:home' %}">Mot de passe oublié ?</a>
+        </div>
+        
+        <div class="register-section">
+            <a href="{% url 'authentication:register' %}">Créer un compte</a>
         </div>
     </div>
-</div>
-{% endblock %}
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], input[type="password"], input[type="email"]');
+        
+        inputs.forEach(function(input) {
+            input.classList.add('form-input');
+            
+            const errorDiv = input.parentElement.querySelector('.field-error');
+            if (errorDiv) {
+                input.style.borderBottomColor = '#f44336';
+            }
+        });
+    });
+    </script>
+</body>
+</html>

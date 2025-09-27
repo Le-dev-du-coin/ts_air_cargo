@@ -1,246 +1,189 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créer un compte - TS Air Cargo</title>
+    {% load static %}
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-{% block title %}Créer un compte - TS Air Cargo{% endblock %}
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #00BCD4 0%, #4DD0E1 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
 
-{% block extra_css %}
-<style>
-    .register-container {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #f8f9fa;
-        padding: 20px;
-    }
-    
-    .register-card {
-        background: white;
-        border-radius: 20px;
-        padding: 40px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        width: 100%;
-        max-width: 500px;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .register-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 5px;
-        background: #667eea;
-    }
-    
-    .register-header {
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    
-    .register-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #2d3748;
-        margin-bottom: 8px;
-    }
-    
-    .register-subtitle {
-        color: #718096;
-        font-size: 1rem;
-    }
-    
-    .form-group {
-        margin-bottom: 20px;
-    }
-    
-    .form-label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: 600;
-        color: #4a5568;
-        font-size: 0.9rem;
-    }
-    
-    .form-input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 2px solid #e2e8f0;
-        border-radius: 12px;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-        background: #f8fafc;
-    }
-    
-    .form-input:focus {
-        outline: none;
-        border-color: #667eea;
-        background: white;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-    
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 15px;
-    }
-    
-    .register-btn {
-        width: 100%;
-        padding: 14px;
-        background: #667eea;
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-size: 1.1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        margin-top: 10px;
-    }
-    
-    .register-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-    }
-    
-    .register-btn:active {
-        transform: translateY(0);
-    }
-    
-    .form-links {
-        text-align: center;
-        margin-top: 25px;
-        padding-top: 20px;
-        border-top: 1px solid #e2e8f0;
-    }
-    
-    .form-links a {
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 500;
-        transition: color 0.3s ease;
-    }
-    
-    .form-links a:hover {
-        color: #764ba2;
-        text-decoration: underline;
-    }
-    
-    .alert {
-        padding: 12px 16px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        font-size: 0.9rem;
-    }
-    
-    .alert-success {
-        background-color: #f0fff4;
-        border: 1px solid #9ae6b4;
-        color: #276749;
-    }
-    
-    .alert-error {
-        background-color: #fed7d7;
-        border: 1px solid #feb2b2;
-        color: #c53030;
-    }
-    
-    .alert-warning {
-        background-color: #fefcbf;
-        border: 1px solid #f6e05e;
-        color: #975a16;
-    }
-    
-    .alert-info {
-        background-color: #ebf8ff;
-        border: 1px solid #90cdf4;
-        color: #2c5282;
-    }
-    
-    .field-error {
-        color: #e53e3e;
-        font-size: 0.8rem;
-        margin-top: 5px;
-        display: block;
-    }
-    
-    .form-input.error {
-        border-color: #e53e3e;
-        background-color: #fed7d7;
-    }
-    
-    .password-requirements {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 15px;
-        margin: 15px 0;
-        font-size: 0.85rem;
-    }
-    
-    .password-requirements h4 {
-        margin: 0 0 10px 0;
-        color: #4a5568;
-        font-size: 0.9rem;
-    }
-    
-    .password-requirements ul {
-        margin: 0;
-        padding-left: 20px;
-        color: #718096;
-    }
-    
-    .password-requirements li {
-        margin-bottom: 5px;
-    }
-    
-    /* Responsive Design */
-    @media (max-width: 768px) {
         .register-container {
-            padding: 15px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            padding: 40px 35px;
         }
-        
-        .register-card {
-            padding: 30px 25px;
-        }
-        
-        .register-title {
-            font-size: 1.6rem;
-        }
-        
-        .form-row {
-            grid-template-columns: 1fr;
-            gap: 20px;
-        }
-    }
-    
-    @media (max-width: 480px) {
-        .register-card {
-            padding: 25px 20px;
-        }
-        
-        .register-title {
-            font-size: 1.4rem;
-        }
-        
-        .form-input {
-            padding: 10px 14px;
-            font-size: 0.9rem;
-        }
-    }
-</style>
-{% endblock %}
 
-{% block content %}
-<div class="register-container">
-    <div class="register-card">
-        <div class="register-header">
-            <h1 class="register-title">Créer un compte</h1>
-            <p class="register-subtitle">Rejoignez TS Air Cargo aujourd'hui</p>
+        .header-title {
+            color: #00BCD4;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+        }
+
+        .logo-container {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid #e0e0e0;
+        }
+
+        .logo-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            color: #4285F4;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 0;
+            border: none;
+            border-bottom: 2px solid #e0e0e0;
+            font-size: 14px;
+            background: transparent;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-bottom-color: #4285F4;
+        }
+
+        .btn-register {
+            width: 100%;
+            padding: 15px;
+            background: #00BCD4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 25px;
+        }
+
+        .btn-register:hover {
+            background: #0097A7;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(0, 188, 212, 0.3);
+        }
+
+        .form-links {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .form-links a {
+            color: #00BCD4;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-links a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background-color: #e8f5e8;
+            border: 1px solid #4caf50;
+            color: #2e7d32;
+        }
+
+        .alert-error, .alert-danger {
+            background-color: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+        }
+
+        .field-error {
+            color: #f44336;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .form-hint {
+            color: #999;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        @media (max-width: 580px) {
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .register-container {
+                padding: 30px 25px;
+                margin: 10px;
+            }
+            
+            .header-title {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="header-title">TS AIR CARGO</div>
+        
+        <div class="logo-container">
+            <img src="{% static 'img/logo.jpeg' %}" alt="TS Air Cargo Logo">
         </div>
 
-        <!-- Messages Django -->
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }}">
@@ -252,7 +195,19 @@
         <form method="post" novalidate>
             {% csrf_token %}
             
-            <!-- Prénom et Nom -->
+            <div class="form-group">
+                <label class="form-label" for="{{ form.phone_number.id_for_label }}">
+                    Numéro de téléphone (WhatsApp) *
+                </label>
+                {{ form.phone_number }}
+                {% if form.phone_number.errors %}
+                    {% for error in form.phone_number.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+                <div class="form-hint">Format: +223XXXXXXXX</div>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label" for="{{ form.first_name.id_for_label }}">
@@ -261,11 +216,11 @@
                     {{ form.first_name }}
                     {% if form.first_name.errors %}
                         {% for error in form.first_name.errors %}
-                            <span class="field-error">{{ error }}</span>
+                            <div class="field-error">{{ error }}</div>
                         {% endfor %}
                     {% endif %}
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label" for="{{ form.last_name.id_for_label }}">
                         Nom *
@@ -273,29 +228,12 @@
                     {{ form.last_name }}
                     {% if form.last_name.errors %}
                         {% for error in form.last_name.errors %}
-                            <span class="field-error">{{ error }}</span>
+                            <div class="field-error">{{ error }}</div>
                         {% endfor %}
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Numéro de téléphone -->
-            <div class="form-group">
-                <label class="form-label" for="{{ form.phone_number.id_for_label }}">
-                    Numéro de téléphone *
-                </label>
-                {{ form.phone_number }}
-                {% if form.phone_number.errors %}
-                    {% for error in form.phone_number.errors %}
-                        <span class="field-error">{{ error }}</span>
-                    {% endfor %}
-                {% endif %}
-                <small style="color: #718096; font-size: 0.8rem;">
-                    Format: +33123456789 ou 0123456789
-                </small>
-            </div>
-
-            <!-- Mot de passe -->
             <div class="form-group">
                 <label class="form-label" for="{{ form.password1.id_for_label }}">
                     Mot de passe *
@@ -303,108 +241,69 @@
                 {{ form.password1 }}
                 {% if form.password1.errors %}
                     {% for error in form.password1.errors %}
-                        <span class="field-error">{{ error }}</span>
+                        <div class="field-error">{{ error }}</div>
                     {% endfor %}
                 {% endif %}
+                <div class="form-hint">Au moins 8 caractères</div>
             </div>
-
-            <!-- Confirmation mot de passe -->
+            
             <div class="form-group">
-                <label class="form-label" for="{{ form.password2.id_for_label }}">
-                    Confirmer le mot de passe *
+                <label class="form-label" for="{{ form.password1.id_for_label }}">
+                    Mot de passe *
                 </label>
-                {{ form.password2 }}
-                {% if form.password2.errors %}
-                    {% for error in form.password2.errors %}
-                        <span class="field-error">{{ error }}</span>
+                {{ form.password1 }}
+                {% if form.password1.errors %}
+                    {% for error in form.password1.errors %}
+                        <div class="field-error">{{ error }}</div>
                     {% endfor %}
                 {% endif %}
             </div>
-
-            <!-- Exigences du mot de passe -->
-            <div class="password-requirements">
-                <h4>Exigences du mot de passe :</h4>
-                <ul>
-                    <li>Au moins 8 caractères</li>
-                    <li>Doit contenir des lettres et des chiffres</li>
-                    <li>Ne doit pas être un mot de passe courant</li>
-                    <li>Ne doit pas ressembler trop à vos informations personnelles</li>
-                </ul>
-            </div>
-
-            <!-- Erreurs non-field -->
             {% if form.non_field_errors %}
                 <div class="alert alert-error">
                     {% for error in form.non_field_errors %}
-                        {{ error }}
+                        <div>{{ error }}</div>
                     {% endfor %}
                 </div>
             {% endif %}
 
-            <button type="submit" class="register-btn">
-                Créer mon compte
+            <button type="submit" class="btn-register">
+                Créer un compte
             </button>
         </form>
 
         <div class="form-links">
-            <p>
-                Vous avez déjà un compte ?
-                <a href="{% url 'authentication:login_client' %}">Se connecter</a>
-            </p>
+            Vous avez déjà un compte ?
+            <a href="{% url 'authentication:login_client' %}">Se connecter</a>
         </div>
     </div>
-</div>
 
-<script>
-// Ajout des classes CSS aux champs du formulaire
-document.addEventListener('DOMContentLoaded', function() {
-    const formInputs = document.querySelectorAll('input[type="text"], input[type="tel"], input[type="password"]');
-    
-    formInputs.forEach(function(input) {
-        input.classList.add('form-input');
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], input[type="password"], input[type="email"]');
         
-        // Ajouter la classe error si le champ a des erreurs
-        const errorSpan = input.parentElement.querySelector('.field-error');
-        if (errorSpan) {
-            input.classList.add('error');
+        inputs.forEach(function(input) {
+            input.classList.add('form-input');
+            
+            const errorDiv = input.parentElement.querySelector('.field-error');
+            if (errorDiv) {
+                input.style.borderBottomColor = '#f44336';
+            }
+        });
+
+        // Password confirmation validation
+        const password1 = document.querySelector('input[name="password1"]');
+        const password2 = document.querySelector('input[name="password2"]');
+        
+        if (password1 && password2) {
+            password2.addEventListener('input', function() {
+                if (password1.value && password2.value && password1.value !== password2.value) {
+                    password2.style.borderBottomColor = '#f44336';
+                } else {
+                    password2.style.borderBottomColor = '#e0e0e0';
+                }
+            });
         }
     });
-
-    // Validation en temps réel du numéro de téléphone
-    const phoneInput = document.querySelector('input[name="phone_number"]');
-    if (phoneInput) {
-        phoneInput.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            
-            if (value.startsWith('33')) {
-                value = '+' + value;
-            } else if (value.startsWith('0') && value.length === 10) {
-                value = '+33' + value.substring(1);
-            } else if (!value.startsWith('+')) {
-                if (value.length === 9) {
-                    value = '+33' + value;
-                }
-            }
-            
-            e.target.value = value;
-        });
-    }
-
-    // Validation en temps réel de la confirmation du mot de passe
-    const password1 = document.querySelector('input[name="password1"]');
-    const password2 = document.querySelector('input[name="password2"]');
-    
-    if (password1 && password2) {
-        password2.addEventListener('input', function() {
-            if (password1.value && password2.value && password1.value !== password2.value) {
-                password2.style.borderColor = '#e53e3e';
-                password2.style.backgroundColor = '#fed7d7';
-            } else {
-                password2.style.borderColor = '#e2e8f0';
-                password2.style.backgroundColor = '#f8fafc';
-            }
-        });
-    }
-});
-</script>
-{% endblock %}
+    </script>
+</body>
+</html>
