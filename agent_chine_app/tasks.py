@@ -20,7 +20,14 @@ from notifications_app.tasks import notify_colis_created, notify_colis_updated
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3, 'countdown': 60})
+@shared_task(
+    bind=True, 
+    autoretry_for=(Exception,), 
+    retry_kwargs={'max_retries': 3, 'countdown': 60},
+    priority=5,  # Priorité moyenne pour la création
+    time_limit=300,  # 5 minutes max
+    soft_time_limit=240  # Warning à 4 minutes
+)
 def create_colis_async(self, task_id):
     """
     Tâche principale de création asynchrone de colis
@@ -52,18 +59,31 @@ def create_colis_async(self, task_id):
         if lot.statut != 'ouvert':
             raise ValueError(f"Impossible d'ajouter un colis au lot {lot.numero_lot} (statut: {lot.statut})")
         
-        # Étape 2: Traitement de l'image
-        task.update_progress("Traitement de l'image du colis", 40)
-        task.status = 'image_uploading'
-        task.save(update_fields=['status'])
-        
+        # Étape 2: Traitement de l'image (optimisé avec paramètres)
         processed_image = None
-        if task.original_image_path and os.path.exists(task.original_image_path):
-            processed_image = process_colis_image(task.original_image_path, task_id)
-            logger.info(f"📸 Image traitée pour tâche {task_id}")
+        skip_image_processing = getattr(settings, 'SKIP_IMAGE_PROCESSING_IN_DEV', False)
         
-        # Étape 3: Création du colis en base
+        if task.original_image_path and os.path.exists(task.original_image_path) and not skip_image_processing:
+            task.update_progress("Traitement de l'image du colis", 40)
+            task.status = 'image_uploading'
+            task.save(update_fields=['status'])
+            
+            try:
+                processed_image = process_colis_image(task.original_image_path, task_id)
+                logger.info(f"📸 Image traitée pour tâche {task_id}")
+            except Exception as img_error:
+                logger.warning(f"⚠️ Erreur traitement image pour tâche {task_id}: {img_error}")
+                # Continuer sans image plutôt que d'échouer
+                processed_image = None
+        elif skip_image_processing:
+            logger.debug(f"⏩ Traitement image ignoré (mode développement) pour tâche {task_id}")
+        else:
+            logger.debug(f"🖼️ Pas d'image à traiter pour tâche {task_id}")
+        
+        # Étape 3: Création du colis en base (optimisé)
         task.update_progress("Création du colis en base de données", 60)
+        task.current_step = "Préparation des données"
+        task.save(update_fields=['progress_percentage', 'current_step'])
         
         # Préparation des données du colis
         colis_params = {
@@ -78,6 +98,10 @@ def create_colis_async(self, task_id):
             'statut': colis_data.get('statut', 'receptionne_chine'),
             'description': colis_data.get('description', ''),
         }
+        
+        # Ajouter le prix manuel si fourni (déjà calculé dans la vue)
+        if colis_data.get('prix_transport_manuel'):
+            colis_params['prix_transport_manuel'] = float(colis_data['prix_transport_manuel'])
         
         # Ajouter l'image si traitée
         if processed_image:
@@ -206,6 +230,11 @@ def update_colis_async(self, task_id):
         colis.largeur = float(colis_data.get('largeur', colis.largeur))
         colis.hauteur = float(colis_data.get('hauteur', colis.hauteur))
         colis.poids = float(colis_data.get('poids', colis.poids))
+        
+        # Mettre à jour le prix manuel si fourni (déjà calculé dans la vue)
+        if 'prix_transport_manuel' in colis_data:
+            colis.prix_transport_manuel = colis_data['prix_transport_manuel']
+            
         colis.mode_paiement = colis_data.get('mode_paiement', colis.mode_paiement)
         colis.statut = colis_data.get('statut', colis.statut)
         colis.description = colis_data.get('description', colis.description)
@@ -271,6 +300,7 @@ def update_colis_async(self, task_id):
 def process_colis_image(temp_image_path, task_id):
     """
     Traite une image de colis : compression, redimensionnement, validation
+    Optimisé pour les performances et la gestion d'erreurs
     
     Args:
         temp_image_path (str): Chemin vers l'image temporaire
@@ -279,39 +309,95 @@ def process_colis_image(temp_image_path, task_id):
     Returns:
         ContentFile: Fichier traité prêt pour Django
     """
+    start_time = timezone.now()
+    temp_output_path = None
+    
     try:
-        # Ouvrir l'image avec PIL
+        # Vérification préliminaire du fichier
+        file_size = os.path.getsize(temp_image_path)
+        if file_size > 50 * 1024 * 1024:  # 50MB max
+            raise ValueError(f"Image trop volumineuse: {file_size / 1024 / 1024:.1f}MB (max 50MB)")
+        
+        logger.info(f"📸 Début traitement image {file_size / 1024:.0f}KB pour tâche {task_id}")
+        
+        # Ouvrir et traiter l'image avec optimisations
         with Image.open(temp_image_path) as img:
-            # Convertir en RGB si nécessaire (pour JPEG)
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
+            # Validation du format
+            if img.format not in ['JPEG', 'PNG', 'BMP', 'TIFF', 'WEBP']:
+                raise ValueError(f"Format d'image non supporté: {img.format}")
             
-            # Redimensionner si trop grande (max 1600px sur le côté le plus long)
+            original_size = img.size
+            
+            # Convertir en RGB si nécessaire (optimisé)
+            if img.mode in ('RGBA', 'P', 'LA'):
+                # Pour RGBA, créer un fond blanc pour préserver la qualité
+                if img.mode == 'RGBA':
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    background.paste(img, mask=img.split()[-1])  # Use alpha as mask
+                    img = background
+                else:
+                    img = img.convert('RGB')
+                logger.debug(f"📐 Conversion couleur pour tâche {task_id}")
+            
+            # Redimensionnement optimisé avec plusieurs seuils
             max_size = 1600
             if max(img.size) > max_size:
+                # Utiliser un algorithme plus rapide pour les très grandes images
+                if max(img.size) > 3000:
+                    # Première réduction rapide
+                    img.thumbnail((2000, 2000), Image.Resampling.NEAREST)
+                
+                # Réduction finale avec qualité
                 img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-                logger.info(f"📐 Image redimensionnée pour tâche {task_id}")
+                logger.info(f"📐 Image redimensionnée {original_size} -> {img.size} pour tâche {task_id}")
             
-            # Sauvegarder dans un fichier temporaire avec compression
-            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_output:
-                img.save(temp_output, format='JPEG', quality=85, optimize=True)
-                temp_output_path = temp_output.name
+            # Sauvegarder avec optimisations de compression
+            temp_output_path = tempfile.mktemp(suffix='.jpg')
+            
+            # Adapter la qualité selon la taille finale
+            quality = 90 if max(img.size) < 800 else 85
+            
+            img.save(
+                temp_output_path,
+                format='JPEG',
+                quality=quality,
+                optimize=True,
+                progressive=True  # Pour un chargement progressif
+            )
             
             # Lire le fichier traité
             with open(temp_output_path, 'rb') as processed_file:
                 content = processed_file.read()
             
-            # Nettoyer le fichier temporaire de sortie
-            os.unlink(temp_output_path)
-            
             # Générer un nom de fichier unique
             filename = f"colis_{task_id}_{uuid.uuid4().hex[:8]}.jpg"
+            
+            # Log des performances
+            processing_time = (timezone.now() - start_time).total_seconds()
+            final_size = len(content)
+            compression_ratio = (file_size - final_size) / file_size * 100
+            
+            logger.info(
+                f"✅ Image traitée pour tâche {task_id}: "
+                f"{file_size/1024:.0f}KB -> {final_size/1024:.0f}KB "
+                f"({compression_ratio:.0f}% compression) en {processing_time:.1f}s"
+            )
             
             return ContentFile(content, name=filename)
             
     except Exception as e:
-        logger.error(f"❌ Erreur traitement image pour tâche {task_id}: {e}")
+        error_msg = f"Erreur traitement image pour tâche {task_id}: {str(e)}"
+        logger.error(f"❌ {error_msg}", exc_info=True)
         raise ValueError(f"Impossible de traiter l'image: {str(e)}")
+    
+    finally:
+        # Nettoyage du fichier temporaire de sortie
+        if temp_output_path and os.path.exists(temp_output_path):
+            try:
+                os.unlink(temp_output_path)
+                logger.debug(f"🧹 Fichier temporaire traité supprimé: {temp_output_path}")
+            except Exception as cleanup_error:
+                logger.warning(f"⚠️ Erreur nettoyage fichier temporaire {temp_output_path}: {cleanup_error}")
 
 
 def cleanup_temp_files(temp_path):

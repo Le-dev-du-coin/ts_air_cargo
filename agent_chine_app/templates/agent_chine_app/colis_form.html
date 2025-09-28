@@ -76,7 +76,7 @@
                                                 data-country="{{ client.get_pays_display }}"
                                                 data-address="{{ client.adresse }}"
                                                 {% if colis and colis.client.id == client.id %}selected{% endif %}>
-                                            🏴 {{ client.get_pays_display }} - {{ client.user.get_full_name }} ({{ client.user.telephone }})
+                                            🏴 {{ client.pays}} - {{ client.user.get_full_name }} ({{ client.user.telephone }})
                                         </option>
                                     {% endfor %}
                                 </select>
@@ -263,12 +263,42 @@
                             </h5>
                         </div>
                         <div class="modern-card-body">
-                            <div id="prix_calcule" class="text-center p-3">
-                                <span class="text-muted">Sélectionnez un client et saisissez les mesures pour calculer</span>
+                            <!-- Prix manuel (prioritaire) -->
+                            <div class="mb-3">
+                                <label for="prix_transport_manuel" class="form-label">
+                                    <i class="bi bi-pencil-square"></i>
+                                    Prix de transport manuel (par kg)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">FCFA/kg</span>
+                                    <input type="number" class="form-control" id="prix_transport_manuel" name="prix_transport_manuel" 
+                                           step="100" min="0" placeholder="Prix par kilo (ex: 10000)"
+                                           value="">
+                                </div>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i>
+                                    Prix par kilogramme. Sera multiplié par le poids total du colis.
+                                </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="calculatePrice()">
-                                <i class="bi bi-arrow-clockwise me-1"></i> Recalculer le prix
-                            </button>
+                            
+                            <!-- Séparateur -->
+                            <div class="text-center mb-3">
+                                <small class="text-muted">--- OU ---</small>
+                            </div>
+                            
+                            <!-- Prix calculé automatiquement -->
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="bi bi-calculator"></i>
+                                    Prix calculé automatiquement
+                                </label>
+                                <div id="prix_calcule" class="text-center p-3">
+                                    <span class="text-muted">Sélectionnez un client et saisissez les mesures pour calculer</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="calculatePrice()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> Recalculer le prix
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -554,6 +584,18 @@
 // Variables globales
 let selectedClientData = null;
 
+// Fonction pour calculer et afficher le prix par kilo en mode édition
+function initializeManualPrice() {
+    {% if colis and colis.prix_transport_manuel and colis.poids %}
+        const prixTotal = {{ colis.prix_transport_manuel|floatformat:2 }};
+        const poids = {{ colis.poids|floatformat:2 }};
+        if (poids > 0) {
+            const prixParKilo = Math.round(prixTotal / poids);
+            document.getElementById('prix_transport_manuel').value = prixParKilo;
+        }
+    {% endif %}
+}
+
 // Charger les informations du client sélectionné
 function loadClientInfo(clientId) {
     if (!clientId) {
@@ -674,7 +716,33 @@ function calculatePrice() {
     const hauteur = parseFloat(document.getElementById('hauteur').value) || 0;
     const poids = parseFloat(document.getElementById('poids').value) || 0;
     const typeTransport = document.getElementById('type_transport').value;
+    const prixManuel = parseFloat(document.getElementById('prix_transport_manuel').value) || null;
 
+    // Si prix manuel fourni, calculer le prix total (prix par kilo * poids)
+    if (prixManuel && prixManuel > 0) {
+        if (poids && poids > 0) {
+            const prixTotal = prixManuel * poids;
+            const prixFormate = Math.round(prixTotal).toLocaleString('fr-FR');
+            const prixParKiloFormate = Math.round(prixManuel).toLocaleString('fr-FR');
+            
+            document.getElementById('prix_calcule').innerHTML = `
+                <div class="text-center">
+                    <small class="text-muted">Prix manuel (${prixParKiloFormate} FCFA/kg)</small><br>
+                    <strong class="text-primary fs-4">${prixFormate} FCFA</strong>
+                    <br><small class="text-muted">Total pour ${poids} kg</small>
+                </div>
+            `;
+        } else {
+            document.getElementById('prix_calcule').innerHTML = `
+                <div class="text-center">
+                    <small class="text-muted">Prix manuel défini</small><br>
+                    <span class="text-warning">⚠️ Veuillez saisir le poids pour calculer le total</span>
+                </div>
+            `;
+        }
+        return;
+    }
+    
     // Vérifier que les champs requis sont remplis selon le type de transport
     let fieldsOk = false;
     if (typeTransport === 'bateau') {
@@ -703,7 +771,8 @@ function calculatePrice() {
         hauteur: hauteur,
         poids: poids,
         type_transport: typeTransport,
-        pays_destination: selectedClientData.pays
+        pays_destination: selectedClientData.pays,
+        prix_manuel: prixManuel
     };
 
     console.log('Calcul prix - Données envoyées:', requestData);
@@ -736,6 +805,11 @@ function calculatePrice() {
                 debugInfo = `<small class="text-muted d-block mt-1">${data.message || ''}</small>`;
             }
             
+            // Déterminer le type de prix et la couleur
+            const isManuel = data.prix_type === 'manuel';
+            const prixColor = isManuel ? 'text-primary' : 'text-success';
+            const prixLabel = isManuel ? 'Prix manuel' : 'Prix estimé';
+            
             // Affichage conditionnel selon le type de transport
             let priceDisplay = '';
             if (typeTransport === 'bateau') {
@@ -747,17 +821,18 @@ function calculatePrice() {
                             <strong>${volume} m³</strong>
                         </div>
                         <div class="col-6">
-                            <small class="text-muted">Prix estimé</small><br>
-                            <strong class="text-success fs-5">${prix} FCFA</strong>
+                            <small class="text-muted">${prixLabel}</small><br>
+                            <strong class="${prixColor} fs-5">${prix} FCFA</strong>
                         </div>
                     </div>
                 `;
             } else {
                 // Pour express/cargo : afficher seulement le prix
+                const prixSubLabel = isManuel ? '' : ' (par kg)';
                 priceDisplay = `
                     <div class="text-center">
-                        <small class="text-muted">Prix estimé (par kg)</small><br>
-                        <strong class="text-success fs-4">${prix} FCFA</strong>
+                        <small class="text-muted">${prixLabel}${prixSubLabel}</small><br>
+                        <strong class="${prixColor} fs-4">${prix} FCFA</strong>
                     </div>
                 `;
             }
@@ -1023,6 +1098,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Configuration initiale
     toggleTransportFields();
     setupImagePreview();
+    
+    // Initialiser le prix par kilo en mode édition
+    initializeManualPrice();
     
     // Charger les données existantes en mode édition
     {% if colis %}

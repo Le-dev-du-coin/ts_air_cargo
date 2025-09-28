@@ -124,7 +124,7 @@ def client_list_view(request):
     """
     Liste des clients avec recherche et pagination
     """
-    clients = Client.objects.all().order_by('-date_creation')
+    clients = Client.objects.select_related('user').all().order_by('-date_creation')
     
     # Recherche
     search_query = request.GET.get('search', '')
@@ -136,8 +136,13 @@ def client_list_view(request):
             Q(adresse__icontains=search_query)
         )
     
+    # Pagination
+    paginator = Paginator(clients, 15)  # 15 clients par page
+    page_number = request.GET.get('page')
+    clients_page = paginator.get_page(page_number)
+    
     context = {
-        'clients': clients,
+        'clients': clients_page,
         'search_query': search_query,
     }
     return render(request, 'agent_chine_app/client_list.html', context)
@@ -267,32 +272,28 @@ def client_edit_view(request, client_id):
     }
     return render(request, 'agent_chine_app/client_form.html', context)
 
-@agent_chine_required
-def client_delete_view(request, client_id):
-    """
-    Suppression d'un client
-    """
-    client = get_object_or_404(Client, id=client_id)
-    client.delete()
-    messages.success(request, "Client supprimé avec succès.")
-    return redirect('agent_chine:client_list')
 
 # === GESTION DES LOTS ===
 
 @agent_chine_required
 def lot_list_view(request):
     """
-    Liste des lots
+    Liste des lots avec pagination
     """
-    lots = Lot.objects.all().order_by('-date_creation')
+    lots = Lot.objects.select_related('agent_createur').prefetch_related('colis').all().order_by('-date_creation')
     
     # Filtrage par statut
     statut_filter = request.GET.get('statut', '')
     if statut_filter:
         lots = lots.filter(statut=statut_filter)
     
+    # Pagination
+    paginator = Paginator(lots, 12)  # 12 lots par page
+    page_number = request.GET.get('page')
+    lots_page = paginator.get_page(page_number)
+    
     context = {
-        'lots': lots,
+        'lots': lots_page,
         'statut_filter': statut_filter,
         'statut_choices': Lot.STATUS_CHOICES,
     }
@@ -486,19 +487,61 @@ def lot_expedite_view(request, lot_id):
 @agent_chine_required
 def colis_list_view(request):
     """
-    Liste de tous les colis
+    Liste de tous les colis avec pagination et statistiques dynamiques
     """
-    colis = Colis.objects.all().order_by('-date_creation')
+    colis = Colis.objects.select_related('client__user', 'lot').all().order_by('-date_creation')
     
     # Filtrage par statut
     statut_filter = request.GET.get('statut', '')
     if statut_filter:
         colis = colis.filter(statut=statut_filter)
     
+    # Recherche
+    search_query = request.GET.get('search', '')
+    if search_query:
+        colis = colis.filter(
+            Q(numero_suivi__icontains=search_query) |
+            Q(client__user__first_name__icontains=search_query) |
+            Q(client__user__last_name__icontains=search_query) |
+            Q(client__user__telephone__icontains=search_query) |
+            Q(lot__numero_lot__icontains=search_query)
+        )
+    
+    # Calcul des statistiques dynamiques basées sur les colis filtrés
+    from django.db.models import Sum, Avg, Count, Case, When, F
+    
+    # Calcul du prix effectif : prix manuel si disponible, sinon prix calculé
+    colis_with_price = colis.annotate(
+        prix_effectif=Case(
+            When(prix_transport_manuel__isnull=False, prix_transport_manuel__gt=0, 
+                 then=F('prix_transport_manuel')),
+            default=F('prix_calcule'),
+        )
+    )
+    
+    stats = {
+        'total_colis': colis_with_price.count(),
+        'total_poids': colis_with_price.aggregate(Sum('poids'))['poids__sum'] or 0,
+        'total_prix': colis_with_price.aggregate(Sum('prix_effectif'))['prix_effectif__sum'] or 0,
+        'poids_moyen': colis_with_price.aggregate(Avg('poids'))['poids__avg'] or 0,
+        'prix_moyen': colis_with_price.aggregate(Avg('prix_effectif'))['prix_effectif__avg'] or 0,
+    }
+    
+    # Statistiques par statut
+    stats_by_status = colis_with_price.values('statut').annotate(count=Count('id')).order_by('statut')
+    
+    # Pagination
+    paginator = Paginator(colis_with_price, 20)  # 20 colis par page
+    page_number = request.GET.get('page')
+    colis_page = paginator.get_page(page_number)
+    
     context = {
-        'colis': colis,
+        'colis': colis_page,
         'statut_filter': statut_filter,
+        'search_query': search_query,
         'statut_choices': Colis.STATUS_CHOICES,
+        'stats': stats,
+        'stats_by_status': stats_by_status,
     }
     return render(request, 'agent_chine_app/colis_list.html', context)
 
@@ -527,6 +570,7 @@ def colis_create_view(request, lot_id):
             largeur = request.POST.get('largeur') 
             hauteur = request.POST.get('hauteur')
             poids = request.POST.get('poids')
+            prix_transport_manuel = request.POST.get('prix_transport_manuel')
             mode_paiement = request.POST.get('mode_paiement')
             statut = request.POST.get('statut', 'receptionne_chine')
             description = request.POST.get('description', '')
@@ -569,6 +613,7 @@ def colis_create_view(request, lot_id):
                 'largeur': largeur or 0,
                 'hauteur': hauteur or 0,
                 'poids': poids or 0,
+                'prix_transport_manuel': calculate_manual_price_total(prix_transport_manuel, poids) if prix_transport_manuel and prix_transport_manuel.strip() else None,
                 'mode_paiement': mode_paiement or 'non_paye',
                 'statut': statut,
                 'description': description
@@ -641,6 +686,7 @@ def colis_edit_view(request, colis_id):
             largeur = request.POST.get('largeur') 
             hauteur = request.POST.get('hauteur')
             poids = request.POST.get('poids')
+            prix_transport_manuel = request.POST.get('prix_transport_manuel')
             mode_paiement = request.POST.get('mode_paiement')
             statut = request.POST.get('statut')
             description = request.POST.get('description', '')
@@ -678,6 +724,7 @@ def colis_edit_view(request, colis_id):
                 'largeur': largeur or colis.largeur,
                 'hauteur': hauteur or colis.hauteur,
                 'poids': poids or colis.poids,
+                'prix_transport_manuel': calculate_manual_price_total(prix_transport_manuel, poids or colis.poids) if prix_transport_manuel and prix_transport_manuel.strip() else None,
                 'mode_paiement': mode_paiement or colis.mode_paiement,
                 'statut': statut or colis.statut,
                 'description': description
@@ -735,7 +782,7 @@ def colis_delete_view(request, colis_id):
 @require_http_methods(["POST"])
 def calculate_price_api(request):
     """
-    API pour calculer automatiquement le prix d'un colis avec gestion robuste
+    API pour calculer le prix d'un colis (automatique ou manuel)
     """
     try:
         # Parsing des données JSON
@@ -761,6 +808,7 @@ def calculate_price_api(request):
         
         pays_destination = data.get('pays_destination', 'ML')
         type_transport = data.get('type_transport', 'cargo')
+        prix_manuel = data.get('prix_manuel')  # Prix manuel si fourni
         
         # Validation des paramètres selon le type de transport
         if type_transport == 'bateau':
@@ -778,6 +826,45 @@ def calculate_price_api(request):
                     'details': 'Veuillez saisir le poids du colis'
                 })
         
+        # Si un prix manuel est fourni, calculer le prix total (prix par kilo * poids)
+        if prix_manuel is not None:
+            try:
+                prix_par_kilo = float(prix_manuel)
+                if prix_par_kilo >= 0:
+                    # Pour le prix manuel, on a besoin du poids
+                    if not poids or poids <= 0:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Poids requis pour le prix manuel',
+                            'details': 'Le prix manuel est calculé par kilogramme'
+                        })
+                    
+                    prix_total = prix_par_kilo * poids
+                    volume_m3 = (longueur * largeur * hauteur) / 1000000
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'prix': prix_total,
+                        'volume_m3': volume_m3,
+                        'prix_type': 'manuel',
+                        'message': f'Prix manuel: {prix_par_kilo:,.0f} FCFA/kg × {poids} kg',
+                        'debug_info': {
+                            'poids': poids,
+                            'dimensions': f'{longueur}x{largeur}x{hauteur}cm',
+                            'volume_m3': volume_m3,
+                            'pays': pays_destination,
+                            'type_transport': type_transport,
+                            'prix_par_kilo': prix_par_kilo,
+                            'prix_total': prix_total,
+                            'methode': 'prix_manuel'
+                        }
+                    })
+            except (ValueError, TypeError):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Prix manuel invalide'
+                })
+        
         # Calculer le volume en m3
         volume_m3 = (longueur * largeur * hauteur) / 1000000
         
@@ -793,6 +880,7 @@ def calculate_price_api(request):
                 'success': True,
                 'prix': float(prix_default),
                 'volume_m3': volume_m3,
+                'prix_type': 'automatique',
                 'message': f'Prix calculé avec tarif par défaut ({type_transport})',
                 'debug_info': {
                     'poids': poids,
@@ -843,6 +931,7 @@ def calculate_price_api(request):
             'success': True,
             'prix': float(prix_max),
             'volume_m3': volume_m3,
+            'prix_type': 'automatique',
             'message': f'Prix calculé avec succès ({methode_utilisee})',
             'debug_info': {
                 'poids': poids,
@@ -884,6 +973,29 @@ def calculate_default_price(poids, volume_m3, type_transport):
         return volume_m3 * tarifs_defaut['bateau']
     else:
         return poids * tarifs_defaut.get(type_transport, 10000)
+
+
+def calculate_manual_price_total(prix_par_kilo_str, poids_str):
+    """
+    Calcule le prix total à partir du prix par kilo et du poids
+    
+    Args:
+        prix_par_kilo_str (str): Prix par kilo saisi dans le formulaire
+        poids_str (str): Poids du colis
+        
+    Returns:
+        float: Prix total (prix par kilo * poids)
+    """
+    try:
+        prix_par_kilo = float(prix_par_kilo_str or 0)
+        poids = float(poids_str or 0)
+        
+        if prix_par_kilo <= 0 or poids <= 0:
+            return None
+            
+        return prix_par_kilo * poids
+    except (ValueError, TypeError):
+        return None
 
 # === VUES GESTION TÂCHES ASYNCHRONES ===
 
@@ -950,10 +1062,7 @@ def colis_task_list(request):
             Q(colis__numero_suivi__icontains=search_query)
         )
     
-    # Tri par défaut : les plus récentes en premier
-    tasks = tasks.order_by('-created_at')[:100]  # Limiter à 100 résultats
-    
-    # Statistiques rapides
+    # Statistiques rapides (avant la limitation)
     stats = {
         'pending': tasks.filter(status='pending').count(),
         'running': tasks.filter(status='running').count(),
@@ -961,13 +1070,16 @@ def colis_task_list(request):
         'failed': tasks.filter(status__in=['failed_retry', 'failed_final']).count()
     }
     
+    # Tri par défaut : les plus récentes en premier (après les stats)
+    tasks = tasks.order_by('-created_at')[:100]  # Limiter à 100 résultats
+    
     context = {
         'tasks': tasks,
         'stats': stats,
         'status_filter': status_filter,
         'operation_filter': operation_filter,
         'search_query': search_query,
-        'status_choices': ColisCreationTask.STATUS_CHOICES,
+        'status_choices': ColisCreationTask.TASK_STATUS_CHOICES,
         'operation_choices': ColisCreationTask.OPERATION_CHOICES,
     }
     

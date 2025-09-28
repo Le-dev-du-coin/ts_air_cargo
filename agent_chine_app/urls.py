@@ -12,7 +12,6 @@ urlpatterns = [
     path('clients/create/', views.client_create_view, name='client_create'),
     path('clients/<int:client_id>/', views.client_detail_view, name='client_detail'),
     path('clients/<int:client_id>/edit/', views.client_edit_view, name='client_edit'),
-    path('clients/<int:client_id>/delete/', views.client_delete_view, name='client_delete'),
     
     # Gestion des lots
     path('lots/', views.lot_list_view, name='lot_list'),

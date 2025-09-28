@@ -68,7 +68,7 @@
             <small class="text-muted">- Résultats pour "{{ search_query }}"</small>
             {% endif %}
         </h6>
-        <span class="badge bg-primary">{{ clients.count }} client{{ clients.count|pluralize }}</span>
+        <span class="badge bg-primary">{{ clients.paginator.count }} client{{ clients.paginator.count|pluralize }}</span>
     </div>
     <div class="card-body p-0">
         {% if clients %}
@@ -132,13 +132,6 @@
                                            title="Modifier">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <button type="button" 
-                                                class="btn btn-outline-danger" 
-                                                onclick="confirmDelete('{% url 'agent_chine:client_delete' client.id %}', '{{ client.user.get_full_name }}')"
-                                                data-bs-toggle="tooltip" 
-                                                title="Supprimer">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -209,6 +202,60 @@
             </div>
         {% endif %}
     </div>
+    
+    <!-- Pagination -->
+    {% if clients.has_other_pages %}
+    <div class="card-footer">
+        <nav aria-label="Navigation pagination">
+            <ul class="pagination justify-content-center mb-0">
+                {% if clients.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ clients.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in clients.paginator.page_range %}
+                    {% if clients.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > clients.number|add:'-3' and num < clients.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if clients.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ clients.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ clients.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        
+        <div class="text-center mt-2">
+            <small class="text-muted">
+                Page {{ clients.number }} sur {{ clients.paginator.num_pages }} 
+                ({{ clients.paginator.count }} clients au total)
+            </small>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Action rapide mobile -->
@@ -247,17 +294,3 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-function confirmDelete(url, clientName) {
-    TSAirCargo.confirmAction(
-        `Êtes-vous sûr de vouloir supprimer le client "${clientName}" ?<br><br>
-        <strong class="text-danger">Cette action est irréversible.</strong>`,
-        function() {
-            window.location.href = url;
-        },
-        'Supprimer le client'
-    );
-}
-</script>
-{% endblock %}

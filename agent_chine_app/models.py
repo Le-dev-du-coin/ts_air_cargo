@@ -214,6 +214,14 @@ class Colis(models.Model):
         help_text="Prix calculé automatiquement"
     )
     
+    prix_transport_manuel = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Prix de transport manuel défini par l'agent (prioritaire sur le calcul automatique)"
+    )
+    
     mode_paiement = models.CharField(
         max_length=20,
         choices=PAYMENT_CHOICES,
@@ -245,9 +253,8 @@ class Colis(models.Model):
             unique_id = str(uuid.uuid4())[:8].upper()
             self.numero_suivi = f"TS{unique_id}"
             
-        # Calculer le prix automatiquement
-        if not self.prix_calcule:
-            self.prix_calcule = self.calculer_prix_automatique()
+        # Calculer le prix automatiquement (toujours)
+        self.prix_calcule = self.calculer_prix_automatique()
             
         super().save(*args, **kwargs)
         
@@ -260,12 +267,31 @@ class Colis(models.Model):
         """
         return (self.longueur * self.largeur * self.hauteur) / 1000000  # cm3 vers m3
     
+    def get_prix_effectif(self):
+        """
+        Retourne le prix effectif utilisé (manuel ou calculé)
+        """
+        if self.prix_transport_manuel and self.prix_transport_manuel > 0:
+            return float(self.prix_transport_manuel)
+        return float(self.prix_calcule)
+    
+    def get_source_prix(self):
+        """
+        Retourne la source du prix utilisé
+        """
+        if self.prix_transport_manuel and self.prix_transport_manuel > 0:
+            return 'manuel'
+        return 'automatique'
+    
     def calculer_prix_automatique(self):
         """
         Calculer le prix automatiquement selon les tarifs configurés
         Le calcul dépend du type de transport:
         - Cargo/Express: basé sur le poids
         - Bateau: basé sur les dimensions (volume)
+        
+        Cette méthode calcule TOUJOURS le prix automatique, 
+        indépendamment du prix manuel.
         """
         try:
             from reporting_app.models import ShippingPrice

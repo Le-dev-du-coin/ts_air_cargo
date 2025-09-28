@@ -57,7 +57,7 @@
         <div class="stat-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h3 class="stat-value">{{ colis.count }}</h3>
+                    <h3 class="stat-value">{{ stats.total_colis }}</h3>
                     <p class="stat-label">Total Colis</p>
                 </div>
                 <i class="stat-icon bi bi-archive"></i>
@@ -68,44 +68,48 @@
         <div class="stat-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h3 class="stat-value">{{ colis|length }}</h3>
+                    <h3 class="stat-value">{{ stats.total_poids|floatformat:1 }} kg</h3>
+                    <p class="stat-label">Poids Total</p>
+                    <div class="stat-change">
+                        <i class="bi bi-weight"></i>
+                        Moyenne: {{ stats.poids_moyen|floatformat:1 }} kg
+                    </div>
+                </div>
+                <i class="stat-icon bi bi-weight"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3 equal-height">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value">{{ stats.total_prix|floatformat:0 }} FCFA</h3>
+                    <p class="stat-label">Valeur Total</p>
+                    <div class="stat-change">
+                        <i class="bi bi-cash"></i>
+                        Moyenne: {{ stats.prix_moyen|floatformat:0 }} FCFA
+                    </div>
+                </div>
+                <i class="stat-icon bi bi-cash"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3 equal-height">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    {% for stat in stats_by_status %}
+                        {% if stat.statut == 'receptionne_chine' %}
+                            <h3 class="stat-value">{{ stat.count }}</h3>
+                        {% endif %}
+                    {% endfor %}
                     <p class="stat-label">Réceptionnés</p>
                     <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i>
+                        <i class="bi bi-check-circle"></i>
                         En Chine
                     </div>
                 </div>
                 <i class="stat-icon bi bi-check-circle"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3 equal-height">
-        <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h3 class="stat-value">0</h3>
-                    <p class="stat-label">En Transit</p>
-                    <div class="stat-change">
-                        <i class="bi bi-truck"></i>
-                        Vers le Mali
-                    </div>
-                </div>
-                <i class="stat-icon bi bi-truck"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3 equal-height">
-        <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h3 class="stat-value">0</h3>
-                    <p class="stat-label">Livrés</p>
-                    <div class="stat-change positive">
-                        <i class="bi bi-check-circle"></i>
-                        Au Mali
-                    </div>
-                </div>
-                <i class="stat-icon bi bi-award"></i>
             </div>
         </div>
     </div>
@@ -121,7 +125,7 @@
             <small class="text-muted">- {{ statut_filter|capfirst }}</small>
             {% endif %}
         </h5>
-        <span class="status-badge status-ouvert">{{ colis.count }} colis</span>
+        <span class="status-badge status-ouvert">{{ stats.total_colis }} colis</span>
     </div>
     <div class="modern-card-body p-0">
         {% if colis %}
@@ -174,7 +178,14 @@
                                     <span class="fw-bold">{{ colis.poids }}kg</span>
                                 </td>
                                 <td>
-                                    <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                                    <div>
+                                        <span class="text-success fw-bold">{{ colis.prix_effectif|floatformat:0 }} FCFA</span>
+                                        {% if colis.prix_transport_manuel %}
+                                            <br><small class="text-primary"><i class="bi bi-pencil-square"></i> Manuel</small>
+                                        {% else %}
+                                            <br><small class="text-muted"><i class="bi bi-calculator"></i> Auto</small>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td>
                                     <span class="status-badge status-{{ colis.statut }}">
@@ -254,7 +265,14 @@
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                        <div>
+                            <span class="text-success fw-bold">{{ colis.prix_effectif|floatformat:0 }} FCFA</span>
+                            {% if colis.prix_transport_manuel %}
+                                <small class="text-primary d-block"><i class="bi bi-pencil-square"></i> Prix manuel</small>
+                            {% else %}
+                                <small class="text-muted d-block"><i class="bi bi-calculator"></i> Prix auto</small>
+                            {% endif %}
+                        </div>
                         <span class="badge {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}bg-success{% else %}bg-warning{% endif %}">
                             {{ colis.get_mode_paiement_display }}
                         </span>

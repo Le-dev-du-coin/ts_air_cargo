@@ -176,6 +176,24 @@ TS Air Cargo - Mode Développement"""
         return True, 'sms_simulation_id'
         
     @staticmethod
+    def send_sms(telephone, message):
+        """
+        Méthode publique pour envoyer un SMS directement
+        
+        Args:
+            telephone: Numéro de téléphone
+            message: Message à envoyer
+        """
+        try:
+            # TODO: Intégrer avec un service SMS selon les besoins
+            # Pour l'instant, simuler l'envoi
+            logger.info(f"SMS envoyé à {telephone}: {message}")
+            return True
+        except Exception as e:
+            logger.error(f"Erreur envoi SMS à {telephone}: {str(e)}")
+            raise e
+    
+    @staticmethod
     def _send_email(user, message, title):
         """
         Envoie un email

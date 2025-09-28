@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from .models import CustomUser
-from .forms import LoginForm, RegistrationForm
+from .forms import LoginForm
 
 
 def get_dashboard_url_by_role(user):
@@ -107,30 +107,155 @@ def logout_view(request):
     messages.success(request, f"Au revoir {user_name}! Vous êtes maintenant déconnecté.")
     return redirect('authentication:home')
 
-def register_view(request):
-    """Vue d'inscription pour les nouveaux clients"""
-    if request.user.is_authenticated:
-        return redirect(get_dashboard_url_by_role(request.user))
-    
-    if request.method == 'POST':
-        form = RegistrationForm(request.POST)
-        if form.is_valid():
-            # Créer le nouvel utilisateur
-            user = form.save()
-            messages.success(request, f"Compte créé avec succès ! Bienvenue {user.get_full_name()}!")
-            
-            # Connecter automatiquement l'utilisateur après inscription
-            login(request, user)
-            return redirect(get_dashboard_url_by_role(user))
-    else:
-        form = RegistrationForm()
-    
-    return render(request, 'authentication/register.html', {'form': form})
-
-
 def home_view(request):
     """Page d'accueil avec liens de connexion par rôle"""
     # Si l'utilisateur est déjà connecté, le rediriger vers son dashboard
     if request.user.is_authenticated:
         return redirect(get_dashboard_url_by_role(request.user))
     return render(request, 'authentication/home.html')
+
+
+def password_reset_request_view(request):
+    """Demande de réinitialisation de mot de passe"""
+    if request.user.is_authenticated:
+        return redirect(get_dashboard_url_by_role(request.user))
+    
+    if request.method == 'POST':
+        telephone = request.POST.get('telephone', '').strip()
+        
+        if not telephone:
+            messages.error(request, "Veuillez saisir votre numéro de téléphone.")
+            return render(request, 'authentication/password_reset_request.html')
+        
+        try:
+            user = CustomUser.objects.get(telephone=telephone)
+            
+            # Générer un code de 6 chiffres
+            import random
+            code = str(random.randint(100000, 999999))
+            
+            # Supprimer les anciens tokens non utilisés
+            from .models import PasswordResetToken
+            PasswordResetToken.objects.filter(user=user, used=False).delete()
+            
+            # Créer un nouveau token
+            reset_token = PasswordResetToken.objects.create(
+                user=user,
+                token=code
+            )
+            
+            # Envoyer le code par SMS/WhatsApp
+            try:
+                from notifications_app.services import NotificationService
+                message = f"TS Air Cargo: Votre code de réinitialisation est {code}. Ce code expire dans 24h."
+                
+                NotificationService.send_sms(
+                    telephone=user.telephone,
+                    message=message
+                )
+                
+                messages.success(request, f"Un code de réinitialisation a été envoyé au {user.telephone}.")
+                return redirect('authentication:password_reset_verify', user_id=user.id)
+                
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'envoi du SMS: {str(e)}")
+                reset_token.delete()
+                
+        except CustomUser.DoesNotExist:
+            # Pour des raisons de sécurité, ne pas révéler que l'utilisateur n'existe pas
+            messages.info(request, "Si ce numéro existe dans notre système, un code de réinitialisation a été envoyé.")
+            
+    return render(request, 'authentication/password_reset_request.html')
+
+
+def password_reset_verify_view(request, user_id):
+    """Vérification du code de réinitialisation"""
+    if request.user.is_authenticated:
+        return redirect(get_dashboard_url_by_role(request.user))
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+        messages.error(request, "Lien invalide.")
+        return redirect('authentication:password_reset_request')
+    
+    if request.method == 'POST':
+        code = request.POST.get('code', '').strip()
+        
+        if not code:
+            messages.error(request, "Veuillez saisir le code reçu.")
+            return render(request, 'authentication/password_reset_verify.html', {'user': user})
+        
+        try:
+            from .models import PasswordResetToken
+            reset_token = PasswordResetToken.objects.get(
+                user=user,
+                token=code,
+                used=False
+            )
+            
+            if reset_token.is_expired():
+                messages.error(request, "Le code a expiré. Veuillez demander un nouveau code.")
+                reset_token.delete()
+                return redirect('authentication:password_reset_request')
+            
+            # Code valide, rediriger vers la page de nouveau mot de passe
+            return redirect('authentication:password_reset_confirm', user_id=user.id, token=reset_token.token)
+            
+        except PasswordResetToken.DoesNotExist:
+            messages.error(request, "Code invalide ou expiré.")
+    
+    return render(request, 'authentication/password_reset_verify.html', {'user': user})
+
+
+def password_reset_confirm_view(request, user_id, token):
+    """Définir un nouveau mot de passe"""
+    if request.user.is_authenticated:
+        return redirect(get_dashboard_url_by_role(request.user))
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        from .models import PasswordResetToken
+        reset_token = PasswordResetToken.objects.get(
+            user=user,
+            token=token,
+            used=False
+        )
+        
+        if reset_token.is_expired():
+            messages.error(request, "Le lien a expiré. Veuillez recommencer le processus.")
+            reset_token.delete()
+            return redirect('authentication:password_reset_request')
+            
+    except (CustomUser.DoesNotExist, PasswordResetToken.DoesNotExist):
+        messages.error(request, "Lien invalide ou expiré.")
+        return redirect('authentication:password_reset_request')
+    
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+        
+        if not new_password or not confirm_password:
+            messages.error(request, "Veuillez remplir tous les champs.")
+            return render(request, 'authentication/password_reset_confirm.html', {'user': user})
+        
+        if new_password != confirm_password:
+            messages.error(request, "Les mots de passe ne correspondent pas.")
+            return render(request, 'authentication/password_reset_confirm.html', {'user': user})
+        
+        if len(new_password) < 6:
+            messages.error(request, "Le mot de passe doit contenir au moins 6 caractères.")
+            return render(request, 'authentication/password_reset_confirm.html', {'user': user})
+        
+        # Mettre à jour le mot de passe
+        user.set_password(new_password)
+        user.save()
+        
+        # Marquer le token comme utilisé
+        reset_token.used = True
+        reset_token.save()
+        
+        messages.success(request, "Votre mot de passe a été réinitialisé avec succès ! Vous pouvez maintenant vous connecter.")
+        return redirect('authentication:login_client')
+    
+    return render(request, 'authentication/password_reset_confirm.html', {'user': user})

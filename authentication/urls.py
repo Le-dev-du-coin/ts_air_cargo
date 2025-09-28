@@ -20,9 +20,12 @@ urlpatterns = [
     # URL générique pour le login basé sur le rôle
     path('login/<str:role>/', views.role_based_login_view, name='role_based_login'),
     
-    # Inscription pour les clients
-    path('register/', views.register_view, name='register'),
     
     # Déconnexion
     path('logout/', views.logout_view, name='logout'),
+    
+    # Réinitialisation du mot de passe
+    path('password-reset/', views.password_reset_request_view, name='password_reset_request'),
+    path('password-reset/verify/<int:user_id>/', views.password_reset_verify_view, name='password_reset_verify'),
+    path('password-reset/confirm/<int:user_id>/<str:token>/', views.password_reset_confirm_view, name='password_reset_confirm'),
 ]
