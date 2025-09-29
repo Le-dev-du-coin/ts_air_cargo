@@ -115,6 +115,191 @@ def send_individual_notification(self, notification_id):
 
 
 @shared_task(bind=True)
+def send_bulk_received_colis_notifications(self, colis_ids_list, notification_type='lot_arrived', message_template=None, initiated_by_id=None):
+    """
+    Tâche Celery pour envoyer des notifications seulement aux colis spécifiquement réceptionnés
+    
+    Args:
+        colis_ids_list (list): Liste des IDs des colis réceptionnés
+        notification_type (str): Type de notification (défaut: 'lot_arrived')
+        message_template (str, optional): Template personnalisé du message
+        initiated_by_id (int, optional): ID de l'utilisateur qui a initié la tâche
+        
+    Returns:
+        dict: Statistiques d'envoi
+    """
+    task_record = None
+    
+    try:
+        from agent_chine_app.models import Colis
+        
+        # Récupérer les colis réceptionnés uniquement
+        colis_list = Colis.objects.filter(
+            id__in=colis_ids_list
+        ).select_related('client__user', 'lot').all()
+        
+        if not colis_list:
+            return {
+                'success': False,
+                'error': 'Aucun colis trouvé dans la liste fournie',
+                'colis_ids': colis_ids_list
+            }
+        
+        # Récupérer le lot depuis le premier colis (ils sont du même lot)
+        lot = colis_list[0].lot
+        
+        # Créer l'enregistrement de suivi de la tâche
+        task_record = NotificationTask.objects.create(
+            task_id=self.request.id,
+            task_type=f'bulk_received_{notification_type}',
+            lot_reference=lot,
+            initiated_by_id=initiated_by_id,
+            message_template=message_template or '',
+            total_notifications=len(colis_ids_list)
+        )
+        
+        task_record.mark_as_started()
+        
+        clients_map = {}
+        notifications_created = []
+        
+        # Messages templates (même que l'original mais pour colis réceptionnés)
+        messages_templates = {
+            'lot_arrived': {
+                'title': 'Colis arrivé au Mali',
+                'template': """📍 Bonne nouvelle ! Votre colis est arrivé !
+
+Votre colis {numero_suivi} du lot {numero_lot} est arrivé au Mali.
+
+📅 Date d'arrivée: {date_arrivee}
+
+Équipe TS Air Cargo""",
+                'categorie': 'colis_arrive'
+            }
+        }
+        
+        template_info = messages_templates.get(notification_type, messages_templates['lot_arrived'])
+        final_template = message_template or template_info['template']
+        
+        # Construire la map client -> liste de colis RÉCEPTIONNÉS seulement
+        for colis in colis_list:
+            client = colis.client
+            data = clients_map.setdefault(client.id, {
+                'client': client,
+                'user': client.user,
+                'colis': []
+            })
+            data['colis'].append(colis)
+
+        # Créer une notification par client pour ses colis réceptionnés
+        for _, data in clients_map.items():
+            client = data['client']
+            colis_du_client = data['colis']
+            numeros = [c.numero_suivi for c in colis_du_client]
+            numeros_bullets = "\n".join([f"- {num}" for num in numeros])
+            multi = len(numeros) > 1
+
+            # Préparer les variables communes
+            template_vars = {
+                'numero_suivi': numeros[0] if numeros else '',
+                'numero_lot': lot.numero_lot,
+                'date_arrivee': lot.date_arrivee.strftime('%d/%m/%Y à %H:%M') if hasattr(lot, 'date_arrivee') and lot.date_arrivee else '',
+            }
+
+            # Adapter le message selon le nombre de colis
+            if multi:
+                header = f"📍 Bonne nouvelle ! Vos colis sont arrivés !\n\nVos colis du lot {lot.numero_lot} sont arrivés au Mali.\n📅 Date d'arrivée: {template_vars['date_arrivee']}"
+                formatted_message = f"{header}\n\nColis arrivés:\n{numeros_bullets}\n\nÉquipe TS Air Cargo"
+            else:
+                try:
+                    formatted_message = final_template.format(**template_vars)
+                except KeyError as e:
+                    formatted_message = final_template
+                    logger.warning(f"Variable manquante dans template: {e}")
+
+            # Ajouter info de développement si nécessaire
+            if getattr(settings, 'DEBUG', False):
+                formatted_message = f"""[MODE DEV] {template_info['title']}
+
+👤 Client: {client.user.get_full_name()}
+📞 Téléphone: {client.user.telephone}
+
+{formatted_message}
+
+Merci de votre confiance !
+Équipe TS Air Cargo 🚀"""
+
+            # Créer la notification en base (une par client)
+            notification = Notification.objects.create(
+                destinataire=client.user,
+                type_notification='whatsapp',
+                categorie=template_info['categorie'],
+                titre=template_info['title'],
+                message=formatted_message,
+                telephone_destinataire=client.user.telephone,
+                email_destinataire=client.user.email or '',
+                statut='en_attente',
+                lot_reference=lot
+            )
+
+            notifications_created.append(notification.id)
+        
+        # Mettre à jour le nombre total réel
+        task_record.total_notifications = len(notifications_created)
+        task_record.save(update_fields=['total_notifications'])
+        
+        # Envoyer toutes les notifications de façon asynchrone
+        sent_count = 0
+        failed_count = 0
+        
+        for notif_id in notifications_created:
+            try:
+                send_individual_notification.delay(notif_id)
+                sent_count += 1
+            except Exception as e:
+                logger.error(f"Erreur lors du lancement de la tâche pour notification {notif_id}: {e}")
+                failed_count += 1
+        
+        # Mettre à jour les statistiques
+        task_record.update_progress(sent_count=sent_count, failed_count=failed_count)
+        
+        # Marquer la tâche comme terminée
+        result_data = {
+            'colis_ids': colis_ids_list,
+            'notification_type': notification_type,
+            'total_notifications': len(notifications_created),
+            'notifications_queued': sent_count,
+            'queue_failures': failed_count,
+            'clients_count': len(clients_map)
+        }
+        
+        task_record.mark_as_completed(
+            success=True,
+            result_data=result_data
+        )
+        
+        logger.info(f"Tâche de notification ciblée terminée pour {len(colis_ids_list)} colis réceptionnés: {sent_count} notifications en file d'attente")
+        
+        return result_data
+        
+    except Exception as e:
+        error_msg = f"Erreur lors de l'envoi ciblé pour colis {colis_ids_list}: {str(e)}"
+        logger.error(error_msg)
+        
+        if task_record:
+            task_record.mark_as_completed(
+                success=False,
+                error_message=error_msg
+            )
+        
+        return {
+            'success': False,
+            'error': error_msg,
+            'colis_ids': colis_ids_list
+        }
+
+
+@shared_task(bind=True)
 def send_bulk_lot_notifications(self, lot_id, notification_type, message_template=None, initiated_by_id=None):
     """
     Tâche Celery pour envoyer des notifications en masse pour un lot
@@ -188,8 +373,6 @@ Vous recevrez une notification à son arrivée.
 Votre colis {numero_suivi} du lot {numero_lot} est arrivé au Mali.
 
 📅 Date d'arrivée: {date_arrivee}
-
-Nous vous contacterons bientôt pour organiser la livraison.
 
 Équipe TS Air Cargo""",
                 'categorie': 'colis_arrive'

@@ -419,20 +419,20 @@ def recevoir_lot_view(request, lot_id):
             # Logs debug supprimés pour la production
             
             if notifier_clients:
-                # Utiliser la tâche asynchrone pour notifications de masse
-                from notifications_app.tasks import send_bulk_lot_notifications
+                # Utiliser la nouvelle tâche qui ne notifie que les colis réellement réceptionnés
+                from notifications_app.tasks import send_bulk_received_colis_notifications
                 
-                # Logs debug supprimés pour la production
+                # Récupérer les IDs des colis qui viennent d'être réceptionnés
+                colis_recus_ids_int = [int(colis_id) for colis_id in colis_recus_ids]
                 
                 try:
-                    # Lancer la tâche asynchrone
-                    task_result = send_bulk_lot_notifications.delay(
-                        lot_id=lot.id,
+                    # Lancer la tâche asynchrone pour les colis réceptionnés uniquement
+                    task_result = send_bulk_received_colis_notifications.delay(
+                        colis_ids_list=colis_recus_ids_int,
                         notification_type='lot_arrived',
                         initiated_by_id=request.user.id
                     )
                     
-                    # Logs debug supprimés pour la production
                     notifications_envoyees = f"Tâche asynchrone lancée (ID: {task_result.id})"
                     
                 except Exception as async_error:
