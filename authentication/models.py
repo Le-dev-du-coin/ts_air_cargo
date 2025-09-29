@@ -77,6 +77,12 @@ class CustomUser(AbstractUser):
     is_admin_chine = models.BooleanField(default=False)
     is_client = models.BooleanField(default=True)
     
+    # Champ pour tracker si l'utilisateur a changé son mot de passe par défaut
+    has_changed_default_password = models.BooleanField(
+        default=False,
+        help_text="Indique si l'utilisateur a changé son mot de passe par défaut"
+    )
+    
     # Manager personnalisé
     objects = CustomUserManager()
     

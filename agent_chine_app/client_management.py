@@ -203,6 +203,8 @@ class ClientAccountManager:
             # Générer un nouveau mot de passe temporaire
             temp_password = UserCreationService.generate_temp_password()
             user.set_password(temp_password)
+            # Réinitialiser le flag car c'est un nouveau mot de passe temporaire
+            user.has_changed_default_password = False
             user.save()
             
             # Envoyer la notification

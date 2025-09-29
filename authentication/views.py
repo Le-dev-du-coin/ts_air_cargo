@@ -249,6 +249,8 @@ def password_reset_confirm_view(request, user_id, token):
         
         # Mettre à jour le mot de passe
         user.set_password(new_password)
+        # Marquer que l'utilisateur a changé son mot de passe par défaut
+        user.has_changed_default_password = True
         user.save()
         
         # Marquer le token comme utilisé

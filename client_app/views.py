@@ -118,11 +118,7 @@ def dashboard_view(request):
         is_first_login = True
     
     # Vérifier si l'utilisateur utilise encore le mot de passe par défaut
-    # (on peut supposer que si last_login est très récent par rapport à date_joined, c'est potentiellement le cas)
-    show_password_reminder = False
-    if request.user.last_login and request.user.date_joined:
-        if (request.user.last_login - request.user.date_joined) < timedelta(hours=1):
-            show_password_reminder = True
+    show_password_reminder = not request.user.has_changed_default_password
     
     context = {
         'stats': stats,
@@ -407,6 +403,9 @@ def change_password_view(request):
         form = PasswordChangeForm(request.user, request.POST)
         if form.is_valid():
             user = form.save()
+            # Marquer que l'utilisateur a changé son mot de passe par défaut
+            user.has_changed_default_password = True
+            user.save()
             update_session_auth_hash(request, user)  # Important!
             messages.success(request, 'Votre mot de passe a été changé avec succès!')
             return redirect('client_app:dashboard')
