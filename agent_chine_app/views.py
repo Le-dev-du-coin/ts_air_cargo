@@ -1676,7 +1676,7 @@ def clients_search_api(request):
                 'email': client.user.email or '',
                 'pays': client.pays,
                 'pays_display': client.get_pays_display(),
-                'adresse': client.adresse_complete,
+                'adresse': client.adresse or '',
             })
         
         # Réponse Select2 format

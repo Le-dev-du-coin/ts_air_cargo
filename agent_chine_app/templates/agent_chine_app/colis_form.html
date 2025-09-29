@@ -69,16 +69,30 @@
                                 </label>
                                 <select class="form-select client-select-searchable" id="client_select" name="client" required onchange="loadClientInfo(this.value)">
                                     <option value="">-- Recherchez un client par nom ou téléphone --</option>
-                                    {% for client in clients %}
-                                        <option value="{{ client.id }}" 
-                                                data-name="{{ client.user.get_full_name }}"
-                                                data-phone="{{ client.user.telephone }}"
-                                                data-country="{{ client.get_pays_display }}"
-                                                data-address="{{ client.adresse }}"
-                                                {% if colis and colis.client.id == client.id %}selected{% endif %}>
-                                            🏴 {{ client.pays}} - {{ client.user.get_full_name }} ({{ client.user.telephone }})
-                                        </option>
-                                    {% endfor %}
+                                    {% if clients|length <= 50 %}
+                                        <!-- Mode local: générer toutes les options -->
+                                        {% for client in clients %}
+                                            <option value="{{ client.id }}" 
+                                                    data-name="{{ client.user.get_full_name }}"
+                                                    data-phone="{{ client.user.telephone }}"
+                                                    data-country="{{ client.get_pays_display }}"
+                                                    data-address="{{ client.adresse }}"
+                                                    {% if colis and colis.client.id == client.id %}selected{% endif %}>
+                                                🏴 {{ client.pays}} - {{ client.user.get_full_name }} ({{ client.user.telephone }})
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <!-- Mode AJAX: ne générer que le client sélectionné -->
+                                        {% if colis and colis.client %}
+                                            <option value="{{ colis.client.id }}" selected
+                                                    data-name="{{ colis.client.user.get_full_name }}"
+                                                    data-phone="{{ colis.client.user.telephone }}"
+                                                    data-country="{{ colis.client.get_pays_display }}"
+                                                    data-address="{{ colis.client.adresse }}">
+                                                🏴 {{ colis.client.pays}} - {{ colis.client.user.get_full_name }} ({{ colis.client.user.telephone }})
+                                            </option>
+                                        {% endif %}
+                                    {% endif %}
                                 </select>
                                 <div class="form-text" id="client-search-help">
                                     <i class="bi bi-search"></i>
