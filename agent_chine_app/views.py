@@ -1,7 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 from django.utils import timezone
@@ -163,6 +164,37 @@ def client_create_view(request):
             pays = request.POST.get('pays', 'ML')
             password = request.POST.get('password')  # Mot de passe saisi par l'agent
             
+            # Debug: Vérifier les données reçues
+            print(f"DEBUG - Données POST reçues: {dict(request.POST)}")
+            print(f"DEBUG - Téléphone: '{telephone}' (type: {type(telephone)})")
+            print(f"DEBUG - Prénom: '{first_name}' (type: {type(first_name)})")
+            print(f"DEBUG - Nom: '{last_name}' (type: {type(last_name)})")
+            
+            # Validation basique
+            if not telephone or not telephone.strip():
+                messages.error(request, "❌ Le numéro de téléphone est requis.")
+                return render(request, 'agent_chine_app/client_form.html', {
+                    'title': 'Nouveau Client',
+                    'submit_text': 'Créer',
+                    'countries': Client._meta.get_field('pays').choices,
+                })
+            
+            if not first_name or not first_name.strip():
+                messages.error(request, "❌ Le prénom est requis.")
+                return render(request, 'agent_chine_app/client_form.html', {
+                    'title': 'Nouveau Client',
+                    'submit_text': 'Créer',
+                    'countries': Client._meta.get_field('pays').choices,
+                })
+            
+            if not last_name or not last_name.strip():
+                messages.error(request, "❌ Le nom est requis.")
+                return render(request, 'agent_chine_app/client_form.html', {
+                    'title': 'Nouveau Client',
+                    'submit_text': 'Créer',
+                    'countries': Client._meta.get_field('pays').choices,
+                })
+            
             # Créer ou récupérer le compte utilisateur avec mot de passe personnalisé
             result = ClientAccountManager.get_or_create_client_with_password(
                 telephone=telephone,
@@ -195,7 +227,25 @@ def client_create_view(request):
                 
             return redirect('agent_chine:client_detail', client_id=client.id)
             
+        except ValidationError as e:
+            # Erreur de validation - afficher le message d'erreur spécifique
+            if hasattr(e, 'message_dict') and e.message_dict:
+                for field, errors in e.message_dict.items():
+                    if isinstance(errors, list):
+                        for error in errors:
+                            messages.error(request, f"❌ {field}: {error}")
+                    else:
+                        messages.error(request, f"❌ {field}: {errors}")
+            else:
+                # ValidationError simple avec message direct
+                messages.error(request, f"❌ {str(e)}")
+                    
         except Exception as e:
+            print(f"ERREUR DEBUG - Exception complète: {e}")
+            print(f"ERREUR DEBUG - Type: {type(e)}")
+            import traceback
+            print(f"ERREUR DEBUG - Traceback: {traceback.format_exc()}")
+            
             messages.error(request, f"❌ Erreur lors de la création du client: {str(e)}")
     
     context = {
