@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -164,11 +164,6 @@ def client_create_view(request):
             pays = request.POST.get('pays', 'ML')
             password = request.POST.get('password')  # Mot de passe saisi par l'agent
             
-            # Debug: Vérifier les données reçues
-            print(f"DEBUG - Données POST reçues: {dict(request.POST)}")
-            print(f"DEBUG - Téléphone: '{telephone}' (type: {type(telephone)})")
-            print(f"DEBUG - Prénom: '{first_name}' (type: {type(first_name)})")
-            print(f"DEBUG - Nom: '{last_name}' (type: {type(last_name)})")
             
             # Validation basique
             if not telephone or not telephone.strip():
@@ -241,11 +236,6 @@ def client_create_view(request):
                 messages.error(request, f"❌ {str(e)}")
                     
         except Exception as e:
-            print(f"ERREUR DEBUG - Exception complète: {e}")
-            print(f"ERREUR DEBUG - Type: {type(e)}")
-            import traceback
-            print(f"ERREUR DEBUG - Traceback: {traceback.format_exc()}")
-            
             messages.error(request, f"❌ Erreur lors de la création du client: {str(e)}")
     
     context = {
