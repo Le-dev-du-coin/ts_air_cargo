@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from authentication.services import UserCreationService
 from notifications_app.services import NotificationService
+from .services.whatsapp_monitoring import WhatsAppMonitoringService
 import logging
 
 User = get_user_model()
@@ -53,16 +54,47 @@ class ClientAccountManager:
             
             notification_sent = False
             
-            # Si un nouveau compte a été créé, envoyer les identifiants
+            # Si un nouveau compte a été créé, envoyer les identifiants avec monitoring
             if result['created'] and notify:
                 try:
-                    notification_sent = NotificationService.send_client_creation_notification(
+                    # Préparer le message de création de compte
+                    message = f"""
+🎉 Bienvenue chez TS Air Cargo !
+
+👤 Nom: {result['user'].get_full_name()}
+📞 Téléphone: {result['user'].telephone}
+✉️ Email: {result['user'].email}
+
+🔑 Mot de passe temporaire: {result['password']}
+⚠️ Veuillez changer ce mot de passe lors de votre première connexion.
+
+🌐 Connectez-vous sur notre plateforme pour gérer vos envois.
+
+Équipe TS Air Cargo 🚀
+"""
+                    
+                    # Envoyer avec monitoring et retry automatique
+                    attempt, success, error_message = WhatsAppMonitoringService.send_monitored_notification(
                         user=result['user'],
-                        temp_password=result['password']
+                        message_content=message,
+                        message_type='account',
+                        category='creation_compte',
+                        title='Création de compte TS Air Cargo',
+                        priority=2,  # Priorité haute pour création de compte
+                        max_attempts=5,  # Plus de tentatives pour les créations de compte
+                        region_override='chine'  # Force l'instance Chine pour création de comptes
                     )
-                    logger.info(f"Compte client créé et notification envoyée: {telephone}")
+                    
+                    notification_sent = success
+                    
+                    if success:
+                        logger.info(f"Compte client créé et notification envoyée avec monitoring: {telephone} (attempt_id: {attempt.id})")
+                    else:
+                        logger.warning(f"Compte créé mais notification en retry: {telephone} (attempt_id: {attempt.id}) - {error_message}")
+                        
                 except Exception as e:
-                    logger.error(f"Erreur envoi notification pour {telephone}: {str(e)}")
+                    logger.error(f"Erreur envoi notification avec monitoring pour {telephone}: {str(e)}")
+                    notification_sent = False
             
             return {
                 'client': result['user'],
@@ -134,16 +166,47 @@ class ClientAccountManager:
                 
                 notification_sent = False
                 
-                # Si un nouveau compte a été créé, envoyer les identifiants
+                # Si un nouveau compte a été créé, envoyer les identifiants avec monitoring
                 if notify:
                     try:
-                        notification_sent = NotificationService.send_client_creation_notification(
+                        # Préparer le message de création de compte
+                        message = f"""
+🎉 Bienvenue chez TS Air Cargo !
+
+👤 Nom: {user.get_full_name()}
+📞 Téléphone: {user.telephone}
+✉️ Email: {user.email}
+
+🔑 Mot de passe: {final_password}
+⚠️ Veuillez changer ce mot de passe lors de votre première connexion.
+
+🌐 Connectez-vous sur notre plateforme pour gérer vos envois.
+
+Équipe TS Air Cargo 🚀
+"""
+                        
+                        # Envoyer avec monitoring et retry automatique
+                        attempt, success, error_message = WhatsAppMonitoringService.send_monitored_notification(
                             user=user,
-                            temp_password=final_password
+                            message_content=message,
+                            message_type='account',
+                            category='creation_compte',
+                            title='Création de compte TS Air Cargo',
+                            priority=2,  # Priorité haute pour création de compte
+                            max_attempts=5,  # Plus de tentatives pour les créations de compte
+                            region_override='chine'  # Force l'instance Chine pour création de comptes
                         )
-                        logger.info(f"Compte client créé et notification envoyée: {telephone}")
+                        
+                        notification_sent = success
+                        
+                        if success:
+                            logger.info(f"Compte client créé et notification envoyée avec monitoring: {telephone} (attempt_id: {attempt.id})")
+                        else:
+                            logger.warning(f"Compte créé mais notification en retry: {telephone} (attempt_id: {attempt.id}) - {error_message}")
+                            
                     except Exception as e:
-                        logger.error(f"Erreur envoi notification pour {telephone}: {str(e)}")
+                        logger.error(f"Erreur envoi notification avec monitoring pour {telephone}: {str(e)}")
+                        notification_sent = False
                 
                 return {
                     'client': user,
