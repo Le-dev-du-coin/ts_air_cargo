@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     
     # TS Air Cargo Applications
     'authentication',
+    'whatsapp_monitoring_app',  # App centralisée pour le monitoring WhatsApp
     'admin_chine_app',
     'admin_mali_app',
     'agent_chine_app',

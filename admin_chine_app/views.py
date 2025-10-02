@@ -11,6 +11,7 @@ from admin_mali_app.models import TransfertArgent
 from agent_chine_app.models import Lot, Colis
 from agent_mali_app.models import Depense
 from authentication.models import CustomUser
+# Import sera fait localement dans la fonction
 
 
 def admin_chine_required(view_func):
@@ -1415,6 +1416,19 @@ def export_rapport_excel(request):
     
     wb.save(response)
     return response
+
+
+@admin_chine_required
+def whatsapp_admin_monitoring(request):
+    """
+    Monitoring WhatsApp complet pour admin (toutes les apps)
+    Redirige vers la vue de monitoring centralisée
+    """
+    # Import local pour éviter les dépendances circulaires
+    from whatsapp_monitoring_app.views import whatsapp_monitoring_dashboard_admin
+    
+    # Utiliser la vue centralisée du monitoring
+    return whatsapp_monitoring_dashboard_admin(request)
 
 
 @admin_chine_required

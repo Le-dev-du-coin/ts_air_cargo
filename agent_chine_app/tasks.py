@@ -15,7 +15,9 @@ from PIL import Image
 import tempfile
 
 from .models import ColisCreationTask, Colis, Client, Lot
+from .client_management import ClientAccountManager
 from notifications_app.tasks import notify_colis_created, notify_colis_updated
+from whatsapp_monitoring_app.tasks import send_whatsapp_async
 
 logger = logging.getLogger(__name__)
 
@@ -520,4 +522,128 @@ def cleanup_old_tasks():
         return {
             'success': False,
             'error': str(e)
+        }
+
+
+@shared_task(bind=True, max_retries=3)
+def create_client_account_async(self, telephone, first_name, last_name, email=None, password=None, send_notifications=True):
+    """
+    Tâche asynchrone pour créer un compte client avec notifications WhatsApp via monitoring
+    
+    Args:
+        telephone: Numéro de téléphone du client
+        first_name: Prénom du client  
+        last_name: Nom du client
+        email: Email optionnel
+        password: Mot de passe optionnel
+        send_notifications: Envoyer les notifications WhatsApp
+        
+    Returns:
+        dict: Résultat de la création avec détails
+    """
+    try:
+        logger.info(f"🚀 Début création client asynchrone: {telephone}")
+        
+        # Créer ou récupérer le client (synchrone)
+        if password:
+            client_result = ClientAccountManager.get_or_create_client_with_password(
+                telephone=telephone,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                password=password,
+                notify=False  # On va gérer les notifications async séparément
+            )
+        else:
+            client_result = ClientAccountManager.get_or_create_client(
+                telephone=telephone,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                notify=False  # On va gérer les notifications async séparément
+            )
+        
+        result = {
+            'client_id': client_result['client'].id,
+            'client_phone': client_result['client'].telephone,
+            'client_name': client_result['client'].get_full_name(),
+            'created': client_result['created'],
+            'password': client_result['password'] if client_result['created'] else None,
+            'celery_task_id': self.request.id,
+            'notifications_sent': []
+        }
+        
+        # Envoyer les notifications de manière asynchrone si demandé et nouveau client
+        if send_notifications and client_result['created']:
+            
+            # Message avec identifiants
+            if client_result['password']:
+                credentials_message = f"""
+🎉 Bienvenue chez TS Air Cargo !
+
+👤 Nom: {client_result['client'].get_full_name()}
+📞 Téléphone: {client_result['client'].telephone}
+✉️ Email: {client_result['client'].email}
+
+🔑 Mot de passe: {client_result['password']}
+⚠️ Veuillez changer ce mot de passe lors de votre première connexion.
+
+🌐 Connectez-vous sur notre plateforme pour gérer vos envois.
+
+Équipe TS Air Cargo 🚀
+"""
+                
+                # Envoyer notification avec identifiants (asynchrone)
+                credentials_task = send_whatsapp_async(
+                    user=client_result['client'],
+                    message_content=credentials_message,
+                    source_app='agent_chine',
+                    message_type='credentials',
+                    category='client_creation',
+                    title="Identifiants client TS Air Cargo",
+                    priority=1,  # Haute priorité
+                    max_attempts=5,
+                    sender_role='agent_chine',
+                    region_override='chine',
+                    context_data={
+                        'client_id': client_result['client'].id,
+                        'action': 'creation_client_async',
+                        'has_credentials': True,
+                        'parent_task_id': self.request.id
+                    }
+                )
+                
+                result['notifications_sent'].append({
+                    'type': 'credentials',
+                    'task_id': credentials_task.id,
+                    'status': 'scheduled'
+                })
+                
+                logger.info(f"📤 Notification identifiants programmée pour {telephone} (task: {credentials_task.id})")
+            
+            # Message de bienvenue supprimé - seul le message avec identifiants est envoyé
+            logger.info(f"ℹ️ Message de bienvenue supprimé pour éviter la duplication pour {telephone}")
+        
+        if client_result['created']:
+            logger.info(f"✅ Client {telephone} créé avec succès et notifications programmées")
+        else:
+            logger.info(f"ℹ️ Client {telephone} existait déjà")
+        
+        return result
+        
+    except Exception as e:
+        error_msg = f"Erreur création client async {telephone}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        
+        # Retry automatique
+        if self.request.retries < self.max_retries:
+            logger.info(f"🔄 Retry création client async {telephone} (tentative {self.request.retries + 1})")
+            raise self.retry(countdown=60 * (2 ** self.request.retries))
+        
+        return {
+            'success': False,
+            'error': error_msg,
+            'telephone': telephone,
+            'celery_task_id': self.request.id,
+            'retries_exhausted': True
         }

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import whatsapp_integration
 
 app_name = 'agent_mali'
 
@@ -45,4 +46,9 @@ urlpatterns = [
     path('export-rapport-cargo-excel/', views.export_rapport_cargo_excel, name='export_rapport_cargo_excel'),
     path('export-rapport-express-excel/', views.export_rapport_express_excel, name='export_rapport_express_excel'),
     path('export-rapport-bateau-excel/', views.export_rapport_bateau_excel, name='export_rapport_bateau_excel'),
+    
+    # === Monitoring WhatsApp pour Agent Mali ===
+    path('whatsapp/monitoring/', whatsapp_integration.whatsapp_monitoring_dashboard, name='whatsapp_monitoring'),
+    path('whatsapp/monitoring/list/', whatsapp_integration.whatsapp_monitoring_list, name='whatsapp_monitoring_list'),
+    path('whatsapp/monitoring/retry/', whatsapp_integration.retry_failed_notifications, name='whatsapp_retry_failed'),
 ]

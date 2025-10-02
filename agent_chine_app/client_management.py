@@ -8,7 +8,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from authentication.services import UserCreationService
 from notifications_app.services import NotificationService
-from .services.whatsapp_monitoring import WhatsAppMonitoringService
+from whatsapp_monitoring_app.services import send_whatsapp_monitored
+from whatsapp_monitoring_app.tasks import send_whatsapp_async
 import logging
 
 User = get_user_model()
@@ -73,24 +74,9 @@ class ClientAccountManager:
 Équipe TS Air Cargo 🚀
 """
                     
-                    # Envoyer avec monitoring et retry automatique
-                    attempt, success, error_message = WhatsAppMonitoringService.send_monitored_notification(
-                        user=result['user'],
-                        message_content=message,
-                        message_type='account',
-                        category='creation_compte',
-                        title='Création de compte TS Air Cargo',
-                        priority=2,  # Priorité haute pour création de compte
-                        max_attempts=5,  # Plus de tentatives pour les créations de compte
-                        region_override='chine'  # Force l'instance Chine pour création de comptes
-                    )
-                    
-                    notification_sent = success
-                    
-                    if success:
-                        logger.info(f"Compte client créé et notification envoyée avec monitoring: {telephone} (attempt_id: {attempt.id})")
-                    else:
-                        logger.warning(f"Compte créé mais notification en retry: {telephone} (attempt_id: {attempt.id}) - {error_message}")
+                    # Les notifications sont gérées par Celery dans une tâche séparée
+                    notification_sent = False  # Pas de notification dans cette version synchrone
+                    logger.info(f"✅ Compte client créé: {telephone} (notifications gérées par Celery)")
                         
                 except Exception as e:
                     logger.error(f"Erreur envoi notification avec monitoring pour {telephone}: {str(e)}")
@@ -185,24 +171,9 @@ class ClientAccountManager:
 Équipe TS Air Cargo 🚀
 """
                         
-                        # Envoyer avec monitoring et retry automatique
-                        attempt, success, error_message = WhatsAppMonitoringService.send_monitored_notification(
-                            user=user,
-                            message_content=message,
-                            message_type='account',
-                            category='creation_compte',
-                            title='Création de compte TS Air Cargo',
-                            priority=2,  # Priorité haute pour création de compte
-                            max_attempts=5,  # Plus de tentatives pour les créations de compte
-                            region_override='chine'  # Force l'instance Chine pour création de comptes
-                        )
-                        
-                        notification_sent = success
-                        
-                        if success:
-                            logger.info(f"Compte client créé et notification envoyée avec monitoring: {telephone} (attempt_id: {attempt.id})")
-                        else:
-                            logger.warning(f"Compte créé mais notification en retry: {telephone} (attempt_id: {attempt.id}) - {error_message}")
+                        # Les notifications sont gérées par Celery dans une tâche séparée
+                        notification_sent = False  # Pas de notification dans cette version synchrone
+                        logger.info(f"✅ Compte client créé: {telephone} (notifications gérées par Celery)")
                             
                     except Exception as e:
                         logger.error(f"Erreur envoi notification avec monitoring pour {telephone}: {str(e)}")

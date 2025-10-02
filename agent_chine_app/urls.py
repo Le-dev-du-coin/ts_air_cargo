@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import whatsapp_views
 
 app_name = 'agent_chine'
 
@@ -64,4 +65,11 @@ urlpatterns = [
     
     # Liste des comptes utilisateurs clients
     path('user-clients/', views.user_clients_list, name='user_clients_list'),
+    
+    # === Monitoring WhatsApp pour Agent Chine ===
+    path('whatsapp/monitoring/', whatsapp_views.whatsapp_monitoring_dashboard, name='whatsapp_monitoring'),
+    path('whatsapp/monitoring/list/', whatsapp_views.whatsapp_monitoring_list, name='whatsapp_monitoring_list'),
+    path('whatsapp/monitoring/retry/', whatsapp_views.retry_failed_notifications, name='whatsapp_retry_failed'),
+    path('whatsapp/monitoring/<int:attempt_id>/', whatsapp_views.whatsapp_attempt_details, name='whatsapp_attempt_details'),
+    path('api/whatsapp/monitoring/stats/', whatsapp_views.monitoring_stats_api, name='whatsapp_monitoring_stats_api'),
 ]

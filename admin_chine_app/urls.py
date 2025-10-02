@@ -43,4 +43,8 @@ urlpatterns = [
     path('export-depenses-excel/', views.export_depenses_excel, name='export_depenses_excel'),
     path('export-rapport-cargo-excel/', views.export_rapport_cargo_excel, name='export_rapport_cargo_excel'),
     path('export-rapport-express-excel/', views.export_rapport_express_excel, name='export_rapport_express_excel'),
+    
+    # === Monitoring WhatsApp Complet (Admin) ===
+    # Import des vues depuis whatsapp_monitoring_app pour monitoring global
+    path('whatsapp/monitoring/', views.whatsapp_admin_monitoring, name='whatsapp_monitoring'),
 ]

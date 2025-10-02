@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.http import JsonResponse
 import json
 import tempfile
 import os
@@ -16,7 +17,8 @@ import json
 from .models import Client, Lot, Colis
 from reporting_app.models import ShippingPrice
 from notifications_app.models import Notification
-from .client_management import ClientAccountManager, send_client_credentials
+from .client_management import ClientAccountManager
+from .client_async_utils import create_client_async
 from django.contrib.auth import get_user_model
 from notifications_app.services import NotificationService
 
@@ -190,15 +192,60 @@ def client_create_view(request):
                     'countries': Client._meta.get_field('pays').choices,
                 })
             
-            # Créer ou récupérer le compte utilisateur avec mot de passe personnalisé
-            result = ClientAccountManager.get_or_create_client_with_password(
-                telephone=telephone,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                password=password,
-                notify=True
-            )
+            # Lancer la création asynchrone du client avec notifications
+            try:
+                task_result = create_client_async(
+                    telephone=telephone,
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    password=password,
+                    send_notifications=True
+                )
+                
+                # Récupérer le résultat immédiatement (avec timeout court)
+                import time
+                start_time = time.time()
+                while time.time() - start_time < 10:  # Timeout 10 secondes
+                    if task_result.ready():
+                        result = task_result.result
+                        if result.get('success', True):
+                            # Récupérer l'utilisateur créé
+                            from django.contrib.auth import get_user_model
+                            User = get_user_model()
+                            user = User.objects.get(id=result['client_id'])
+                            result = {
+                                'client': user,
+                                'created': result['created'],
+                                'password': result.get('password'),
+                                'notification_sent': len(result.get('notifications_sent', [])) > 0
+                            }
+                            break
+                        else:
+                            raise Exception(result.get('error', 'Erreur création client async'))
+                    time.sleep(0.5)
+                else:
+                    # Si timeout, utiliser la version synchrone sans notifications
+                    result = ClientAccountManager.get_or_create_client_with_password(
+                        telephone=telephone,
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        password=password,
+                        notify=False  # Notifications déjà gérées par la tâche async
+                    )
+                    messages.info(request, "⏳ Notifications WhatsApp en cours d'envoi...")
+            except Exception as async_error:
+                # Fallback vers création synchrone si problème avec Celery
+                result = ClientAccountManager.get_or_create_client_with_password(
+                    telephone=telephone,
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    password=password,
+                    notify=False
+                )
+                messages.warning(request, f"⚠️ Client créé mais notifications en arrière-plan: {str(async_error)[:100]}")
             
             # Créer ou mettre à jour le profil client
             client, client_created = Client.objects.get_or_create(
@@ -216,7 +263,10 @@ def client_create_view(request):
                 client.save()
             
             if result['created']:
-                messages.success(request, f"✅ Nouveau client créé: {result['client'].get_full_name()}. Identifiants envoyés par WhatsApp.")
+                if result.get('notification_sent', False):
+                    messages.success(request, f"✅ Nouveau client créé: {result['client'].get_full_name()}. 📤 Notifications WhatsApp envoyées !")
+                else:
+                    messages.success(request, f"✅ Nouveau client créé: {result['client'].get_full_name()}. ⏳ Notifications en cours...")
             else:
                 messages.info(request, f"ℹ️ Client existant mis à jour: {result['client'].get_full_name()}")
                 

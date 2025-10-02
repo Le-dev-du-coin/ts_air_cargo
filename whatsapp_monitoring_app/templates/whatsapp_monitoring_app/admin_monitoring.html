@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+
+{% block title %}Monitoring WhatsApp Administrateur{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1><i class="fas fa-chart-line text-primary"></i> Monitoring WhatsApp Global</h1>
+    <p class="text-muted">Dashboard administrateur - Toutes les applications</p>
+
+    <!-- Statistiques générales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h3>{{ stats.total_attempts }}</h3>
+                    <p>Total Tentatives</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h3>{{ stats.successful }}</h3>
+                    <p>Envoyées</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h3>{{ stats.pending }}</h3>
+                    <p>En attente</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h3>{{ stats.failed }}</h3>
+                    <p>Échecs</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taux de succès -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Taux de succès global: {{ stats.success_rate }}%</h5>
+                </div>
+                <div class="card-body">
+                    <div class="progress">
+                        <div class="progress-bar bg-success" style="width: {{ stats.success_rate }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques par app -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Statistiques par Application</h5>
+                </div>
+                <div class="card-body">
+                    {% for app_stat in stats_by_app %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span><strong>{{ app_stat.source_app|title }}</strong></span>
+                            <span>{{ app_stat.count }} total</span>
+                        </div>
+                        <div class="progress mb-1">
+                            <div class="progress-bar bg-info" 
+                                 style="width: {% widthratio app_stat.success_count app_stat.count 100 %}%"></div>
+                        </div>
+                        <small class="text-muted">
+                            ✅ {{ app_stat.success_count }} succès / 
+                            ❌ {{ app_stat.failed_count }} échecs / 
+                            ⏳ {{ app_stat.pending_count }} en attente
+                        </small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">Aucune donnée disponible</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques par période -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Activité par Période</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Dernières 24h</span>
+                            <span class="badge bg-primary">{{ stats_by_period.last_24h }}</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>7 derniers jours</span>
+                            <span class="badge bg-info">{{ stats_by_period.last_7days }}</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>30 derniers jours</span>
+                            <span class="badge bg-secondary">{{ stats_by_period.last_30days }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dernières tentatives -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Dernières Tentatives</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>App</th>
+                                    <th>Destinataire</th>
+                                    <th>Type</th>
+                                    <th>Titre</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attempt in recent_attempts %}
+                                <tr>
+                                    <td>
+                                        <small>{{ attempt.created_at|date:"d/m/Y H:i" }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">
+                                            {{ attempt.source_app }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ attempt.user.get_full_name|default:attempt.user.telephone }}</strong><br>
+                                        <small class="text-muted">{{ attempt.user.telephone }}</small>
+                                    </td>
+                                    <td>{{ attempt.message_type }}</td>
+                                    <td>{{ attempt.title|truncatechars:30 }}</td>
+                                    <td>
+                                        {% if attempt.status == 'sent' %}
+                                            <span class="badge bg-success">Envoyé</span>
+                                        {% elif attempt.status == 'pending' %}
+                                            <span class="badge bg-warning">En attente</span>
+                                        {% elif attempt.status == 'retry' %}
+                                            <span class="badge bg-info">Retry</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Échec</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        Aucune tentative récente
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Échecs nécessitant attention -->
+    {% if failed_attempts %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Échecs nécessitant attention</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>App</th>
+                                    <th>Date</th>
+                                    <th>Destinataire</th>
+                                    <th>Type</th>
+                                    <th>Tentatives</th>
+                                    <th>Erreur</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attempt in failed_attempts %}
+                                <tr>
+                                    <td><strong>{{ attempt.source_app }}</strong></td>
+                                    <td>
+                                        <small>{{ attempt.created_at|date:"d/m/Y H:i" }}</small>
+                                    </td>
+                                    <td>{{ attempt.user.telephone }}</td>
+                                    <td>{{ attempt.message_type }}</td>
+                                    <td>
+                                        <span class="badge bg-warning">
+                                            {{ attempt.retry_count }}/{{ attempt.max_attempts }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-danger">
+                                            {{ attempt.error_message|truncatechars:50 }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.card {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+.progress {
+    height: 8px;
+}
+</style>
+{% endblock %}

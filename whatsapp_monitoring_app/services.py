@@ -1,12 +1,13 @@
 """
-Service de monitoring et retry pour les notifications WhatsApp
-dans l'application agent_chine
+Service centralisé de monitoring et retry pour les notifications WhatsApp
+Utilisable par toutes les apps du projet
 """
 
 import logging
 from django.utils import timezone
 from django.conf import settings
-from ..models.whatsapp_monitoring import WhatsAppMessageAttempt, WhatsAppWebhookLog
+from django.db import models
+from .models import WhatsAppMessageAttempt, WhatsAppWebhookLog
 from notifications_app.wachap_service import wachap_service
 
 logger = logging.getLogger(__name__)
@@ -14,11 +15,12 @@ logger = logging.getLogger(__name__)
 
 class WhatsAppMonitoringService:
     """
-    Service pour le monitoring et le retry des notifications WhatsApp
+    Service centralisé pour le monitoring et le retry des notifications WhatsApp
+    Utilisable par toutes les apps (agent_chine, agent_mali, admin, etc.)
     """
     
     @staticmethod
-    def create_message_attempt(user, message_content, message_type='notification', 
+    def create_message_attempt(user, message_content, source_app, message_type='notification', 
                              category='', title='', priority=3, max_attempts=3,
                              sender_role=None, region_override=None, context_data=None):
         """
@@ -27,7 +29,8 @@ class WhatsAppMonitoringService:
         Args:
             user: Utilisateur destinataire
             message_content: Contenu du message
-            message_type: Type de message ('account', 'otp', 'system', 'notification', etc.)
+            source_app: App source ('agent_chine', 'agent_mali', 'admin_chine', etc.)
+            message_type: Type de message
             category: Catégorie spécifique
             title: Titre du message
             priority: Priorité (1=très haute, 5=très basse)
@@ -42,6 +45,7 @@ class WhatsAppMonitoringService:
         attempt = WhatsAppMessageAttempt.objects.create(
             user=user,
             phone_number=user.telephone,
+            source_app=source_app,
             message_type=message_type,
             category=category,
             priority=priority,
@@ -53,7 +57,7 @@ class WhatsAppMonitoringService:
             context_data=context_data or {}
         )
         
-        logger.info(f"Nouvelle tentative WhatsApp créée: {attempt.id} pour {user.telephone}")
+        logger.info(f"Nouvelle tentative WhatsApp créée: {attempt.id} pour {user.telephone} depuis {source_app}")
         return attempt
     
     @staticmethod
@@ -82,7 +86,8 @@ class WhatsAppMonitoringService:
                 message=attempt.message_content,
                 original_phone=attempt.phone_number,
                 destination_phone=destination_phone,
-                user=attempt.user
+                user=attempt.user,
+                source_app=attempt.source_app
             )
             
             # Envoyer via WaChap
@@ -104,7 +109,7 @@ class WhatsAppMonitoringService:
                 logger.info(
                     f"WhatsApp envoyé avec succès - Attempt: {attempt.id}, "
                     f"To: {attempt.phone_number}, Via: {destination_phone}, "
-                    f"Type: {attempt.message_type}, Message ID: {message_id}"
+                    f"Type: {attempt.message_type}, Source: {attempt.source_app}, Message ID: {message_id}"
                 )
                 
                 return True, message_id, None
@@ -117,7 +122,7 @@ class WhatsAppMonitoringService:
                 
                 logger.error(
                     f"Échec envoi WhatsApp - Attempt: {attempt.id}, "
-                    f"To: {attempt.phone_number}, Error: {result_message}"
+                    f"To: {attempt.phone_number}, Source: {attempt.source_app}, Error: {result_message}"
                 )
                 
                 return False, None, result_message
@@ -132,17 +137,18 @@ class WhatsAppMonitoringService:
             
             logger.error(
                 f"Erreur technique envoi WhatsApp - Attempt: {attempt.id}, "
-                f"To: {attempt.phone_number}, Error: {error_message}"
+                f"To: {attempt.phone_number}, Source: {attempt.source_app}, Error: {error_message}"
             )
             
             return False, None, error_message
     
     @staticmethod
-    def process_pending_retries(max_retries_per_run=50):
+    def process_pending_retries(source_app=None, max_retries_per_run=50):
         """
         Traite les messages en attente de retry
         
         Args:
+            source_app: Filtrer par app source (optionnel)
             max_retries_per_run: Nombre maximum de retries à traiter par exécution
             
         Returns:
@@ -156,9 +162,12 @@ class WhatsAppMonitoringService:
         }
         
         # Récupérer les messages prêts pour retry
-        pending_attempts = WhatsAppMessageAttempt.get_pending_retries()[:max_retries_per_run]
+        pending_attempts = WhatsAppMessageAttempt.get_pending_retries(source_app=source_app)[:max_retries_per_run]
         
-        logger.info(f"Traitement de {len(pending_attempts)} messages en attente de retry")
+        if source_app:
+            logger.info(f"Traitement de {len(pending_attempts)} messages en attente de retry pour {source_app}")
+        else:
+            logger.info(f"Traitement de {len(pending_attempts)} messages en attente de retry (toutes apps)")
         
         for attempt in pending_attempts:
             try:
@@ -178,15 +187,16 @@ class WhatsAppMonitoringService:
                 logger.error(error_msg)
         
         if stats['processed'] > 0:
+            source_info = f" pour {source_app}" if source_app else ""
             logger.info(
-                f"Retry WhatsApp terminé - Traité: {stats['processed']}, "
+                f"Retry WhatsApp terminé{source_info} - Traité: {stats['processed']}, "
                 f"Succès: {stats['success']}, Échecs: {stats['failed']}"
             )
         
         return stats
     
     @staticmethod
-    def send_monitored_notification(user, message_content, message_type='notification',
+    def send_monitored_notification(user, message_content, source_app, message_type='notification',
                                   category='', title='', priority=3, max_attempts=3,
                                   send_immediately=True, **kwargs):
         """
@@ -195,6 +205,7 @@ class WhatsAppMonitoringService:
         Args:
             user: Utilisateur destinataire
             message_content: Contenu du message
+            source_app: App source ('agent_chine', 'agent_mali', etc.)
             message_type: Type de message
             category: Catégorie spécifique
             title: Titre du message
@@ -210,6 +221,7 @@ class WhatsAppMonitoringService:
         attempt = WhatsAppMonitoringService.create_message_attempt(
             user=user,
             message_content=message_content,
+            source_app=source_app,
             message_type=message_type,
             category=category,
             title=title,
@@ -229,7 +241,7 @@ class WhatsAppMonitoringService:
             return attempt, False, "En attente de traitement"
     
     @staticmethod
-    def cancel_pending_attempts(user=None, phone_number=None, category=None):
+    def cancel_pending_attempts(user=None, phone_number=None, category=None, source_app=None):
         """
         Annule des tentatives en attente selon les critères
         
@@ -237,6 +249,7 @@ class WhatsAppMonitoringService:
             user: Utilisateur (optionnel)
             phone_number: Numéro de téléphone (optionnel)
             category: Catégorie de messages (optionnel)
+            source_app: App source (optionnel)
             
         Returns:
             int: Nombre de tentatives annulées
@@ -251,6 +264,8 @@ class WhatsAppMonitoringService:
             attempts = attempts.filter(phone_number=phone_number)
         if category:
             attempts = attempts.filter(category=category)
+        if source_app:
+            attempts = attempts.filter(source_app=source_app)
         
         cancelled_count = 0
         for attempt in attempts:
@@ -261,52 +276,31 @@ class WhatsAppMonitoringService:
         return cancelled_count
     
     @staticmethod
-    def get_monitoring_stats(days_back=7):
+    def get_monitoring_stats(source_app=None, days_back=7):
         """
         Retourne des statistiques de monitoring
         
         Args:
+            source_app: Filtrer par app source (optionnel)
             days_back: Nombre de jours à analyser
             
         Returns:
             dict: Statistiques détaillées
         """
-        from django.db.models import Count, Q, Avg
-        from django.utils import timezone
+        stats = WhatsAppMessageAttempt.get_stats_summary(source_app=source_app, days_back=days_back)
         
-        cutoff_date = timezone.now() - timezone.timedelta(days=days_back)
-        
-        recent_attempts = WhatsAppMessageAttempt.objects.filter(
-            created_at__gte=cutoff_date
+        # Statistiques par type de message pour l'app spécifique
+        queryset = WhatsAppMessageAttempt.objects.filter(
+            created_at__gte=timezone.now() - timezone.timedelta(days=days_back)
         )
         
-        stats = recent_attempts.aggregate(
-            total=Count('id'),
-            pending=Count('id', filter=Q(status='pending')),
-            sending=Count('id', filter=Q(status='sending')),
-            sent=Count('id', filter=Q(status='sent')),
-            delivered=Count('id', filter=Q(status='delivered')),
-            failed_retry=Count('id', filter=Q(status='failed_retry')),
-            failed_final=Count('id', filter=Q(status='failed_final')),
-            cancelled=Count('id', filter=Q(status='cancelled')),
-            avg_attempts=Avg('attempt_count')
-        )
+        if source_app:
+            queryset = queryset.filter(source_app=source_app)
         
-        # Calculer les taux
-        if stats['total'] > 0:
-            stats['success_rate'] = ((stats['sent'] + stats['delivered']) / stats['total']) * 100
-            stats['failure_rate'] = (stats['failed_final'] / stats['total']) * 100
-            stats['pending_rate'] = ((stats['pending'] + stats['failed_retry']) / stats['total']) * 100
-        else:
-            stats['success_rate'] = 0
-            stats['failure_rate'] = 0
-            stats['pending_rate'] = 0
-        
-        # Statistiques par type de message
-        type_stats = recent_attempts.values('message_type').annotate(
-            count=Count('id'),
-            sent_count=Count('id', filter=Q(status__in=['sent', 'delivered'])),
-            failed_count=Count('id', filter=Q(status='failed_final'))
+        type_stats = queryset.values('message_type').annotate(
+            count=models.Count('id'),
+            sent_count=models.Count('id', filter=models.Q(status__in=['sent', 'delivered'])),
+            failed_count=models.Count('id', filter=models.Q(status='failed_final'))
         ).order_by('-count')
         
         stats['by_type'] = list(type_stats)
@@ -326,13 +320,14 @@ class WhatsAppMonitoringService:
         return original_phone
     
     @staticmethod
-    def _enrich_message_for_dev(message, original_phone, destination_phone, user=None):
+    def _enrich_message_for_dev(message, original_phone, destination_phone, user=None, source_app=None):
         """
         Enrichit le message en mode développement avec les infos de redirection
         """
         if destination_phone != original_phone and user:
             return f"""[DEV] Message pour: {user.get_full_name()}
 Tél réel: {original_phone}
+Source: {source_app or 'Unknown'}
 
 ---
 {message}
@@ -402,12 +397,14 @@ class WhatsAppRetryTask:
     """
     
     @staticmethod
-    def run_retry_task():
+    def run_retry_task(source_app=None):
         """
-        Exécute le traitement des retries
-        Peut être appelé par un cron job ou une tâche périodique
+        Exécute le traitement des retries pour une app spécifique ou toutes
+        
+        Args:
+            source_app: App source à traiter (optionnel, traite toutes si None)
         """
-        return WhatsAppMonitoringService.process_pending_retries()
+        return WhatsAppMonitoringService.process_pending_retries(source_app=source_app)
     
     @staticmethod
     def cleanup_old_attempts(days_old=30):
@@ -435,3 +432,52 @@ class WhatsAppRetryTask:
         
         logger.info(f"Nettoyé {deleted_count} anciennes tentatives WhatsApp")
         return deleted_count
+
+
+# Fonctions utilitaires pour faciliter l'utilisation depuis les autres apps
+
+def send_whatsapp_monitored(user, message, source_app, **kwargs):
+    """
+    Fonction raccourcie pour envoyer une notification WhatsApp avec monitoring
+    
+    Usage:
+        from whatsapp_monitoring_app.services import send_whatsapp_monitored
+        
+        attempt, success, error = send_whatsapp_monitored(
+            user=user,
+            message="Votre message",
+            source_app='agent_chine',
+            message_type='account',
+            priority=1
+        )
+    """
+    return WhatsAppMonitoringService.send_monitored_notification(
+        user=user,
+        message_content=message,
+        source_app=source_app,
+        **kwargs
+    )
+
+def get_app_stats(source_app, days_back=7):
+    """
+    Fonction raccourcie pour récupérer les stats d'une app
+    
+    Usage:
+        from whatsapp_monitoring_app.services import get_app_stats
+        
+        stats = get_app_stats('agent_chine')
+        print(f"Taux de succès: {stats['success_rate']}%")
+    """
+    return WhatsAppMonitoringService.get_monitoring_stats(source_app=source_app, days_back=days_back)
+
+def process_app_retries(source_app):
+    """
+    Fonction raccourcie pour traiter les retries d'une app
+    
+    Usage:
+        from whatsapp_monitoring_app.services import process_app_retries
+        
+        stats = process_app_retries('agent_chine')
+        print(f"Traité: {stats['processed']}, Succès: {stats['success']}")
+    """
+    return WhatsAppMonitoringService.process_pending_retries(source_app=source_app)

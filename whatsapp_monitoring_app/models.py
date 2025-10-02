@@ -1,18 +1,21 @@
 """
-Modèles pour le monitoring des notifications WhatsApp dans l'app agent_chine
+Modèles pour le monitoring des notifications WhatsApp
+App centralisée utilisable par toutes les autres apps
 """
 
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.conf import settings
 
 User = get_user_model()
 
 
 class WhatsAppMessageAttempt(models.Model):
     """
-    Suivi des tentatives d'envoi de messages WhatsApp avec retry
+    Suivi centralisé des tentatives d'envoi de messages WhatsApp avec retry
+    Utilisable par toutes les apps du projet
     """
     
     STATUS_CHOICES = [
@@ -36,6 +39,8 @@ class WhatsAppMessageAttempt(models.Model):
         ('report', 'Rapport'),
         ('colis_status', 'Statut colis'),
         ('lot_status', 'Statut lot'),
+        ('delivery', 'Livraison'),
+        ('marketing', 'Marketing'),
         ('other', 'Autre'),
     ]
     
@@ -47,9 +52,19 @@ class WhatsAppMessageAttempt(models.Model):
         (5, 'Très basse'),
     ]
     
+    SOURCE_APP_CHOICES = [
+        ('agent_chine', 'Agent Chine'),
+        ('agent_mali', 'Agent Mali'),
+        ('admin_chine', 'Admin Chine'),
+        ('admin_mali', 'Admin Mali'),
+        ('client_app', 'Application Client'),
+        ('notifications_app', 'App Notifications'),
+        ('system', 'Système'),
+    ]
+    
     # Informations de base
     user = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -60,6 +75,13 @@ class WhatsAppMessageAttempt(models.Model):
     phone_number = models.CharField(
         max_length=20,
         help_text="Numéro de téléphone de destination (avec indicatif)"
+    )
+    
+    # Identification de l'app source
+    source_app = models.CharField(
+        max_length=20,
+        choices=SOURCE_APP_CHOICES,
+        help_text="Application qui a déclenché l'envoi"
     )
     
     message_type = models.CharField(
@@ -181,6 +203,7 @@ class WhatsAppMessageAttempt(models.Model):
     
     region_override = models.CharField(
         max_length=20,
+        null=True,
         blank=True,
         help_text="Région forcée (chine/mali)"
     )
@@ -202,7 +225,7 @@ class WhatsAppMessageAttempt(models.Model):
     )
     
     class Meta:
-        db_table = 'agent_chine_whatsapp_monitoring'
+        db_table = 'whatsapp_monitoring_attempts'
         verbose_name = "Tentative WhatsApp"
         verbose_name_plural = "Tentatives WhatsApp"
         ordering = ['-created_at']
@@ -211,6 +234,8 @@ class WhatsAppMessageAttempt(models.Model):
             models.Index(fields=['phone_number', 'created_at']),
             models.Index(fields=['next_retry_at']),
             models.Index(fields=['status', 'priority', 'created_at']),
+            models.Index(fields=['source_app', 'status']),
+            models.Index(fields=['message_type', 'status']),
         ]
     
     def __str__(self):
@@ -340,39 +365,72 @@ class WhatsAppMessageAttempt(models.Model):
         return int((end_time - self.created_at).total_seconds())
     
     @classmethod
-    def get_pending_retries(cls):
+    def get_pending_retries(cls, source_app=None):
         """
         Retourne les messages prêts pour retry
+        
+        Args:
+            source_app: Filtrer par app source (optionnel)
         """
         now = timezone.now()
-        return cls.objects.filter(
+        queryset = cls.objects.filter(
             status='failed_retry',
             next_retry_at__lte=now,
             attempt_count__lt=models.F('max_attempts')
-        ).order_by('priority', 'next_retry_at')
+        )
+        
+        if source_app:
+            queryset = queryset.filter(source_app=source_app)
+        
+        return queryset.order_by('priority', 'next_retry_at')
     
     @classmethod
-    def get_stats_summary(cls):
+    def get_stats_summary(cls, source_app=None, days_back=7):
         """
         Retourne des statistiques rapides
-        """
-        from django.db.models import Count, Q
         
-        stats = cls.objects.aggregate(
+        Args:
+            source_app: Filtrer par app source (optionnel)
+            days_back: Nombre de jours à analyser
+        """
+        from django.db.models import Count, Q, Avg
+        
+        # Date de début
+        cutoff_date = timezone.now() - timezone.timedelta(days=days_back)
+        
+        queryset = cls.objects.filter(created_at__gte=cutoff_date)
+        
+        if source_app:
+            queryset = queryset.filter(source_app=source_app)
+        
+        stats = queryset.aggregate(
             total=Count('id'),
             pending=Count('id', filter=Q(status='pending')),
+            sending=Count('id', filter=Q(status='sending')),
             sent=Count('id', filter=Q(status='sent')),
             delivered=Count('id', filter=Q(status='delivered')),
             failed_final=Count('id', filter=Q(status='failed_final')),
             failed_retry=Count('id', filter=Q(status='failed_retry')),
+            cancelled=Count('id', filter=Q(status='cancelled')),
+            avg_attempts=Avg('attempt_count')
         )
+        
+        # Calculer les taux
+        if stats['total'] > 0:
+            stats['success_rate'] = ((stats['sent'] + stats['delivered']) / stats['total']) * 100
+            stats['failure_rate'] = (stats['failed_final'] / stats['total']) * 100
+            stats['pending_rate'] = ((stats['pending'] + stats['failed_retry']) / stats['total']) * 100
+        else:
+            stats['success_rate'] = 0
+            stats['failure_rate'] = 0
+            stats['pending_rate'] = 0
         
         return stats
 
 
 class WhatsAppWebhookLog(models.Model):
     """
-    Log des webhooks reçus des providers WhatsApp
+    Log centralisé des webhooks reçus des providers WhatsApp
     """
     
     message_attempt = models.ForeignKey(
@@ -422,13 +480,14 @@ class WhatsAppWebhookLog(models.Model):
     )
     
     class Meta:
-        db_table = 'agent_chine_whatsapp_webhooks'
+        db_table = 'whatsapp_monitoring_webhooks'
         verbose_name = "Webhook WhatsApp"
         verbose_name_plural = "Webhooks WhatsApp"
         ordering = ['-received_at']
         indexes = [
             models.Index(fields=['provider_message_id']),
             models.Index(fields=['processed', 'received_at']),
+            models.Index(fields=['webhook_type', 'received_at']),
         ]
     
     def __str__(self):
