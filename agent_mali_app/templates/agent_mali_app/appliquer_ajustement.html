@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .price-info-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .suggestion-btn {
+        border: 2px solid #007bff;
+        background: transparent;
+        color: #007bff;
+        padding: 8px 16px;
+        border-radius: 20px;
+        margin: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .suggestion-btn:hover {
+        background: #007bff;
+        color: white;
+    }
+    
+    .adjustment-form {
+        background: #f8f9fa;
+        padding: 25px;
+        border-radius: 10px;
+        border-left: 5px solid #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-edit text-primary"></i> {{ title }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'agent_mali:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'agent_mali:colis_a_livrer' %}">Colis à Livrer</a></li>
+                    <li class="breadcrumb-item active">Ajuster Prix</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <!-- Informations du colis -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="price-info-card">
+                <h4><i class="fas fa-box"></i> {{ colis.numero_suivi }}</h4>
+                <div class="row mt-3">
+                    <div class="col-6">
+                        <strong>Client:</strong><br>
+                        {{ colis.client.user.get_full_name }}
+                    </div>
+                    <div class="col-6">
+                        <strong>Prix Actuel:</strong><br>
+                        <span class="h3">{{ prix_actuel|floatformat:0 }} FCFA</span>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-6">
+                        <strong>Poids:</strong> {{ colis.poids }} kg
+                    </div>
+                    <div class="col-6">
+                        <strong>Statut:</strong> {{ colis.get_statut_display }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-info-circle"></i> Types d'Ajustements</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>🪙 Jeton Cédé (JC)</strong>
+                        <p class="text-muted small">Utilisé quand vous cédez de la monnaie au client (ex: 200 FCFA)</p>
+                    </div>
+                    <div>
+                        <strong>🎁 Remise Commerciale</strong>
+                        <p class="text-muted small">Réduction appliquée pour fidélisation ou promotion</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire d'ajustement -->
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <form method="post" class="adjustment-form">
+                {% csrf_token %}
+                
+                <!-- Type d'ajustement -->
+                <div class="form-group mb-4">
+                    <label class="form-label"><strong>Type d'Ajustement</strong></label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="adjustment_type" value="jc" id="jc" required>
+                        <label class="form-check-label" for="jc">
+                            <i class="fas fa-coins text-warning"></i> Jeton Cédé (JC)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="adjustment_type" value="remise" id="remise" required>
+                        <label class="form-check-label" for="remise">
+                            <i class="fas fa-percent text-success"></i> Remise Commerciale
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Montant -->
+                <div class="form-group mb-4">
+                    <label for="amount" class="form-label"><strong>Montant (FCFA)</strong></label>
+                    <input type="number" class="form-control form-control-lg" 
+                           id="amount" name="amount" min="1" max="{{ prix_actuel }}" 
+                           placeholder="Ex: 200" required>
+                    
+                    <!-- Suggestions pour jetons -->
+                    <div id="suggestions-jc" class="mt-2" style="display: none;">
+                        <small class="text-muted">Montants fréquents:</small><br>
+                        {% for suggestion in suggestions_jc %}
+                        <button type="button" class="suggestion-btn" onclick="setAmount({{ suggestion }})">
+                            {{ suggestion }} F
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Raison -->
+                <div class="form-group mb-4">
+                    <label for="reason" class="form-label"><strong>Raison</strong></label>
+                    <select class="form-select" id="reason" name="reason" required>
+                        <option value="">-- Sélectionnez une raison --</option>
+                        <optgroup label="Jeton Cédé">
+                            <option value="Change de monnaie">Change de monnaie</option>
+                            <option value="Pas de monnaie exacte">Pas de monnaie exacte</option>
+                            <option value="Geste commercial">Geste commercial</option>
+                        </optgroup>
+                        <optgroup label="Remise">
+                            <option value="Remise fidélité">Remise fidélité</option>
+                            <option value="Client régulier">Client régulier</option>
+                            <option value="Promotion">Promotion</option>
+                            <option value="Compensation retard">Compensation retard</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- Notes -->
+                <div class="form-group mb-4">
+                    <label for="notes" class="form-label">Notes (optionnel)</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="3" 
+                              placeholder="Détails supplémentaires..."></textarea>
+                </div>
+
+                <!-- Aperçu -->
+                <div id="price-preview" class="alert alert-info" style="display: none;">
+                    <strong>Aperçu:</strong>
+                    <div id="preview-content"></div>
+                </div>
+
+                <!-- Boutons -->
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Annuler
+                    </a>
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-check"></i> Appliquer l'Ajustement
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Important</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li><i class="fas fa-check text-success"></i> L'ajustement sera appliqué immédiatement</li>
+                        <li><i class="fas fa-check text-success"></i> Le nouveau prix sera utilisé pour la livraison</li>
+                        <li><i class="fas fa-check text-success"></i> L'historique sera conservé pour les rapports</li>
+                        <li><i class="fas fa-info text-primary"></i> Vous pouvez annuler l'ajustement si nécessaire</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function setAmount(amount) {
+    document.getElementById('amount').value = amount;
+    updatePreview();
+}
+
+function updatePreview() {
+    const amount = parseFloat(document.getElementById('amount').value || 0);
+    const currentPrice = {{ prix_actuel }};
+    const newPrice = currentPrice - amount;
+    
+    if (amount > 0) {
+        document.getElementById('preview-content').innerHTML = 
+            `Prix actuel: ${currentPrice.toLocaleString()} FCFA<br>
+             Déduction: -${amount.toLocaleString()} FCFA<br>
+             <strong>Nouveau prix: ${newPrice.toLocaleString()} FCFA</strong>`;
+        document.getElementById('price-preview').style.display = 'block';
+    } else {
+        document.getElementById('price-preview').style.display = 'none';
+    }
+}
+
+// Afficher les suggestions selon le type
+document.querySelectorAll('input[name="adjustment_type"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        const suggestionsDiv = document.getElementById('suggestions-jc');
+        if (this.value === 'jc') {
+            suggestionsDiv.style.display = 'block';
+        } else {
+            suggestionsDiv.style.display = 'none';
+        }
+    });
+});
+
+// Mise à jour de l'aperçu en temps réel
+document.getElementById('amount').addEventListener('input', updatePreview);
+</script>
+{% endblock %}

@@ -14,7 +14,7 @@ import os
 import uuid
 import json
 
-from .models import Client, Lot, Colis
+from .models import Client, Lot, Colis, ClientCreationTask
 from reporting_app.models import ShippingPrice
 from notifications_app.models import Notification
 from .client_management import ClientAccountManager
@@ -102,6 +102,18 @@ def dashboard_view(request):
     # Derniers colis créés
     derniers_colis = Colis.objects.select_related('client__user', 'lot').order_by('-date_creation')[:5]
     
+    # Tâches de création client récentes
+    taches_creation_client = ClientCreationTask.objects.select_related(
+        'client__user', 'initiated_by'
+    ).filter(
+        initiated_by=request.user
+    ).order_by('-created_at')[:10]
+    
+    # Statistiques des tâches de création client
+    taches_pending = taches_creation_client.filter(status__in=['pending', 'processing', 'account_creating', 'notification_sending']).count()
+    taches_completed = taches_creation_client.filter(status='completed').count()
+    taches_failed = taches_creation_client.filter(status__in=['failed', 'failed_retry', 'failed_final']).count()
+    
     context = {
         'stats': {
             'total_clients': total_clients,
@@ -116,9 +128,14 @@ def dashboard_view(request):
             'revenus_mois': revenus_mois,
             'total_revenus': total_revenus,
             'croissance_clients': croissance_clients,
+            # Statistiques tâches client
+            'taches_client_pending': taches_pending,
+            'taches_client_completed': taches_completed,
+            'taches_client_failed': taches_failed,
         },
         'derniers_lots': derniers_lots,
         'derniers_colis': derniers_colis,
+        'taches_creation_client': taches_creation_client,
     }
     return render(request, 'agent_chine_app/dashboard.html', context)
 
@@ -200,7 +217,8 @@ def client_create_view(request):
                     last_name=last_name,
                     email=email,
                     password=password,
-                    send_notifications=True
+                    send_notifications=True,
+                    initiated_by=request.user
                 )
                 
                 # Récupérer le résultat immédiatement (avec timeout court)
@@ -361,6 +379,63 @@ def client_edit_view(request, client_id):
         'submit_text': 'Mettre à jour',
     }
     return render(request, 'agent_chine_app/client_form.html', context)
+
+@agent_chine_required
+def client_creation_task_detail(request, task_id):
+    """
+    Détail d'une tâche de création de client
+    """
+    from .models import ClientCreationTask
+    
+    task = get_object_or_404(ClientCreationTask, task_id=task_id, initiated_by=request.user)
+    
+    # Vérifier le statut Celery si la tâche est en cours
+    celery_status = None
+    if task.celery_task_id and task.status in ['pending', 'processing', 'account_creating', 'notification_sending']:
+        try:
+            from celery.result import AsyncResult
+            result = AsyncResult(task.celery_task_id)
+            celery_status = {
+                'status': result.status,
+                'ready': result.ready(),
+                'successful': result.successful() if result.ready() else False
+            }
+        except Exception as e:
+            celery_status = {'error': str(e)}
+    
+    context = {
+        'task': task,
+        'celery_status': celery_status,
+    }
+    return render(request, 'agent_chine_app/client_creation_task_detail.html', context)
+
+@agent_chine_required
+def client_creation_tasks_list(request):
+    """
+    Liste des tâches de création de clients
+    """
+    tasks = ClientCreationTask.objects.select_related(
+        'client__user', 'initiated_by'
+    ).filter(
+        initiated_by=request.user
+    ).order_by('-created_at')
+    
+    # Filtrage par statut
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        tasks = tasks.filter(status=status_filter)
+    
+    # Pagination
+    paginator = Paginator(tasks, 20)
+    page_number = request.GET.get('page')
+    tasks_page = paginator.get_page(page_number)
+    
+    context = {
+        'tasks': tasks_page,
+        'status_filter': status_filter,
+        'status_choices': ClientCreationTask.TASK_STATUS_CHOICES,
+    }
+    return render(request, 'agent_chine_app/client_creation_tasks_list.html', context)
 
 
 # === GESTION DES LOTS ===

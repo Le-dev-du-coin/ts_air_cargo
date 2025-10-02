@@ -338,6 +338,231 @@ class Colis(models.Model):
                 return self.volume_m3() * 300000
 
 
+class ClientCreationTask(models.Model):
+    """
+    Tâche de création de client avec notifications WhatsApp
+    Permet de tracker l'état des notifications lors de la création de clients
+    """
+    TASK_STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('processing', 'En traitement'),
+        ('account_creating', 'Création compte...'),
+        ('notification_sending', 'Envoi notifications...'),
+        ('completed', 'Terminé'),
+        ('failed', 'Échec'),
+        ('failed_retry', 'Échec - retry programmé'),
+        ('failed_final', 'Échec définitif'),
+    ]
+    
+    # Identification de la tâche
+    task_id = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Identifiant unique de la tâche"
+    )
+    celery_task_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="ID de la tâche Celery"
+    )
+    
+    # État de la tâche
+    status = models.CharField(
+        max_length=20,
+        choices=TASK_STATUS_CHOICES,
+        default='pending',
+        help_text="État actuel de la tâche"
+    )
+    current_step = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Étape en cours de traitement"
+    )
+    progress_percentage = models.IntegerField(
+        default=0,
+        help_text="Pourcentage de progression (0-100)"
+    )
+    
+    # Données client
+    telephone = models.CharField(
+        max_length=20,
+        help_text="Numéro de téléphone du client"
+    )
+    first_name = models.CharField(
+        max_length=100,
+        help_text="Prénom du client"
+    )
+    last_name = models.CharField(
+        max_length=100,
+        help_text="Nom du client"
+    )
+    email = models.EmailField(
+        blank=True,
+        help_text="Email du client"
+    )
+    
+    # Relations
+    client = models.ForeignKey(
+        'Client',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="Client créé (null pendant le traitement)"
+    )
+    initiated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        help_text="Agent qui a initié la tâche"
+    )
+    
+    # Résultat des notifications
+    notifications_data = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Données des notifications envoyées"
+    )
+    
+    # Gestion des erreurs
+    error_message = models.TextField(
+        blank=True,
+        help_text="Message d'erreur en cas d'échec"
+    )
+    retry_count = models.IntegerField(
+        default=0,
+        help_text="Nombre de tentatives effectuées"
+    )
+    max_retries = models.IntegerField(
+        default=3,
+        help_text="Nombre maximum de tentatives"
+    )
+    next_retry_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de la prochaine tentative"
+    )
+    
+    # Métadonnées temporelles
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Date de création de la tâche"
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de début de traitement"
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date de fin de traitement"
+    )
+    
+    class Meta:
+        verbose_name = "Tâche de Création Client"
+        verbose_name_plural = "Tâches de Création Client"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['initiated_by', 'status']),
+            models.Index(fields=['telephone', 'status']),
+        ]
+        
+    def __str__(self):
+        return f"Client {self.telephone} - {self.get_status_display()}"
+    
+    def can_retry(self):
+        """
+        Vérifie si la tâche peut être relancée
+        """
+        return (
+            self.retry_count < self.max_retries and 
+            self.status in ['failed', 'failed_retry']
+        )
+    
+    def get_duration(self):
+        """
+        Calcule la durée de traitement si la tâche est terminée
+        """
+        if self.started_at and self.completed_at:
+            return self.completed_at - self.started_at
+        return None
+    
+    def mark_as_started(self):
+        """
+        Marque la tâche comme démarrée
+        """
+        self.status = 'processing'
+        self.started_at = timezone.now()
+        self.current_step = "Traitement en cours"
+        self.progress_percentage = 10
+        self.save(update_fields=['status', 'started_at', 'current_step', 'progress_percentage'])
+    
+    def mark_as_completed(self, client=None, notifications_data=None):
+        """
+        Marque la tâche comme terminée avec succès
+        """
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.current_step = "Notifications envoyées avec succès"
+        self.progress_percentage = 100
+        if client:
+            self.client = client
+        if notifications_data:
+            self.notifications_data = notifications_data
+        self.save(update_fields=[
+            'status', 'completed_at', 'current_step', 'progress_percentage', 
+            'client', 'notifications_data'
+        ])
+    
+    def mark_as_failed(self, error_message):
+        """
+        Marque la tâche comme échouée
+        """
+        self.retry_count += 1
+        self.error_message = error_message
+        
+        if self.can_retry():
+            self.status = 'failed_retry'
+            self.next_retry_at = timezone.now() + timezone.timedelta(minutes=5 * self.retry_count)
+            self.current_step = f"Échec - retry {self.retry_count}/{self.max_retries} dans 5 min"
+        else:
+            self.status = 'failed_final'
+            self.current_step = "Échec définitif des notifications"
+            
+        self.save(update_fields=[
+            'status', 'error_message', 'retry_count', 
+            'next_retry_at', 'current_step'
+        ])
+    
+    def update_progress(self, step, percentage):
+        """
+        Met à jour la progression de la tâche
+        """
+        self.current_step = step
+        self.progress_percentage = min(percentage, 100)
+        self.save(update_fields=['current_step', 'progress_percentage'])
+    
+    def save(self, *args, **kwargs):
+        """
+        Génère automatiquement un task_id unique si non fourni
+        """
+        if not self.task_id:
+            import uuid
+            import time
+            # Générer un ID unique avec timestamp
+            timestamp = str(int(time.time() * 1000))
+            unique_part = str(uuid.uuid4())[:8].upper()
+            self.task_id = f"CLIENT_{timestamp}_{unique_part}"
+            
+            # Vérifier l'unicité
+            while ClientCreationTask.objects.filter(task_id=self.task_id).exists():
+                unique_part = str(uuid.uuid4())[:8].upper()
+                self.task_id = f"CLIENT_{timestamp}_{unique_part}"
+                
+        super().save(*args, **kwargs)
+
+
 class ColisCreationTask(models.Model):
     """
     Tâche de création/modification de colis en arrière-plan

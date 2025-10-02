@@ -526,25 +526,38 @@ def cleanup_old_tasks():
 
 
 @shared_task(bind=True, max_retries=3)
-def create_client_account_async(self, telephone, first_name, last_name, email=None, password=None, send_notifications=True):
+def create_client_account_async(self, task_id):
     """
     Tâche asynchrone pour créer un compte client avec notifications WhatsApp via monitoring
     
     Args:
-        telephone: Numéro de téléphone du client
-        first_name: Prénom du client  
-        last_name: Nom du client
-        email: Email optionnel
-        password: Mot de passe optionnel
-        send_notifications: Envoyer les notifications WhatsApp
+        task_id: Identifiant de la ClientCreationTask
         
     Returns:
         dict: Résultat de la création avec détails
     """
+    task = None
     try:
-        logger.info(f"🚀 Début création client asynchrone: {telephone}")
+        # Récupérer la tâche
+        from .models import ClientCreationTask
+        task = ClientCreationTask.objects.get(task_id=task_id)
+        task.celery_task_id = self.request.id
+        task.mark_as_started()
+        
+        telephone = task.telephone
+        first_name = task.first_name
+        last_name = task.last_name
+        email = task.email
+        
+        logger.info(f"🚀 Début création client asynchrone: {telephone} (task: {task_id})")
+        
+        # Étape 1: Création du compte
+        task.update_progress("Création du compte client", 30)
+        task.status = 'account_creating'
+        task.save(update_fields=['status'])
         
         # Créer ou récupérer le client (synchrone)
+        password = None  # Les mots de passe seront générés automatiquement
         if password:
             client_result = ClientAccountManager.get_or_create_client_with_password(
                 telephone=telephone,
@@ -573,8 +586,13 @@ def create_client_account_async(self, telephone, first_name, last_name, email=No
             'notifications_sent': []
         }
         
-        # Envoyer les notifications de manière asynchrone si demandé et nouveau client
-        if send_notifications and client_result['created']:
+        # Étape 2: Envoi des notifications
+        task.update_progress("Envoi des notifications WhatsApp", 70)
+        task.status = 'notification_sending'
+        task.save(update_fields=['status'])
+        
+        # Envoyer les notifications si nouveau client
+        if client_result['created']:
             
             # Message avec identifiants
             if client_result['password']:
@@ -624,26 +642,39 @@ def create_client_account_async(self, telephone, first_name, last_name, email=No
             # Message de bienvenue supprimé - seul le message avec identifiants est envoyé
             logger.info(f"ℹ️ Message de bienvenue supprimé pour éviter la duplication pour {telephone}")
         
+        # Finaliser la tâche
         if client_result['created']:
             logger.info(f"✅ Client {telephone} créé avec succès et notifications programmées")
+            # Créer le profil client
+            from .models import Client
+            client_profile, _ = Client.objects.get_or_create(
+                user=client_result['client'],
+                defaults={'adresse': '', 'pays': 'ML'}
+            )
+            task.mark_as_completed(client_profile, result.get('notifications_sent', []))
         else:
             logger.info(f"ℹ️ Client {telephone} existait déjà")
+            task.mark_as_completed()
         
         return result
         
     except Exception as e:
-        error_msg = f"Erreur création client async {telephone}: {str(e)}"
-        logger.error(error_msg, exc_info=True)
+        error_msg = f"Erreur création client async: {str(e)}"
+        logger.error(f"❌ Tâche {task_id}: {error_msg}", exc_info=True)
+        
+        # Marquer la tâche comme échouée
+        if task:
+            task.mark_as_failed(error_msg)
         
         # Retry automatique
         if self.request.retries < self.max_retries:
-            logger.info(f"🔄 Retry création client async {telephone} (tentative {self.request.retries + 1})")
+            logger.info(f"🔄 Retry création client async (tentative {self.request.retries + 1})")
             raise self.retry(countdown=60 * (2 ** self.request.retries))
         
         return {
             'success': False,
             'error': error_msg,
-            'telephone': telephone,
+            'task_id': task_id,
             'celery_task_id': self.request.id,
             'retries_exhausted': True
         }

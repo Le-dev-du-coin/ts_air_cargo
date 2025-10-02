@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .colis-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+    }
+    
+    .price-evolution {
+        background: #f8f9fa;
+        border-left: 5px solid #28a745;
+        padding: 20px;
+        border-radius: 0 10px 10px 0;
+    }
+    
+    .adjustment-item {
+        border-left: 4px solid #dc3545;
+        background: #fff5f5;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .adjustment-item.jc {
+        border-left-color: #ffc107;
+        background: #fffbf0;
+    }
+    
+    .adjustment-item.remise {
+        border-left-color: #28a745;
+        background: #f8fff8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-box text-primary"></i> {{ title }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'agent_mali:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'agent_mali:colis_a_livrer' %}">Colis à Livrer</a></li>
+                    <li class="breadcrumb-item active">{{ colis.numero_suivi }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            {% if colis.statut == 'arrive' %}
+                <a href="{% url 'agent_mali:appliquer_ajustement' colis.id %}" class="btn btn-warning me-2">
+                    <i class="fas fa-edit"></i> Ajuster Prix
+                </a>
+                <a href="{% url 'agent_mali:marquer_livre' colis.id %}" class="btn btn-success me-2">
+                    <i class="fas fa-truck"></i> Livrer
+                </a>
+            {% endif %}
+            <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Informations du colis -->
+    <div class="colis-header">
+        <div class="row">
+            <div class="col-md-8">
+                <h3><i class="fas fa-box-open"></i> {{ colis.numero_suivi }}</h3>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6>Client</h6>
+                        <p class="mb-1">{{ colis.client.user.get_full_name }}</p>
+                        <p class="mb-1"><i class="fas fa-phone"></i> {{ colis.client.user.telephone }}</p>
+                        <p class="mb-0"><i class="fas fa-map-marker-alt"></i> {{ colis.client.adresse }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Détails</h6>
+                        <p class="mb-1"><strong>Poids:</strong> {{ colis.poids }} kg</p>
+                        <p class="mb-1"><strong>Dimensions:</strong> {{ colis.longueur }}×{{ colis.largeur }}×{{ colis.hauteur }} cm</p>
+                        <p class="mb-0"><strong>Transport:</strong> {{ colis.get_type_transport_display }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="badge badge-{{ colis.statut|slugify }} badge-lg p-3 mb-3">
+                    <h5 class="mb-0">{{ colis.get_statut_display }}</h5>
+                </div>
+                <p class="mb-0"><strong>Lot:</strong> {{ colis.lot.numero_lot }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Évolution des prix -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-chart-line"></i> Évolution des Prix</h5>
+                </div>
+                <div class="card-body">
+                    <div class="price-evolution">
+                        <div class="row align-items-center">
+                            <div class="col-md-4 text-center">
+                                <h6 class="text-muted">Prix Original</h6>
+                                <span class="h4 text-primary">{{ prix_original|floatformat:0 }} FCFA</span>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                {% if total_ajustements != 0 %}
+                                <h6 class="text-muted">Total Ajustements</h6>
+                                <span class="h4 {% if total_ajustements < 0 %}text-danger{% else %}text-success{% endif %}">
+                                    {% if total_ajustements > 0 %}+{% endif %}{{ total_ajustements|floatformat:0 }} FCFA
+                                </span>
+                                {% else %}
+                                <h6 class="text-muted">Aucun Ajustement</h6>
+                                <span class="h5 text-muted">---</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <h6 class="text-muted">Prix Final</h6>
+                                <span class="h3 text-success">{{ prix_actuel|floatformat:0 }} FCFA</span>
+                            </div>
+                        </div>
+                        
+                        {% if total_ajustements != 0 %}
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                Économie/Ajout total : 
+                                <strong class="{% if total_ajustements < 0 %}text-success{% else %}text-warning{% endif %}">
+                                    {{ total_ajustements|abs|floatformat:0 }} FCFA
+                                </strong>
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historique des ajustements -->
+            {% if ajustements %}
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-history"></i> Historique des Ajustements</h5>
+                </div>
+                <div class="card-body">
+                    {% for ajustement in ajustements %}
+                    <div class="adjustment-item {{ ajustement.adjustment_type }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    {% if ajustement.adjustment_type == 'jc' %}
+                                        <i class="fas fa-coins text-warning"></i> Jeton Cédé
+                                    {% elif ajustement.adjustment_type == 'remise' %}
+                                        <i class="fas fa-percent text-success"></i> Remise
+                                    {% endif %}
+                                    - {{ ajustement.adjustment_amount|floatformat:0 }} FCFA
+                                </h6>
+                                <p class="mb-1"><strong>Raison:</strong> {{ ajustement.reason }}</p>
+                                {% if ajustement.notes %}
+                                <p class="mb-1"><strong>Notes:</strong> {{ ajustement.notes }}</p>
+                                {% endif %}
+                                <p class="small text-muted mb-0">
+                                    Par {{ ajustement.applied_by.get_full_name }} 
+                                    le {{ ajustement.created_at|date:"d/m/Y à H:i" }}
+                                    {% if ajustement.status == 'applied' and ajustement.applied_at %}
+                                        - Appliqué le {{ ajustement.applied_at|date:"d/m/Y à H:i" }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge badge-{{ ajustement.status|slugify }}">
+                                    {{ ajustement.get_status_display }}
+                                </span>
+                                {% if ajustement.status == 'applied' and ajustement.applied_by == request.user %}
+                                <form method="post" action="{% url 'agent_mali:annuler_ajustement' ajustement.id %}" 
+                                      class="d-inline mt-2" onsubmit="return confirm('Êtes-vous sûr de vouloir annuler cet ajustement ?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-undo"></i> Annuler
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Informations supplémentaires -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h6><i class="fas fa-info-circle"></i> Informations</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Date de création:</strong><br>{{ colis.date_creation|date:"d/m/Y à H:i" }}</p>
+                    <p><strong>Mode de paiement:</strong><br>{{ colis.get_mode_paiement_display }}</p>
+                    {% if colis.description %}
+                    <p><strong>Description:</strong><br>{{ colis.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Livraisons -->
+            {% if colis.livraisons.all %}
+            <div class="card mt-3">
+                <div class="card-header bg-success text-white">
+                    <h6><i class="fas fa-truck"></i> Livraisons</h6>
+                </div>
+                <div class="card-body">
+                    {% for livraison in colis.livraisons.all %}
+                    <div class="mb-3 {% if not forloop.last %}border-bottom pb-3{% endif %}">
+                        <p class="mb-1"><strong>{{ livraison.get_statut_display }}</strong></p>
+                        {% if livraison.date_livraison_effective %}
+                        <p class="mb-1">{{ livraison.date_livraison_effective|date:"d/m/Y à H:i" }}</p>
+                        {% endif %}
+                        <p class="mb-1">Livré à: {{ livraison.nom_destinataire }}</p>
+                        <p class="small text-muted mb-0">Par {{ livraison.agent_livreur.get_full_name }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Actions rapides -->
+            <div class="card mt-3">
+                <div class="card-header bg-warning text-dark">
+                    <h6><i class="fas fa-bolt"></i> Actions Rapides</h6>
+                </div>
+                <div class="card-body">
+                    {% if colis.statut == 'arrive' %}
+                        <a href="{% url 'agent_mali:appliquer_ajustement' colis.id %}" class="btn btn-warning btn-sm w-100 mb-2">
+                            <i class="fas fa-edit"></i> Ajuster le Prix
+                        </a>
+                        <a href="{% url 'agent_mali:marquer_livre' colis.id %}" class="btn btn-success btn-sm w-100">
+                            <i class="fas fa-truck"></i> Marquer comme Livré
+                        </a>
+                    {% else %}
+                        <p class="text-muted small mb-0">Aucune action disponible pour ce statut.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

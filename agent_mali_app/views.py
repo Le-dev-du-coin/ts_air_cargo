@@ -10,7 +10,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 import json
 
-from .models import Depense, ReceptionLot, Livraison
+from .models import Depense, ReceptionLot, Livraison, PriceAdjustment
 from agent_chine_app.models import Lot, Colis, Client
 from notifications_app.services import NotificationService
 from django.contrib.auth import get_user_model
@@ -101,6 +101,27 @@ def dashboard_view(request):
         livraisons__statut_paiement='en_attente'
     ).distinct().count()
     
+    # Statistiques des ajustements de prix du mois
+    ajustements_mois = PriceAdjustment.objects.filter(
+        created_at__gte=debut_mois,
+        status='applied'
+    )
+    
+    # Montant des jetons cédés ce mois
+    jetons_cedes_mois = ajustements_mois.filter(
+        adjustment_type='jc'
+    ).aggregate(total=Sum('adjustment_amount'))['total'] or 0
+    
+    # Montant des remises ce mois
+    remises_mois = ajustements_mois.filter(
+        adjustment_type='remise'
+    ).aggregate(total=Sum('adjustment_amount'))['total'] or 0
+    
+    # Derniers ajustements
+    derniers_ajustements = PriceAdjustment.objects.filter(
+        applied_by__is_agent_mali=True
+    ).select_related('colis__client__user', 'applied_by').order_by('-created_at')[:5]
+    
     context = {
         'stats': {
             'lots_en_transit': lots_en_transit,
@@ -118,9 +139,14 @@ def dashboard_view(request):
             'benefice_mois': benefice_mois,
             'colis_a_livrer': colis_a_livrer,
             'colis_attente_paiement': colis_attente_paiement,
+            # Statistiques ajustements
+            'jetons_cedes_mois': float(jetons_cedes_mois),
+            'remises_mois': float(remises_mois),
+            'ajustements_total_mois': float(jetons_cedes_mois) + float(remises_mois),
         },
         'derniers_lots_recus': derniers_lots_recus,
         'dernieres_livraisons': dernieres_livraisons,
+        'derniers_ajustements': derniers_ajustements,
     }
     return render(request, 'agent_mali_app/dashboard.html', context)
 
@@ -673,6 +699,193 @@ def depenses_view(request):
         'title': 'Gestion des Dépenses',
     }
     return render(request, 'agent_mali_app/depenses.html', context)
+
+@agent_mali_required
+def appliquer_ajustement_view(request, colis_id):
+    """
+    Interface pour appliquer un ajustement de prix (JC ou remise) à un colis
+    """
+    colis = get_object_or_404(Colis, id=colis_id)
+    
+    # Vérifier que le colis peut être ajusté
+    if colis.statut not in ['arrive', 'livre']:
+        messages.error(request, f"❌ Impossible d'ajuster le prix d'un colis au statut '{colis.get_statut_display()}'")
+        return redirect('agent_mali:colis_a_livrer')
+    
+    if request.method == 'POST':
+        try:
+            adjustment_type = request.POST.get('adjustment_type')
+            amount = float(request.POST.get('amount', 0))
+            reason = request.POST.get('reason', '').strip()
+            notes = request.POST.get('notes', '').strip()
+            
+            # Validation
+            if not adjustment_type or adjustment_type not in ['jc', 'remise']:
+                messages.error(request, "❌ Type d'ajustement requis")
+                return render(request, 'agent_mali_app/appliquer_ajustement.html', {'colis': colis})
+            
+            if amount <= 0:
+                messages.error(request, "❌ Le montant doit être supérieur à 0")
+                return render(request, 'agent_mali_app/appliquer_ajustement.html', {'colis': colis})
+            
+            if not reason:
+                messages.error(request, "❌ La raison est requise")
+                return render(request, 'agent_mali_app/appliquer_ajustement.html', {'colis': colis})
+            
+            # Créer l'ajustement
+            adjustment = PriceAdjustment.objects.create(
+                colis=colis,
+                adjustment_type=adjustment_type,
+                adjustment_amount=amount,
+                original_price=colis.get_prix_effectif(),
+                reason=reason,
+                notes=notes,
+                applied_by=request.user
+            )
+            
+            # Appliquer immédiatement l'ajustement
+            adjustment.apply_adjustment()
+            
+            type_label = "Jeton cédé" if adjustment_type == 'jc' else "Remise"
+            messages.success(
+                request, 
+                f"✅ {type_label} de {amount} FCFA appliqué au colis {colis.numero_suivi}. "
+                f"Prix passé de {adjustment.original_price} à {adjustment.final_price} FCFA."
+            )
+            
+            return redirect('agent_mali:colis_detail', colis_id=colis.id)
+            
+        except ValueError as e:
+            messages.error(request, f"❌ Erreur dans les données saisies: {str(e)}")
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de l'application de l'ajustement: {str(e)}")
+    
+    # Calculer les suggestions de jetons communs
+    prix_actuel = colis.get_prix_effectif()
+    suggestions_jc = []
+    for jeton in [25, 50, 100, 200, 250, 500]:
+        if jeton < prix_actuel:
+            suggestions_jc.append(jeton)
+    
+    context = {
+        'colis': colis,
+        'prix_actuel': prix_actuel,
+        'suggestions_jc': suggestions_jc,
+        'title': f'Ajuster le prix du colis {colis.numero_suivi}',
+    }
+    return render(request, 'agent_mali_app/appliquer_ajustement.html', context)
+
+@agent_mali_required
+def colis_detail_view(request, colis_id):
+    """
+    Détail d'un colis avec historique des ajustements
+    """
+    colis = get_object_or_404(Colis, id=colis_id)
+    
+    # Historique des ajustements
+    ajustements = colis.price_adjustments.all().order_by('-created_at')
+    
+    # Calculs financiers
+    prix_original = colis.prix_calcule
+    prix_actuel = colis.get_prix_effectif()
+    total_ajustements = sum(adj.effective_adjustment for adj in ajustements.filter(status='applied'))
+    
+    context = {
+        'colis': colis,
+        'ajustements': ajustements,
+        'prix_original': prix_original,
+        'prix_actuel': prix_actuel,
+        'total_ajustements': total_ajustements,
+        'title': f'Détail du colis {colis.numero_suivi}',
+    }
+    return render(request, 'agent_mali_app/colis_detail.html', context)
+
+@agent_mali_required
+def annuler_ajustement_view(request, adjustment_id):
+    """
+    Annuler un ajustement de prix
+    """
+    if request.method == 'POST':
+        adjustment = get_object_or_404(
+            PriceAdjustment, 
+            id=adjustment_id,
+            applied_by=request.user  # Seul l'agent qui l'a créé peut l'annuler
+        )
+        
+        try:
+            colis_id = adjustment.colis.id
+            type_label = adjustment.get_adjustment_type_display()
+            
+            adjustment.cancel_adjustment()
+            
+            messages.success(
+                request,
+                f"✅ {type_label} de {adjustment.adjustment_amount} FCFA annulé pour le colis {adjustment.colis.numero_suivi}"
+            )
+            
+            return redirect('agent_mali:colis_detail', colis_id=colis_id)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de l'annulation: {str(e)}")
+    
+    return redirect('agent_mali:colis_a_livrer')
+
+@agent_mali_required
+def ajustements_rapport_view(request):
+    """
+    Rapport détaillé des ajustements de prix
+    """
+    # Filtres de date
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    type_filter = request.GET.get('type', '')
+    
+    # Base queryset
+    ajustements = PriceAdjustment.objects.filter(
+        status='applied'
+    ).select_related('colis__client__user', 'applied_by').order_by('-created_at')
+    
+    # Filtres
+    if date_debut:
+        try:
+            date_debut_parsed = datetime.strptime(date_debut, '%Y-%m-%d').date()
+            ajustements = ajustements.filter(created_at__date__gte=date_debut_parsed)
+        except ValueError:
+            pass
+    
+    if date_fin:
+        try:
+            date_fin_parsed = datetime.strptime(date_fin, '%Y-%m-%d').date()
+            ajustements = ajustements.filter(created_at__date__lte=date_fin_parsed)
+        except ValueError:
+            pass
+    
+    if type_filter:
+        ajustements = ajustements.filter(adjustment_type=type_filter)
+    
+    # Statistiques
+    total_ajustements = ajustements.count()
+    total_jetons_cedes = ajustements.filter(adjustment_type='jc').aggregate(total=Sum('adjustment_amount'))['total'] or 0
+    total_remises = ajustements.filter(adjustment_type='remise').aggregate(total=Sum('adjustment_amount'))['total'] or 0
+    
+    # Pagination
+    paginator = Paginator(ajustements, 25)
+    page_number = request.GET.get('page')
+    ajustements_page = paginator.get_page(page_number)
+    
+    context = {
+        'ajustements': ajustements_page,
+        'total_ajustements': total_ajustements,
+        'total_jetons_cedes': total_jetons_cedes,
+        'total_remises': total_remises,
+        'total_montant': total_jetons_cedes + total_remises,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'type_filter': type_filter,
+        'type_choices': PriceAdjustment.ADJUSTMENT_TYPES,
+        'title': 'Rapport des Ajustements de Prix',
+    }
+    return render(request, 'agent_mali_app/ajustements_rapport.html', context)
 
 @agent_mali_required
 def depense_create_view(request):

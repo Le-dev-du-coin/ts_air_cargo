@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_client_async(telephone, first_name, last_name, email=None, password=None, send_notifications=True):
+def create_client_async(telephone, first_name, last_name, email=None, password=None, send_notifications=True, initiated_by=None):
     """
     Fonction utilitaire pour créer un client de manière asynchrone avec Celery
     
@@ -20,6 +20,7 @@ def create_client_async(telephone, first_name, last_name, email=None, password=N
         email: Email optionnel
         password: Mot de passe optionnel
         send_notifications: Envoyer les notifications WhatsApp
+        initiated_by: Agent qui initie la création
         
     Returns:
         AsyncResult: Objet Celery pour suivre la tâche
@@ -43,19 +44,41 @@ def create_client_async(telephone, first_name, last_name, email=None, password=N
             print(f"Client créé: {result['client_name']}")
     """
     try:
-        logger.info(f"🚀 Lancement création client async: {telephone}")
+        # Créer la tâche de tracking d'abord
+        from .models import ClientCreationTask
+        from django.contrib.auth import get_user_model
         
-        # Lancer la tâche Celery
-        task_result = create_client_account_async.delay(
+        if not initiated_by:
+            # Essayer de récupérer l'utilisateur actuel depuis le contexte
+            # Si pas disponible, utiliser un agent par défaut
+            User = get_user_model()
+            try:
+                initiated_by = User.objects.filter(is_agent_chine=True).first()
+                if not initiated_by:
+                    raise Exception("Aucun agent Chine disponible pour initier la tâche")
+            except:
+                raise Exception("Agent requis pour initier la création de client")
+        
+        # Créer la tâche de tracking
+        client_task = ClientCreationTask.objects.create(
             telephone=telephone,
             first_name=first_name,
             last_name=last_name,
-            email=email,
-            password=password,
-            send_notifications=send_notifications
+            email=email or '',
+            initiated_by=initiated_by,
+            status='pending'
         )
         
-        logger.info(f"📤 Tâche création client lancée: {task_result.id} pour {telephone}")
+        logger.info(f"🚀 Tâche création client créée: {client_task.task_id} pour {telephone}")
+        
+        # Lancer la tâche Celery avec l'ID de la tâche
+        task_result = create_client_account_async.delay(client_task.task_id)
+        
+        # Mettre à jour l'ID Celery
+        client_task.celery_task_id = task_result.id
+        client_task.save(update_fields=['celery_task_id'])
+        
+        logger.info(f"📤 Tâche Celery lancée: {task_result.id} pour tâche {client_task.task_id}")
         
         return task_result
         

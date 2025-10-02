@@ -124,6 +124,39 @@
             </div>
         </div>
     </div>
+    
+    <!-- Statistiques des Ajustements -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card" style="border-left: 4px solid var(--warning-color);">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value text-warning">{{ stats.jetons_cedes_mois|floatformat:0 }} F</h3>
+                    <p class="stat-label">Jetons Cédés (JC)</p>
+                    <div class="stat-change neutral">
+                        <i class="bi bi-coins"></i>
+                        Ce mois
+                    </div>
+                </div>
+                <i class="bi bi-coin stat-icon" style="color: var(--warning-color);"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card" style="border-left: 4px solid var(--success-color);">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value text-success">{{ stats.remises_mois|floatformat:0 }} F</h3>
+                    <p class="stat-label">Remises Accordées</p>
+                    <div class="stat-change neutral">
+                        <i class="bi bi-percent"></i>
+                        Ce mois
+                    </div>
+                </div>
+                <i class="bi bi-tag stat-icon" style="color: var(--success-color);"></i>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Section Financière Détaillée -->
@@ -367,6 +400,91 @@
         </div>
     </div>
 </div>
+
+<!-- Ajustements de prix récents -->
+{% if derniers_ajustements %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-warning">
+                    <i class="bi bi-coin"></i> Ajustements de Prix Récents
+                </h6>
+                <small class="text-muted">{{ "now"|date:"d M Y" }}</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>N° Colis</th>
+                                <th>Client</th>
+                                <th>Montant</th>
+                                <th>Raison</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ajustement in derniers_ajustements|slice:":5" %}
+                            <tr>
+                                <td>
+                                    {% if ajustement.adjustment_type == 'jc' %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-coins"></i> JC
+                                        </span>
+                                    {% elif ajustement.adjustment_type == 'remise' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-percent"></i> Remise
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="fw-semibold text-primary">{{ ajustement.colis.numero_suivi }}</span>
+                                </td>
+                                <td class="small">{{ ajustement.colis.client.user.get_full_name }}</td>
+                                <td>
+                                    <span class="text-danger fw-semibold">-{{ ajustement.adjustment_amount|floatformat:0 }} F</span>
+                                </td>
+                                <td class="small text-muted">{{ ajustement.reason|truncatechars:30 }}</td>
+                                <td class="small text-muted">{{ ajustement.created_at|date:"d/m H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="row mt-3 pt-3 border-top">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="text-warning h6">{{ stats.jetons_cedes_mois|floatformat:0 }} F</div>
+                            <div class="small text-muted">
+                                <i class="bi bi-coins"></i> Jetons Cédés ce mois
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="text-success h6">{{ stats.remises_mois|floatformat:0 }} F</div>
+                            <div class="small text-muted">
+                                <i class="bi bi-percent"></i> Remises accordées ce mois
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="text-info h6">{{ stats.ajustements_total_mois|floatformat:0 }} F</div>
+                            <div class="small text-muted">
+                                <i class="bi bi-calculator"></i> Total ajustements
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Actions rapides mobiles -->
 <div class="d-md-none fixed-bottom bg-light border-top p-3">

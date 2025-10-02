@@ -225,3 +225,186 @@ class Livraison(models.Model):
         
     def __str__(self):
         return f"Livraison {self.colis.numero_suivi} - {self.statut}"
+
+
+class PriceAdjustment(models.Model):
+    """
+    Modèle pour gérer les ajustements de prix (Jetons Cédés et Remises)
+    """
+    ADJUSTMENT_TYPES = [
+        ('jc', 'Jeton Cédé (JC)'),
+        ('remise', 'Remise Commerciale'),
+        ('frais_supplementaire', 'Frais Supplémentaire'),
+        ('correction', 'Correction de Prix'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Actif'),
+        ('applied', 'Appliqué'),
+        ('cancelled', 'Annulé'),
+    ]
+    
+    # Référence au colis concerné
+    colis = models.ForeignKey(
+        'agent_chine_app.Colis',
+        on_delete=models.CASCADE,
+        related_name='price_adjustments',
+        help_text="Colis concerné par l'ajustement"
+    )
+    
+    # Type d'ajustement
+    adjustment_type = models.CharField(
+        max_length=20,
+        choices=ADJUSTMENT_TYPES,
+        help_text="Type d'ajustement de prix"
+    )
+    
+    # Montant de l'ajustement (toujours en valeur absolue)
+    adjustment_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Montant de l'ajustement en FCFA (valeur absolue)"
+    )
+    
+    # Prix avant et après ajustement
+    original_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Prix original avant ajustement"
+    )
+    
+    final_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Prix final après ajustement"
+    )
+    
+    # Informations contextuelles
+    reason = models.CharField(
+        max_length=200,
+        help_text="Raison de l'ajustement"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Notes additionnelles sur l'ajustement"
+    )
+    
+    # Statut et traçabilité
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active'
+    )
+    
+    applied_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'is_agent_mali': True},
+        help_text="Agent Mali qui a appliqué l'ajustement"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    applied_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date d'application de l'ajustement"
+    )
+    
+    class Meta:
+        verbose_name = "Ajustement de Prix"
+        verbose_name_plural = "Ajustements de Prix"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['colis', 'status']),
+            models.Index(fields=['adjustment_type', 'created_at']),
+            models.Index(fields=['applied_by', 'created_at']),
+        ]
+    
+    def __str__(self):
+        sign = "-" if self.adjustment_type in ['jc', 'remise'] else "+"
+        return f"{self.get_adjustment_type_display()} - {self.colis.numero_suivi} ({sign}{self.adjustment_amount} FCFA)"
+    
+    def save(self, *args, **kwargs):
+        """
+        Calcul automatique du prix final
+        """
+        if self.adjustment_type in ['jc', 'remise']:
+            # Déduction pour JC et remises
+            self.final_price = self.original_price - self.adjustment_amount
+        else:
+            # Addition pour frais supplémentaires
+            self.final_price = self.original_price + self.adjustment_amount
+        
+        # S'assurer que le prix final ne soit pas négatif
+        if self.final_price < 0:
+            self.final_price = 0
+        
+        super().save(*args, **kwargs)
+    
+    def apply_adjustment(self):
+        """
+        Marque l'ajustement comme appliqué et met à jour le prix du colis
+        """
+        if self.status != 'active':
+            raise ValueError("Seuls les ajustements actifs peuvent être appliqués")
+        
+        # Mettre à jour le colis avec le nouveau prix
+        self.colis.prix_transport_manuel = self.final_price
+        self.colis.save()
+        
+        # Marquer comme appliqué
+        self.status = 'applied'
+        self.applied_at = timezone.now()
+        self.save()
+    
+    def cancel_adjustment(self):
+        """
+        Annule l'ajustement et restaure le prix original
+        """
+        if self.status == 'applied':
+            # Restaurer le prix original du colis
+            self.colis.prix_transport_manuel = None  # Retour au prix calculé automatiquement
+            self.colis.save()
+        
+        self.status = 'cancelled'
+        self.save()
+    
+    @property
+    def effective_adjustment(self):
+        """
+        Retourne le montant effectif de l'ajustement (négatif pour déduction)
+        """
+        if self.adjustment_type in ['jc', 'remise']:
+            return -self.adjustment_amount
+        return self.adjustment_amount
+    
+    @classmethod
+    def create_jeton_cede(cls, colis, amount, reason="Change de monnaie", applied_by=None):
+        """
+        Méthode helper pour créer un ajustement de type Jeton Cédé
+        """
+        return cls.objects.create(
+            colis=colis,
+            adjustment_type='jc',
+            adjustment_amount=abs(amount),  # S'assurer que c'est positif
+            original_price=colis.get_prix_effectif(),
+            reason=reason,
+            applied_by=applied_by,
+            notes=f"Jeton cédé de {amount} FCFA pour {reason}"
+        )
+    
+    @classmethod
+    def create_remise(cls, colis, amount, reason="Remise commerciale", applied_by=None):
+        """
+        Méthode helper pour créer une remise
+        """
+        return cls.objects.create(
+            colis=colis,
+            adjustment_type='remise',
+            adjustment_amount=abs(amount),
+            original_price=colis.get_prix_effectif(),
+            reason=reason,
+            applied_by=applied_by,
+            notes=f"Remise de {amount} FCFA - {reason}"
+        )
