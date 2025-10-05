@@ -38,6 +38,10 @@ urlpatterns = [
     path('tasks/<str:task_id>/cancel/', views.colis_task_cancel, name='colis_task_cancel'),
     path('api/tasks/<str:task_id>/status/', views.colis_task_api_status, name='colis_task_api_status'),
     
+    # Gestion des tâches de création client
+    path('client-tasks/', views.client_creation_tasks_list, name='client_creation_tasks_list'),
+    path('client-tasks/<str:task_id>/', views.client_creation_task_detail, name='client_creation_task_detail'),
+    
     # Notifications
     path('notifications/', views.notifications_view, name='notifications'),
     

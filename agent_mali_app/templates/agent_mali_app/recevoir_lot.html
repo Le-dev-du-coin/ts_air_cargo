@@ -63,6 +63,14 @@
                                 <td class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} CFA</td>
                             </tr>
                             <tr>
+                                <td><strong>Valeur totale:</strong></td>
+                                <td class="text-primary fw-bold">
+                                    {% with total_value=lot.get_total_value %}
+                                        {{ total_value|floatformat:0 }} CFA
+                                    {% endwith %}
+                                </td>
+                            </tr>
+                            <tr>
                                 <td><strong>Date prévue:</strong></td>
                                 <td>{{ lot.date_prevue_arrivee|date:"d/m/Y"|default:"Non définie" }}</td>
                             </tr>
@@ -179,8 +187,8 @@
                 <div class="col-md-3">
                     <div class="text-center">
                         <div class="h4 text-success">
-                            {% with total_prix=lot.colis.all|sum_field:"prix" %}
-                                {{ total_prix|floatformat:0 }}
+                            {% with total_value=lot.get_total_value %}
+                                {{ total_value|floatformat:0 }} 
                             {% endwith %} CFA
                         </div>
                         <div class="small text-muted">Valeur totale</div>

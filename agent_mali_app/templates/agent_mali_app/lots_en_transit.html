@@ -90,42 +90,59 @@
 </div>
 
 <!-- Statistiques rapides -->
-<div class="row mb-4">
-    <div class="col-md-4">
+<div class="row mb-4 g-3">
+    <!-- Carte 1: Nombre de lots en transit -->
+    <div class="col-md-3 col-6">
         <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #4361ee;">
-            <div class="card-body text-center p-4">
-                <div class="stats-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-3" style="background: rgba(67, 97, 238, 0.15) !important;">
-                    <i class="fas fa-shipping-fast" style="color: #4361ee; font-size: 1.8rem;"></i>
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-2" style="background: rgba(67, 97, 238, 0.15) !important;">
+                    <i class="fas fa-shipping-fast" style="color: #4361ee; font-size: 1.5rem;"></i>
                 </div>
-                <h3 class="h2 fw-bold mb-2" style="color: #4361ee;">{{ lots.count }}</h3>
-                <p class="text-muted mb-0 fw-medium">Lots En Transit</p>
-                <small class="text-muted">En route vers Bamako</small>
+                <h3 class="h4 fw-bold mb-1" style="color: #4361ee;">{{ lots.count }}</h3>
+                <p class="text-muted mb-0 small fw-medium">Lots En Transit</p>
+                <small class="text-muted d-block small">En route vers Bamako</small>
             </div>
         </div>
     </div>
     
-    <div class="col-md-4">
+    <!-- Carte 2: Total des colis -->
+    <div class="col-md-3 col-6">
         <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #3bc9db;">
-            <div class="card-body text-center p-4">
-                <div class="stats-icon bg-info bg-opacity-10 rounded-circle mx-auto mb-3" style="background: rgba(59, 201, 219, 0.15) !important;">
-                    <i class="fas fa-box-open" style="color: #3bc9db; font-size: 1.8rem;"></i>
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-info bg-opacity-10 rounded-circle mx-auto mb-2" style="background: rgba(59, 201, 219, 0.15) !important;">
+                    <i class="fas fa-box-open" style="color: #3bc9db; font-size: 1.5rem;"></i>
                 </div>
-                <h3 class="h2 fw-bold mb-2" style="color: #3bc9db;">{{ total_colis }}</h3>
-                <p class="text-muted mb-0 fw-medium">Total Colis</p>
-                <small class="text-muted">À réceptionner</small>
+                <h3 class="h4 fw-bold mb-1" style="color: #3bc9db;">{{ total_colis }}</h3>
+                <p class="text-muted mb-0 small fw-medium">Total Colis</p>
+                <small class="text-muted d-block small">À réceptionner</small>
             </div>
         </div>
     </div>
     
-    <div class="col-md-4">
+    <!-- Carte 3: Valeur transport -->
+    <div class="col-md-3 col-6">
         <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #38b000;">
-            <div class="card-body text-center p-4">
-                <div class="stats-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-3" style="background: rgba(56, 176, 0, 0.15) !important;">
-                    <i class="fas fa-dollar-sign" style="color: #38b000; font-size: 1.8rem;"></i>
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-2" style="background: rgba(56, 176, 0, 0.15) !important;">
+                    <i class="fas fa-truck" style="color: #38b000; font-size: 1.5rem;"></i>
                 </div>
-                <h3 class="h2 fw-bold mb-2" style="color: #38b000;">{{ valeur_transport_total|floatformat:0 }} F</h3>
-                <p class="text-muted mb-0 fw-medium">Valeur Transport</p>
-                <small class="text-muted">Total des lots</small>
+                <h3 class="h4 fw-bold mb-1" style="color: #38b000;">{{ valeur_transport_total|floatformat:0 }} F</h3>
+                <p class="text-muted mb-0 small fw-medium">Valeur Transport</p>
+                <small class="text-muted d-block small">Total des lots</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Carte 4: Valeur des colis -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #9c36b5;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-purple bg-opacity-10 rounded-circle mx-auto mb-2" style="background: rgba(156, 54, 181, 0.15) !important;">
+                    <i class="fas fa-money-bill-wave" style="color: #9c36b5; font-size: 1.5rem;"></i>
+                </div>
+                <h3 class="h4 fw-bold mb-1" style="color: #9c36b5;">{{ valeur_totale_colis|floatformat:0 }} F</h3>
+                <p class="text-muted mb-0 small fw-medium">Valeur des Colis</p>
+                <small class="text-muted d-block small">Total des colis</small>
             </div>
         </div>
     </div>

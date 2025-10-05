@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from notifications_app.utils import format_cfa
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 from django.utils import timezone
@@ -102,17 +103,20 @@ def dashboard_view(request):
     # Derniers colis créés
     derniers_colis = Colis.objects.select_related('client__user', 'lot').order_by('-date_creation')[:5]
     
-    # Tâches de création client récentes
+    # Tâches de création client récentes et statistiques
     taches_creation_client = ClientCreationTask.objects.select_related(
         'client__user', 'initiated_by'
     ).filter(
         initiated_by=request.user
-    ).order_by('-created_at')[:10]
+    )
     
-    # Statistiques des tâches de création client
+    # Récupérer d'abord les statistiques
     taches_pending = taches_creation_client.filter(status__in=['pending', 'processing', 'account_creating', 'notification_sending']).count()
     taches_completed = taches_creation_client.filter(status='completed').count()
     taches_failed = taches_creation_client.filter(status__in=['failed', 'failed_retry', 'failed_final']).count()
+    
+    # Puis récupérer les 10 dernières tâches pour l'affichage
+    taches_creation_client = taches_creation_client.order_by('-created_at')[:10]
     
     context = {
         'stats': {

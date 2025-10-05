@@ -351,10 +351,16 @@ def lots_en_transit_view(request):
     total_colis = sum(lot.colis.count() for lot in lots)
     valeur_transport_total = sum(float(lot.prix_transport or 0) for lot in lots)
     
+    # Calcul de la valeur totale des colis (somme des prix des colis dans chaque lot)
+    valeur_totale_colis = 0
+    for lot in lots:
+        valeur_totale_colis += sum(float(colis.prix_calcule or 0) for colis in lot.colis.all())
+    
     context = {
         'lots': lots,
         'total_colis': total_colis,
         'valeur_transport_total': valeur_transport_total,
+        'valeur_totale_colis': valeur_totale_colis,
         'title': 'Lots En Transit',
     }
     return render(request, 'agent_mali_app/lots_en_transit.html', context)

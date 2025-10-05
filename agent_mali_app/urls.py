@@ -22,6 +22,12 @@ urlpatterns = [
     path('colis-attente-paiement/', views.colis_attente_paiement_view, name='colis_attente_paiement'),
     path('marquer-paiement/<int:colis_id>/', views.marquer_paiement_view, name='marquer_paiement'),
     
+    # Ajustements de prix (JC et Remises)
+    path('colis/<int:colis_id>/detail/', views.colis_detail_view, name='colis_detail'),
+    path('colis/<int:colis_id>/ajuster-prix/', views.appliquer_ajustement_view, name='appliquer_ajustement'),
+    path('ajustement/<int:adjustment_id>/annuler/', views.annuler_ajustement_view, name='annuler_ajustement'),
+    path('ajustements-rapport/', views.ajustements_rapport_view, name='ajustements_rapport'),
+    
     # Gestion des dépenses
     path('depenses/', views.depenses_view, name='depenses'),
     path('depenses/nouveau/', views.depense_create_view, name='depense_create'),

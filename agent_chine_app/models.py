@@ -120,6 +120,13 @@ class Lot(models.Model):
             
         super().save(*args, **kwargs)
         
+    def get_total_value(self):
+        """
+        Calcule la valeur totale des colis dans ce lot
+        en additionnant les prix calculés de chaque colis
+        """
+        return sum(colis.prix_calcule for colis in self.colis.all() if colis.prix_calcule is not None)
+        
     def __str__(self):
         return f"Lot {self.numero_lot} - {self.statut}"
 
