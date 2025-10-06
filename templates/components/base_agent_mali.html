@@ -570,6 +570,12 @@
                         <span>Lots en Transit</span>
                     </a>
                 </div>
+                <div class="nav-item">
+                    <a href="{% url 'agent_mali:lots_livres' %}" class="nav-link {% if 'lots_livres' in request.resolver_match.url_name %}active{% endif %}">
+                        <i class="bi bi-check-circle"></i>
+                        <span>Lots Livrés</span>
+                    </a>
+                </div>
             </div>
 
             <div class="nav-section">

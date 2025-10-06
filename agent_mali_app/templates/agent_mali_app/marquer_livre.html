@@ -289,6 +289,52 @@
                             <div class="small text-muted">Inclure une demande d'évaluation du service</div>
                         </label>
                     </div>
+                    
+                    <!-- Section Cession de Jetons (JC) -->
+                    <div class="border-top mt-4 pt-3">
+                        <h6 class="mb-3">
+                            <i class="bi bi-coin me-2 text-warning"></i>
+                            Cession de Jetons (JC)
+                        </h6>
+                        
+                        <div class="mb-3">
+                            <label for="jeton_cede" class="form-label">Montant du jeton cédé (FCFA)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="jeton_cede" name="jeton_cede" 
+                                       min="0" step="25" value="0" 
+                                       onchange="updateFinalPrice()">
+                                <span class="input-group-text">FCFA</span>
+                            </div>
+                            <div class="form-text">
+                                Montant à céder au client (ex: 200 FCFA pour arrondir à la centaine inférieure)
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning p-2 small">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <div>
+                                    <div class="mb-1">
+                                        <strong>Prix du transport :</strong> 
+                                        <span id="prix_transport">{{ colis.prix_calcule|floatformat:0 }}</span> FCFA
+                                    </div>
+                                    <div class="mb-1">
+                                        <strong>Prix total du colis :</strong> 
+                                        <span id="prix_initial">{{ colis.get_prix_effectif|floatformat:0 }}</span> FCFA
+                                    </div>
+                                    
+                                    <div id="reduction_section" style="display: none;">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2">-</span>
+                                            <span id="montant_reduction">0</span> FCFA (JC)
+                                            <span class="mx-2">=</span>
+                                            <strong><span id="prix_final">{{ colis.get_prix_effectif|floatformat:0 }}</span> FCFA</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="modal-footer">
@@ -351,32 +397,125 @@
 {% block extra_js %}
 <script>
     function showDeliveryModal() {
-        const modal = new bootstrap.Modal(document.getElementById('deliveryModal'));
-        modal.show();
+        var myModal = new bootstrap.Modal(document.getElementById('deliveryModal'));
+        myModal.show();
     }
     
-    // Afficher automatiquement le modal si des messages d'erreur existent
-    {% if messages %}
-        {% for message in messages %}
-            {% if message.tags == 'error' %}
-                showDeliveryModal();
-            {% endif %}
-        {% endfor %}
-    {% endif %}
+    // Mettre à jour le prix final en fonction du jeton cédé
+    function updateFinalPrice() {
+        const jetonCedeInput = document.getElementById('jeton_cede');
+        const prixInitialElement = document.getElementById('prix_initial');
+        const reductionSection = document.getElementById('reduction_section');
+        
+        if (!jetonCedeInput || !prixInitialElement || !reductionSection) {
+            console.error('Éléments nécessaires non trouvés');
+            return;
+        }
+        
+        const jetonCede = parseFloat(jetonCedeInput.value) || 0;
+        const prixInitial = parseFloat(prixInitialElement.textContent.replace(/\s/g, ''));
+        
+        if (jetonCede > 0) {
+            const prixFinal = prixInitial - jetonCede;
+            
+            // Mettre à jour l'affichage
+            const montantReductionElement = document.getElementById('montant_reduction');
+            const prixFinalElement = document.getElementById('prix_final');
+            
+            if (montantReductionElement && prixFinalElement) {
+                montantReductionElement.textContent = jetonCede.toLocaleString('fr-FR');
+                prixFinalElement.textContent = prixFinal.toLocaleString('fr-FR');
+                reductionSection.style.display = 'inline';
+            }
+            
+            // Vérifier que le jeton ne dépasse pas 50% du prix initial
+            if (jetonCede > prixInitial * 0.5) {
+                alert('Attention : Le jeton cédé ne peut pas dépasser 50% du prix initial.');
+                jetonCedeInput.value = Math.floor(prixInitial * 0.5);
+                updateFinalPrice(); // Rappeler pour mettre à jour avec la valeur corrigée
+                return;
+            }
+        } else {
+            // Cacher la section de réduction si pas de jeton
+            reductionSection.style.display = 'none';
+        }
+    }
     
-    // Validation du formulaire
-    document.getElementById('deliveryModal').addEventListener('submit', function(e) {
-        const modelivraison = document.getElementById('mode_livraison').value;
-        if (!modelivraison) {
-            e.preventDefault();
-            Swal.fire({
-                icon: 'warning',
-                title: 'Champ requis',
-                text: 'Veuillez sélectionner un mode de livraison avant de continuer.',
-                confirmButtonText: 'Compris',
-                confirmButtonColor: '#f59e0b'
+    // Fonction pour initialiser la suggestion de jeton
+    function initJetonSuggestion() {
+        const prixInitialElement = document.getElementById('prix_initial');
+        const jetonCedeInput = document.getElementById('jeton_cede');
+        
+        if (!prixInitialElement || !jetonCedeInput) return;
+        
+        try {
+            const prixInitial = parseFloat('{{ colis.get_prix_effectif|default:0 }}');
+            const jetonCede = Math.floor(prixInitial % 100);
+            
+            if (jetonCede > 0) {
+                // Afficher une suggestion au-dessus du champ
+                const suggestionDiv = document.createElement('div');
+                suggestionDiv.className = 'alert alert-info p-2 mb-3';
+                suggestionDiv.innerHTML = `
+                    <i class="bi bi-lightbulb me-2"></i>
+                    Suggestion : Céder <strong>${jetonCede} FCFA</strong> pour arrondir à 
+                    <strong>${Math.floor(prixInitial / 100) * 100} FCFA</strong>
+                    <button type="button" class="btn btn-sm btn-outline-primary ms-2" 
+                            onclick="document.getElementById('jeton_cede').value = ${jetonCede}; updateFinalPrice();">
+                        Appliquer
+                    </button>
+                `;
+                
+                const jetonField = jetonCedeInput.parentNode.parentNode;
+                jetonField.parentNode.insertBefore(suggestionDiv, jetonField.nextSibling);
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'initialisation de la suggestion de jeton:', error);
+        }
+    }
+    
+    // Initialisation au chargement du DOM
+    document.addEventListener('DOMContentLoaded', function() {
+        // Afficher le modal si des messages d'erreur existent
+        {% if messages %}
+            {% for message in messages %}
+                {% if message.tags == 'error' %}
+                    showDeliveryModal();
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        
+        // Validation du formulaire
+        const deliveryForm = document.querySelector('#deliveryModal form');
+        if (deliveryForm) {
+            deliveryForm.addEventListener('submit', function(e) {
+                const modelivraison = document.getElementById('mode_livraison');
+                if (modelivraison && !modelivraison.value) {
+                    e.preventDefault();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Champ requis',
+                            text: 'Veuillez sélectionner un mode de livraison avant de continuer.',
+                            confirmButtonText: 'Compris',
+                            confirmButtonColor: '#f59e0b'
+                        });
+                    } else {
+                        alert('Veuillez sélectionner un mode de livraison avant de continuer.');
+                    }
+                    return false;
+                }
             });
-            return false;
+        }
+        
+        // Initialisation des fonctionnalités
+        initJetonSuggestion();
+        updateFinalPrice();
+        
+        // Gestionnaire d'événement pour le champ jeton_cede
+        const jetonCedeInput = document.getElementById('jeton_cede');
+        if (jetonCedeInput) {
+            jetonCedeInput.addEventListener('input', updateFinalPrice);
         }
     });
 </script>

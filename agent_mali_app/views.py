@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Count, Sum, Q, Avg
+from django.db.models import Count, Sum, Q, Avg, Case, When, IntegerField
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
@@ -11,6 +11,7 @@ from django.db import transaction
 import json
 
 from .models import Depense, ReceptionLot, Livraison, PriceAdjustment
+from agent_chine_app.models import Lot, Colis
 from agent_chine_app.models import Lot, Colis, Client
 from notifications_app.services import NotificationService
 from django.contrib.auth import get_user_model
@@ -27,6 +28,59 @@ def agent_mali_required(view_func):
     return wrapper
 
 @agent_mali_required
+@agent_mali_required
+def lots_livres_view(request):
+    """
+    Affiche la liste des lots complètement livrés avec possibilité de recherche
+    """
+    # Récupérer la requête de recherche si elle existe
+    query = request.GET.get('q', '')
+    
+    # Filtrer les lots marqués comme livrés
+    lots = Lot.objects.filter(statut='livre')
+    
+    # Appliquer les filtres de recherche
+    if query:
+        lots = lots.filter(
+            Q(numero_lot__icontains=query) |
+            Q(colis__client__user__first_name__icontains=query) |
+            Q(colis__client__user__last_name__icontains=query) |
+            Q(colis__client__user__username__icontains=query)
+        ).distinct()
+    
+    # Annoter avec le nombre de colis par lot
+    lots = lots.annotate(
+        nb_colis=Count('colis'),
+        nb_colis_livres=Count(
+            Case(
+                When(colis__statut='livre', then=1),
+                output_field=IntegerField(),
+            )
+        )
+    )
+    
+    # Calculer les statistiques
+    total_lots = lots.count()
+    total_colis = sum(lot.nb_colis for lot in lots)
+    total_colis_livres = sum(lot.nb_colis_livres for lot in lots)
+    
+    # Pagination
+    paginator = Paginator(lots, 20)  # 20 lots par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+        'total_lots': total_lots,
+        'total_colis': total_colis,
+        'total_colis_livres': total_colis_livres,
+        'title': 'Lots Complètement Livrés',
+    }
+    
+    return render(request, 'agent_mali_app/liste_lots_livres.html', context)
+
+
 def dashboard_view(request):
     """
     Tableau de bord pour Agent Mali avec statistiques temps réel
@@ -400,48 +454,60 @@ def recevoir_lot_view(request, lot_id):
                 lot=lot,
                 defaults={
                     'agent_receptionnaire': request.user,
-                    'observations': commentaire,
-                    'reception_complete': False
+                    'reception_complete': False,
+                    'nombre_colis_recus': 0
                 }
             )
             
-            # Si l'enregistrement existait déjà, mettre à jour les observations
-            if not created:
-                if commentaire:
-                    # Ajouter le nouveau commentaire aux observations existantes
-                    if reception.observations:
-                        reception.observations += f"\n--- Réception partielle {timezone.now().strftime('%d/%m/%Y %H:%M')} ---\n{commentaire}"
-                    else:
-                        reception.observations = commentaire
+            # Ajouter l'observation avec horodatage
+            if commentaire:
+                reception.ajouter_observation(commentaire)
+            else:
+                reception.ajouter_observation("Réception effectuée sans commentaire")
             
             # Mettre à jour le statut des colis reçus
             colis_a_recevoir.update(statut='arrive')
             
+            # Mettre à jour le nombre de colis reçus
+            reception.nombre_colis_recus = lot.colis.filter(statut='arrive').count()
+            
             # Vérifier si tous les colis du lot sont maintenant arrivés
             colis_non_arrives_restants = lot.colis.exclude(statut='arrive')
+            total_colis = lot.colis.count()
             
             if not colis_non_arrives_restants.exists():
                 # Réception complète
                 lot.statut = 'arrive'
                 reception.reception_complete = True
-                reception.colis_manquants.clear()  # Vider la liste des colis manquants
+                reception.colis_manquants.clear()
                 reception_type = "complète"
-                if created:
-                    reception_action = "Première et dernière"
-                else:
-                    reception_action = "Dernière"
+                reception_action = "Première et dernière" if created else "Dernière"
+                
+                # Ajouter une observation de réception complète
+                reception.ajouter_observation(
+                    f"RÉCEPTION COMPLÈTE - {reception.nombre_colis_recus}/{total_colis} colis reçus. "
+                    f"Tous les colis ont été réceptionnés avec succès."
+                )
             else:
                 # Réception partielle
                 lot.statut = 'en_transit'
                 reception.reception_complete = False
                 reception.colis_manquants.set(colis_non_arrives_restants)
                 reception_type = "partielle"
-                if created:
-                    reception_action = "Première"
-                else:
-                    reception_action = "Nouvelle"
+                reception_action = "Première" if created else "Nouvelle"
+                
+                # Ajouter une observation de réception partielle
+                reception.ajouter_observation(
+                    f"RÉCEPTION PARTIELLE - {reception.nombre_colis_recus}/{total_colis} colis reçus. "
+                    f"Colis manquants: {colis_non_arrives_restants.count()}"
+                )
             
+            # Mettre à jour les dates
             lot.date_arrivee = timezone.now()
+            if created:
+                reception.date_reception = timezone.now()
+            
+            # Sauvegarder les modifications
             lot.save()
             reception.save()
             
@@ -550,6 +616,44 @@ def marquer_livre_view(request, colis_id):
             mode_livraison = request.POST.get('mode_livraison')
             statut_paiement = request.POST.get('statut_paiement', 'en_attente')
             
+            # Gestion du jeton cédé (JC) si fourni
+            jeton_cede_str = request.POST.get('jeton_cede', '0')
+            jeton_cede = 0.0
+            
+            try:
+                jeton_cede = float(jeton_cede_str) if jeton_cede_str else 0.0
+                
+                if jeton_cede > 0:
+                    # Vérifier que le jeton ne dépasse pas 50% du prix du colis
+                    prix_effectif = float(colis.get_prix_effectif())
+                    if jeton_cede > prix_effectif * 0.5:
+                        messages.error(request, "Le jeton cédé ne peut pas dépasser 50% du prix du colis.")
+                        return redirect('agent_mali:marquer_livre', colis_id=colis_id)
+                    
+                    # Créer l'ajustement de prix pour le jeton cédé
+                    prix_final = prix_effectif - jeton_cede
+                    
+                    PriceAdjustment.objects.create(
+                        colis=colis,
+                        adjustment_type='jc',
+                        adjustment_amount=jeton_cede,
+                        original_price=prix_effectif,
+                        final_price=prix_final,
+                        reason="Jeton cédé lors de la livraison",
+                        notes=f"Jeton cédé par {request.user.get_full_name()} le {timezone.now().strftime('%d/%m/%Y %H:%M')}",
+                        status='applied',
+                        applied_by=request.user,
+                        created_at=timezone.now()
+                    )
+                    
+                    # Mettre à jour le statut de paiement si le jeton est supérieur ou égal au prix
+                    if jeton_cede >= prix_effectif:
+                        statut_paiement = 'paye'
+                        notes_livraison = f"{notes_livraison}\n\nLe jeton cédé couvre l'intégralité du montant dû.".strip()
+            except (ValueError, TypeError) as e:
+                messages.error(request, f"Erreur de format du jeton cédé: {str(e)}")
+                return redirect('agent_mali:marquer_livre', colis_id=colis_id)
+            
             # Créer l'enregistrement de livraison
             livraison = Livraison.objects.create(
                 colis=colis,
@@ -564,9 +668,20 @@ def marquer_livre_view(request, colis_id):
                 notes_livraison=notes_livraison
             )
             
-            # Mettre à jour le statut du colis
+            # Mettre à jour le statut du colis et le prix final
             colis.statut = 'livre'
             colis.save()
+            
+            # Mettre à jour le statut de paiement si le jeton couvre le montant total
+            if jeton_cede and jeton_cede >= colis.get_prix_effectif():
+                livraison.statut_paiement = 'paye'
+                livraison.save()
+            
+            # Ajouter une note sur le jeton cédé si applicable
+            if jeton_cede and float(jeton_cede) > 0:
+                notes_livraison = f"{notes_livraison}\n\nJeton cédé: {jeton_cede} FCFA".strip()
+                livraison.notes_livraison = notes_livraison
+                livraison.save()
             
             # Envoyer notification de livraison
             try:

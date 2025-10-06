@@ -76,7 +76,7 @@ class Depense(models.Model):
 
 class ReceptionLot(models.Model):
     """
-    Modèle pour enregistrer la réception des lots au Mali
+    Modèle pour enregistrer la réception des lots au Mali avec suivi des réceptions partielles
     """
     lot = models.OneToOneField(
         'agent_chine_app.Lot',
@@ -93,39 +93,53 @@ class ReceptionLot(models.Model):
     
     date_reception = models.DateTimeField(
         default=timezone.now,
-        help_text="Date et heure de réception du lot"
+        verbose_name="Date de première réception"
+    )
+    
+    date_derniere_maj = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Dernière mise à jour"
+    )
+    
+    observations = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Historique des réceptions"
     )
     
     reception_complete = models.BooleanField(
-        default=True,
-        help_text="Le lot est-il reçu en totalité?"
+        default=False,
+        verbose_name="Réception complète"
     )
     
     colis_manquants = models.ManyToManyField(
         'agent_chine_app.Colis',
         blank=True,
-        help_text="Colis manquants lors de la réception"
+        related_name='receptions_manquantes',
+        verbose_name="Colis manquants"
     )
     
-    colis_endommages = models.ManyToManyField(
-        'agent_chine_app.Colis',
-        blank=True,
-        related_name='endommagements',
-        help_text="Colis endommagés lors de la réception"
-    )
-    
-    observations = models.TextField(
-        blank=True,
-        help_text="Observations sur l'état du lot reçu"
+    nombre_colis_recus = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Nombre de colis reçus"
     )
     
     class Meta:
-        verbose_name = "Réception de Lot"
-        verbose_name_plural = "Réceptions de Lots"
-        ordering = ['-date_reception']
-        
+        verbose_name = "Réception de lot"
+        verbose_name_plural = "Réceptions de lots"
+        ordering = ['-date_derniere_maj']
+
     def __str__(self):
-        return f"Réception {self.lot.numero_lot} - {self.date_reception.strftime('%d/%m/%Y')}"
+        status = "Complète" if self.reception_complete else "Partielle"
+        return f"Réception {status} du lot {self.lot.numero_lot} - {self.date_derniere_maj.strftime('%d/%m/%Y %H:%M')}"
+        
+    def ajouter_observation(self, texte):
+        """Ajoute une observation avec un horodatage"""
+        horodatage = timezone.now().strftime('%d/%m/%Y %H:%M')
+        if self.observations:
+            self.observations += f"\n--- {horodatage} ---\n{texte}"
+        else:
+            self.observations = f"--- {horodatage} ---\n{texte}"
 
 class Livraison(models.Model):
     """

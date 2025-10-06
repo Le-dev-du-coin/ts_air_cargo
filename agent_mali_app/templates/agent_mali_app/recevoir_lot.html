@@ -39,12 +39,37 @@
                             <tr>
                                 <td><strong>Statut actuel:</strong></td>
                                 <td>
-                                    <span class="badge bg-warning">{{ lot.get_statut_display }}</span>
+                                    {% if lot.statut == 'arrive' %}
+                                        <span class="badge bg-success">{{ lot.get_statut_display }}</span>
+                                        {% if lot.reception_mali and lot.reception_mali.reception_complete %}
+                                            <span class="badge bg-info ms-1">Réception complète</span>
+                                            <small class="d-block text-muted mt-1">
+                                                <i class="bi bi-check-circle"></i> Tous les colis reçus
+                                            </small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-warning">{{ lot.get_statut_display }}</span>
+                                        {% if lot.reception_mali %}
+                                            <span class="badge bg-secondary ms-1">Réception partielle</span>
+                                            <small class="d-block text-muted mt-1">
+                                                <i class="bi bi-box-seam"></i> 
+                                                {{ lot.reception_mali.nombre_colis_recus }}/{{ lot.colis.count }} colis reçus
+                                            </small>
+                                        {% endif %}
+                                    {% endif %}
                                 </td>
                             </tr>
                             <tr>
                                 <td><strong>Date expédition:</strong></td>
-                                <td>{{ lot.date_expedition|date:"d/m/Y à H:i" }}</td>
+                                <td>
+                                    {{ lot.date_expedition|date:"d/m/Y à H:i" }}
+                                    {% if lot.reception_mali %}
+                                        <div class="small text-muted">
+                                            <i class="bi bi-arrow-down-circle"></i> 
+                                            Réception: {{ lot.reception_mali.date_derniere_maj|date:"d/m/Y H:i" }}
+                                        </div>
+                                    {% endif %}
+                                </td>
                             </tr>
                             <tr>
                                 <td><strong>Agent expéditeur:</strong></td>
@@ -90,10 +115,26 @@
                 <p class="text-muted small">
                     En réceptionnant ce lot, tous les colis passeront au statut "Arrivé" et les clients seront automatiquement notifiés.
                 </p>
-                <div class="d-grid">
-                    <button class="btn btn-success" onclick="showReceptionModal()">
-                        <i class="bi bi-download"></i> Réceptionner maintenant
-                    </button>
+                <div class="d-grid gap-2">
+                    {% if lot.statut != 'arrive' %}
+                        <button class="btn btn-success" onclick="showReceptionModal()">
+                            <i class="bi bi-download"></i> 
+                            {% if lot.reception_mali and not lot.reception_mali.reception_complete %}
+                                Ajouter des colis
+                            {% else %}
+                                Réceptionner maintenant
+                            {% endif %}
+                        </button>
+                    {% else %}
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            <strong>Réception terminée</strong>
+                            <div class="small">
+                                {{ lot.reception_mali.date_derniere_maj|timesince }}<br>
+                                {{ lot.reception_mali.nombre_colis_recus }}/{{ lot.colis.count }} colis
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -125,16 +166,16 @@
                     </thead>
                     <tbody>
                         {% for colis in lot.colis.all %}
-                        <tr{% if colis.statut == 'arrive' %} class="table-success" style="opacity: 0.7;"{% endif %}>
+                        <tr class="{% if colis.statut == 'arrive' or colis.statut == 'livre' %}table-success{% else %}colis-a-recevoir{% endif %}" {% if colis.statut == 'arrive' or colis.statut == 'livre' %}style="opacity: 0.7;"{% endif %}>
                             <td>
-                                {% if colis.statut != 'arrive' %}
+                                {% if colis.statut != 'arrive' and colis.statut != 'livre' %}
                                     <input type="checkbox" class="colis-checkbox" name="colis_recus" value="{{ colis.id }}" checked>
                                 {% else %}
                                     <i class="bi bi-check-circle-fill text-success" title="Déjà réceptionné"></i>
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="fw-bold {% if colis.statut == 'arrive' %}text-success{% else %}text-primary{% endif %}">{{ colis.numero_suivi }}</div>
+                                <div class="fw-bold {% if colis.statut == 'arrive' or colis.statut == 'livre' %}text-success{% else %}text-primary{% endif %}">{{ colis.numero_suivi }}</div>
                                 <small class="text-muted">{{ colis.description|truncatechars:30 }}</small>
                             </td>
                             <td>
@@ -154,8 +195,10 @@
                                 <div class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} CFA</div>
                             </td>
                             <td>
-                                {% if colis.statut == 'arrive' %}
+                                {% if colis.statut == 'arrive'%}
                                     <span class="badge bg-success">{{ colis.get_statut_display }}</span>
+                                {% elif colis.statut == 'livre' %}
+                                    <span class="badge bg-primary">{{ colis.get_statut_display }}</span>
                                 {% else %}
                                     <span class="badge bg-warning">{{ colis.get_statut_display }}</span>
                                 {% endif %}
@@ -326,12 +369,13 @@
         modal.show();
     }
     
-    // Fonction pour sélectionner/désélectionner tous les colis
+    // Fonction pour sélectionner/désélectionner tous les colis non reçus
     function toggleAllColis() {
-        const allCheckboxes = document.querySelectorAll('.colis-checkbox');
-        const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+        // Ne sélectionner que les colis non encore reçus
+        const checkboxes = document.querySelectorAll('.colis-a-recevoir .colis-checkbox');
+        const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
         
-        allCheckboxes.forEach(checkbox => {
+        checkboxes.forEach(checkbox => {
             checkbox.checked = !allChecked;
         });
         
@@ -340,8 +384,9 @@
     
     // Mettre à jour les informations de sélection
     function updateSelectionInfo() {
-        const checkedBoxes = document.querySelectorAll('.colis-checkbox:checked');
-        const totalBoxes = document.querySelectorAll('.colis-checkbox');
+        // Ne compter que les colis qui peuvent être sélectionnés (ceux qui ne sont pas encore reçus)
+        const checkboxes = document.querySelectorAll('.colis-a-recevoir .colis-checkbox');
+        const checkedBoxes = document.querySelectorAll('.colis-a-recevoir .colis-checkbox:checked');
         
         // Créer ou mettre à jour l'indicateur de sélection
         let selectionInfo = document.getElementById('selection-info');
@@ -353,7 +398,7 @@
         }
         
         const selectedCount = checkedBoxes.length;
-        const totalCount = totalBoxes.length;
+        const totalCount = checkboxes.length;
         
         if (selectedCount === 0) {
             selectionInfo.style.display = 'none';
@@ -361,32 +406,57 @@
             selectionInfo.style.display = 'block';
             selectionInfo.innerHTML = `
                 <i class="bi bi-info-circle me-2"></i>
-                <strong>${selectedCount}</strong> colis sélectionné(s) sur <strong>${totalCount}</strong> pour réception
-                ${selectedCount < totalCount ? '<br><small class="text-muted">Les colis non sélectionnés seront marqués comme manquants</small>' : ''}
+                <strong>${selectedCount}</strong> colis sélectionné(s) sur <strong>${totalCount}</strong> à recevoir
+                ${selectedCount < totalCount ? '<br><small class="text-muted">Les colis non sélectionnés resteront dans le lot</small>' : ''}
             `;
         }
     }
     
-    // Initialiser les événements
+    // Initialiser les événements au chargement du DOM
     document.addEventListener('DOMContentLoaded', function() {
-        // Ajouter un bouton pour sélectionner/désélectionner tous
+        // Récupérer l'en-tête du tableau
         const tableHeader = document.querySelector('.card-header h6');
+        
         if (tableHeader) {
+            // Compter les colis à recevoir
+            const colisCount = document.querySelectorAll('.colis-a-recevoir').length;
+            
+            // Créer et ajouter le badge de compteur
+            const countBadge = document.createElement('span');
+            countBadge.className = 'badge bg-primary ms-2';
+            countBadge.textContent = `${colisCount} à recevoir`;
+            tableHeader.appendChild(countBadge);
+            
+            // Créer et ajouter le bouton de sélection/désélection
             const toggleButton = document.createElement('button');
             toggleButton.type = 'button';
             toggleButton.className = 'btn btn-sm btn-outline-primary ms-2';
             toggleButton.innerHTML = '<i class="bi bi-check-all"></i> Tout sélectionner/désélectionner';
             toggleButton.onclick = toggleAllColis;
             tableHeader.appendChild(toggleButton);
+            
+            // Initialiser les écouteurs d'événements pour les checkboxes
+            document.querySelectorAll('.colis-a-recevoir .colis-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateSelectionInfo);
+            });
+            
+            // Gestion de la soumission du formulaire
+            const receptionForm = document.querySelector('#receptionModal form');
+            if (receptionForm) {
+                receptionForm.addEventListener('submit', function(e) {
+                    const checkedBoxes = document.querySelectorAll('.colis-a-recevoir .colis-checkbox:checked');
+                    if (checkedBoxes.length === 0) {
+                        e.preventDefault();
+                        alert('Veuillez sélectionner au moins un colis à réceptionner.');
+                        return false;
+                    }
+                    return true;
+                });
+            }
+            
+            // Mettre à jour l'affichage initial
+            updateSelectionInfo();
         }
-        
-        // Ajouter des écouteurs d'événements aux checkboxes
-        document.querySelectorAll('.colis-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', updateSelectionInfo);
-        });
-        
-        // Initialiser l'affichage
-        updateSelectionInfo();
     });
     
     // Afficher automatiquement le modal si des messages d'erreur existent
