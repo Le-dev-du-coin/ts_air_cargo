@@ -5,13 +5,16 @@ from django.db.models import Count, Sum, Q, Avg, Case, When, IntegerField
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
-from datetime import datetime, timedelta, date
-from django.core.paginator import Paginator
 from django.db import transaction
+from django.template.loader import render_to_string
+from django.conf import settings
+import os
 import json
+import datetime
+from xhtml2pdf import pisa
+from io import BytesIO
 
 from .models import Depense, ReceptionLot, Livraison, PriceAdjustment
-from agent_chine_app.models import Lot, Colis
 from agent_chine_app.models import Lot, Colis, Client
 from notifications_app.services import NotificationService
 from django.contrib.auth import get_user_model
@@ -28,46 +31,143 @@ def agent_mali_required(view_func):
     return wrapper
 
 @agent_mali_required
+def exporter_lot_pdf(request, lot_id):
+    """
+    Exporte les détails d'un lot en PDF
+    """
+    lot = get_object_or_404(Lot, id=lot_id)
+    colis_list = lot.colis.all().order_by('date_creation')
+    
+    # Statistiques
+    total_colis = colis_list.count()
+    colis_livres = colis_list.filter(statut='livre').count()
+    colis_perdus = colis_list.filter(statut='perdu').count()
+    colis_en_attente = total_colis - colis_livres - colis_perdus
+    
+    context = {
+        'lot': lot,
+        'colis_list': colis_list,
+        'total_colis': total_colis,
+        'colis_livres': colis_livres,
+        'colis_perdus': colis_perdus,
+        'colis_en_attente': colis_en_attente,
+        'date_export': timezone.now().strftime('%d/%m/%Y %H:%M')
+    }
+    
+    # Rendu du template en HTML
+    html_string = render_to_string('agent_mali_app/export_lot_pdf.html', context)
+    
+    # Création du PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="lot_{lot.numero_lot}_{timezone.now().strftime("%Y%m%d_%H%M")}.pdf"'
+    
+    # Génération du PDF
+    pdf = pisa.CreatePDF(
+        html_string,
+        dest=response,
+        encoding='UTF-8',
+        link_callback=None
+    )
+    
+    if not pdf.err:
+        return response
+    
+    return HttpResponse('Une erreur est survenue lors de la génération du PDF', status=500)
+
+def details_lot_view(request, lot_id):
+    """
+    Affiche les détails d'un lot spécifique
+    """
+    lot = get_object_or_404(Lot, id=lot_id)
+    
+    # Récupérer tous les colis du lot avec pagination
+    colis_list = lot.colis.all().order_by('date_creation')
+    
+    # Pagination
+    page = request.GET.get('page', 1)
+    paginator = Paginator(colis_list, 20)  # 20 colis par page
+    
+    try:
+        colis = paginator.page(page)
+    except PageNotAnInteger:
+        colis = paginator.page(1)
+    except EmptyPage:
+        colis = paginator.page(paginator.num_pages)
+    
+    # Statistiques
+    total_colis = colis_list.count()
+    colis_livres = colis_list.filter(statut='livre').count()
+    colis_perdus = colis_list.filter(statut='perdu').count()
+    colis_en_attente = total_colis - colis_livres - colis_perdus
+    
+    context = {
+        'lot': lot,
+        'colis': colis,
+        'total_colis': total_colis,
+        'colis_livres': colis_livres,
+        'colis_perdus': colis_perdus,
+        'colis_en_attente': colis_en_attente,
+        'title': f'Détails du lot {lot.numero_lot}'
+    }
+    
+    return render(request, 'agent_mali_app/details_lot.html', context)
+
 @agent_mali_required
 def lots_livres_view(request):
     """
-    Affiche la liste des lots complètement livrés avec possibilité de recherche
+    Affiche la liste des lots complètement traités (tous les colis sont soit livrés, soit perdus)
     """
     # Récupérer la requête de recherche si elle existe
     query = request.GET.get('q', '')
     
-    # Filtrer les lots marqués comme livrés
-    lots = Lot.objects.filter(statut='livre')
+    # Récupérer tous les lots
+    lots = Lot.objects.all()
     
-    # Appliquer les filtres de recherche
+    # Filtrer les lots où tous les colis sont soit livrés, soit perdus
+    lots_complets = []
+    for lot in lots:
+        total_colis = lot.colis.count()
+        if total_colis == 0:
+            continue  # Ignorer les lots sans colis
+            
+        colis_livres = lot.colis.filter(statut='livre').count()
+        colis_perdus = lot.colis.filter(statut='perdu').count()
+        
+        # Vérifier si tous les colis sont soit livrés, soit perdus
+        if (colis_livres + colis_perdus) == total_colis:
+            lots_complets.append(lot)
+    
+    # Convertir en queryset pour la pagination
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from django.db.models import Q
+    
+    # Filtrer par requête de recherche si nécessaire
     if query:
-        lots = lots.filter(
-            Q(numero_lot__icontains=query) |
-            Q(colis__client__user__first_name__icontains=query) |
-            Q(colis__client__user__last_name__icontains=query) |
-            Q(colis__client__user__username__icontains=query)
-        ).distinct()
+        lots_complets = [
+            lot for lot in lots_complets 
+            if (query.lower() in lot.numero_lot.lower()) or
+               any(query.lower() in (colis.client.user.get_full_name() or '').lower() for colis in lot.colis.all())
+        ]
     
-    # Annoter avec le nombre de colis par lot
-    lots = lots.annotate(
-        nb_colis=Count('colis'),
-        nb_colis_livres=Count(
-            Case(
-                When(colis__statut='livre', then=1),
-                output_field=IntegerField(),
-            )
-        )
-    )
+    # Trier par date d'expédition (du plus récent au plus ancien)
+    lots_complets.sort(key=lambda x: x.date_expedition or x.date_creation, reverse=True)
     
     # Calculer les statistiques
-    total_lots = lots.count()
-    total_colis = sum(lot.nb_colis for lot in lots)
-    total_colis_livres = sum(lot.nb_colis_livres for lot in lots)
+    total_lots = len(lots_complets)
+    total_colis = sum(lot.colis.count() for lot in lots_complets)
+    total_colis_livres = sum(lot.colis.filter(statut='livre').count() for lot in lots_complets)
+    total_colis_perdus = sum(lot.colis.filter(statut='perdu').count() for lot in lots_complets)
     
     # Pagination
-    paginator = Paginator(lots, 20)  # 20 lots par page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    paginator = Paginator(lots_complets, 20)  # 20 lots par page
+    page = request.GET.get('page')
+    
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
     
     context = {
         'page_obj': page_obj,
@@ -75,7 +175,8 @@ def lots_livres_view(request):
         'total_lots': total_lots,
         'total_colis': total_colis,
         'total_colis_livres': total_colis_livres,
-        'title': 'Lots Complètement Livrés',
+        'total_colis_perdus': total_colis_perdus,
+        'title': 'Lots Complètement Traités',
     }
     
     return render(request, 'agent_mali_app/liste_lots_livres.html', context)
@@ -104,7 +205,7 @@ def dashboard_view(request):
     ).count()
     
     # Calculs de revenus et dépenses du mois
-    debut_mois = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    debut_mois = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
     # Revenus basés sur le prix de transport des colis livrés ce mois
     revenus_livraison_mois = Colis.objects.filter(
@@ -223,10 +324,89 @@ def colis_attente_paiement_view(request):
     }
     return render(request, 'agent_mali_app/colis_attente_paiement.html', context)
 
-from django.db import transaction
-import logging
-
-logger = logging.getLogger(__name__)
+@agent_mali_required
+def gestion_paiement_lot_view(request, lot_id):
+    """
+    Vue pour gérer le paiement d'un lot complet
+    """
+    lot = get_object_or_404(Lot, id=lot_id)
+    
+    # Vérifier que l'utilisateur a les droits pour ce lot
+    if not request.user.is_superuser and lot.agent_mali != request.user:
+        messages.error(request, "Vous n'avez pas la permission de gérer ce lot.")
+        return redirect('agent_mali:dashboard')
+    
+    # Récupérer les colis du lot avec leurs ajustements
+    colis_list = lot.colis.all().prefetch_related('price_adjustments')
+    
+    # Calculer les totaux
+    total_colis = colis_list.count()
+    colis_livres = colis_list.filter(statut='livre').count()
+    colis_avec_jc = colis_list.filter(price_adjustments__adjustment_type='jc', 
+                                    price_adjustments__status='active').distinct().count()
+    
+    # Vérifier si tous les colis sont livrés
+    if colis_livres < total_colis:
+        messages.warning(
+            request, 
+            f"⚠️ Ce lot contient {total_colis - colis_livres} colis non encore livrés. "
+            "Tous les colis doivent être livrés avant de procéder au paiement."
+        )
+        return redirect('agent_mali:details_lot', lot_id=lot.id)
+    
+    # Traitement du formulaire de paiement
+    if request.method == 'POST':
+        with transaction.atomic():
+            # Marquer tous les colis comme payés
+            for colis in colis_list:
+                # Appliquer les ajustements de type Jeton Cédé s'ils existent
+                jc_adjustments = colis.price_adjustments.filter(
+                    adjustment_type='jc',
+                    status='active'
+                )
+                
+                # Appliquer chaque ajustement Jeton Cédé
+                for adjustment in jc_adjustments:
+                    try:
+                        adjustment.apply_adjustment()
+                        messages.info(
+                            request,
+                            f"ℹ️ Ajustement Jeton Cédé de {adjustment.adjustment_amount} FCFA "
+                            f"appliqué au colis {colis.numero_suivi}."
+                        )
+                    except Exception as e:
+                        logger.error(f"Erreur lors de l'application de l'ajustement {adjustment.id}: {str(e)}")
+                
+                # Mettre à jour le statut de paiement des livraisons
+                livraisons = colis.livraisons.filter(statut='livree', statut_paiement='en_attente')
+                livraisons.update(statut_paiement='paye')
+                
+                # Mettre à jour le statut du colis
+                colis.statut = 'paye'
+                colis.save()
+            
+            # Mettre à jour le statut du lot
+            lot.statut = 'paye'
+            lot.save()
+            
+            messages.success(
+                request,
+                f"✅ Paiement du lot {lot.numero_lot} enregistré avec succès. "
+                f"{total_colis} colis marqués comme payés."
+            )
+            
+            return redirect('agent_mali:details_lot', lot_id=lot.id)
+    
+    # Préparer le contexte pour le template
+    context = {
+        'lot': lot,
+        'total_colis': total_colis,
+        'colis_livres': colis_livres,
+        'colis_avec_jc': colis_avec_jc,
+        'title': f'Paiement du Lot {lot.numero_lot}'
+    }
+    
+    return render(request, 'agent_mali_app/paiement_lot.html', context)
 
 @agent_mali_required
 def marquer_paiement_view(request, colis_id):
@@ -461,6 +641,15 @@ def recevoir_lot_view(request, lot_id):
             commentaire = request.POST.get('commentaire', '')
             notifier_clients = request.POST.get('notifier_clients') == 'on'
             
+            # Récupérer les frais de dédouanement
+            frais_dedouanement = request.POST.get('frais_dedouanement', '0')
+            try:
+                frais_dedouanement = float(frais_dedouanement) if frais_dedouanement else 0.0
+                if frais_dedouanement < 0:
+                    frais_dedouanement = 0.0
+            except (ValueError, TypeError):
+                frais_dedouanement = 0.0
+            
             # Récupérer les colis sélectionnés pour réception
             colis_recus_ids = request.POST.getlist('colis_recus')
             
@@ -485,9 +674,14 @@ def recevoir_lot_view(request, lot_id):
                 defaults={
                     'agent_receptionnaire': request.user,
                     'reception_complete': False,
-                    'nombre_colis_recus': 0
+                    'nombre_colis_recus': 0,
+                    'frais_dedouanement': frais_dedouanement
                 }
             )
+            
+            # Mettre à jour les frais de dédouanement si ce n'est pas une nouvelle réception
+            if not created and frais_dedouanement > 0:
+                reception.frais_dedouanement = frais_dedouanement
             
             # Ajouter l'observation avec horodatage
             if commentaire:

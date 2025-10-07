@@ -118,12 +118,7 @@
                 <div class="d-grid gap-2">
                     {% if lot.statut != 'arrive' %}
                         <button class="btn btn-success" onclick="showReceptionModal()">
-                            <i class="bi bi-download"></i> 
-                            {% if lot.reception_mali and not lot.reception_mali.reception_complete %}
-                                Ajouter des colis
-                            {% else %}
-                                Réceptionner maintenant
-                            {% endif %}
+                            <i class="bi bi-download"></i> Réceptionner maintenant
                         </button>
                     {% else %}
                         <div class="alert alert-success">
@@ -286,7 +281,7 @@
                         <div class="form-text">Ce commentaire sera visible dans l'historique du lot</div>
                     </div>
                     
-                    <div class="form-check">
+                    <div class="form-check mb-4">
                         <input class="form-check-input" type="checkbox" id="notification_clients" name="notifier_clients" checked>
                         <label class="form-check-label" for="notification_clients">
                             <strong>Notifier automatiquement les clients</strong>
@@ -296,6 +291,28 @@
                                 Les notifications sont envoyées au numéro sandbox WhatsApp en mode test
                             </div>
                         </label>
+                    </div>
+                    
+                    <!-- Champ pour les frais de dédouanement -->
+                    <div class="mb-3">
+                        <label for="frais_dedouanement" class="form-label">
+                            <i class="bi bi-currency-exchange"></i> Frais de dédouanement (FCFA)
+                        </label>
+                        <div class="input-group">
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="frais_dedouanement" 
+                                   name="frais_dedouanement" 
+                                   min="0" 
+                                   step="0.01"
+                                   value="0.00"
+                                   placeholder="Entrez les frais de dédouanement">
+                            <span class="input-group-text">FCFA</span>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> 
+                            Les frais de dédouanement seront enregistrés et inclus dans les rapports financiers.
+                        </div>
                     </div>
                 </div>
                 

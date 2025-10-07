@@ -119,6 +119,14 @@ class ReceptionLot(models.Model):
         verbose_name="Colis manquants"
     )
     
+    frais_dedouanement = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Frais de dédouanement (FCFA)",
+        help_text="Frais de dédouanement pour le lot (en FCFA)"
+    )
+    
     nombre_colis_recus = models.PositiveIntegerField(
         default=0,
         verbose_name="Nombre de colis reçus"

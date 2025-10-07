@@ -1,5 +1,6 @@
 from django import template
 from decimal import Decimal
+from django.db.models import Q
 
 register = template.Library()
 
@@ -137,15 +138,22 @@ def get_monthly_stats(user, month=None, year=None):
         total=Sum('montant_collecte'),
         count=Count('id')
     )
-    
     return {
         'depenses_total': depenses_mois['total'] or 0,
         'depenses_count': depenses_mois['count'] or 0,
         'revenus_total': livraisons_mois['total'] or 0,
-        'livraisons_count': livraisons_mois['count'] or 0,
+        'livraisons_count': livraisons_mois['count'] or 0
     }
 
-@register.inclusion_tag('components/stat_card.html')
+@register.filter
+def filter_by_statut(queryset, statut):
+    """
+    Filtre un queryset de colis par statut
+    Usage: {{ colis_queryset|filter_by_statut:'livre' }}
+    """
+    return queryset.filter(statut=statut)
+
+@register.filter
 def stat_card(title, value, icon, color='primary', subtitle=None):
     """
     Génère une carte de statistique

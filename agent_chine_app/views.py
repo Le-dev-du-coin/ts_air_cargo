@@ -38,10 +38,11 @@ def agent_chine_required(view_func):
 @agent_chine_required
 def dashboard_view(request):
     """
-    Tableau de bord pour Agent Chine avec statistiques dynamiques
+    Tableau de bord pour Agent Chine avec statistiques dynamiques et indicateurs de performance
     """
     from datetime import datetime, timedelta
-    from django.db.models import Sum, Avg
+    from django.db.models import Sum, Avg, Count, F, Q
+    from django.db.models.functions import TruncMonth
     
     # Statistiques générales
     total_clients = Client.objects.count()
@@ -59,23 +60,68 @@ def dashboard_view(request):
     colis_en_attente = Colis.objects.filter(statut='en_attente').count()
     
     # Calculs de revenus
+    debut_mois = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    debut_annee = debut_mois.replace(month=1)
+    
+    # Revenus du mois courant
     revenus_mois = 0
+    revenus_mois_precedent = 0
     total_revenus = 0
+    evolution_revenus = 0
+    
     try:
         # Revenus du mois courant (prix de transport des lots fermés/expédiés)
-        debut_mois = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         lots_facturable_mois = Lot.objects.filter(
-            statut__in=['ferme', 'expedie'],
+            Q(statut='ferme') | Q(statut='expedie'),
             date_fermeture__gte=debut_mois
         )
         revenus_mois = sum(float(lot.prix_transport or 0) for lot in lots_facturable_mois)
         
+        # Revenus du mois précédent
+        fin_mois_precedent = debut_mois - timedelta(days=1)
+        debut_mois_precedent = fin_mois_precedent.replace(day=1)
+        
+        lots_mois_precedent = Lot.objects.filter(
+            Q(statut='ferme') | Q(statut='expedie'),
+            date_fermeture__gte=debut_mois_precedent,
+            date_fermeture__lt=debut_mois
+        )
+        revenus_mois_precedent = sum(float(lot.prix_transport or 0) for lot in lots_mois_precedent)
+        
+        # Calcul de l'évolution des revenus
+        if revenus_mois_precedent > 0:
+            evolution_revenus = ((revenus_mois - revenus_mois_precedent) / revenus_mois_precedent) * 100
+        
         # Total revenus de tous les lots fermés/expédiés
-        lots_facturable_total = Lot.objects.filter(statut__in=['ferme', 'expedie'])
+        lots_facturable_total = Lot.objects.filter(Q(statut='ferme') | Q(statut='expedie'))
         total_revenus = sum(float(lot.prix_transport or 0) for lot in lots_facturable_total)
+        
     except Exception as e:
-        # Erreur lors du calcul des revenus - ignorée silencieusement
+        # En cas d'erreur, on continue avec les valeurs par défaut
         pass
+    
+    # Statistiques mensuelles pour le graphique
+    revenus_par_mois = []
+    try:
+        # Récupérer les 12 derniers mois
+        for i in range(12, 0, -1):
+            mois = timezone.now() - timedelta(days=30*i)
+            mois_debut = mois.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            mois_fin = (mois_debut + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            
+            revenu = Lot.objects.filter(
+                Q(statut='ferme') | Q(statut='expedie'),
+                date_fermeture__gte=mois_debut,
+                date_fermeture__lte=mois_fin
+            ).aggregate(total=Sum('prix_transport'))['total'] or 0
+            
+            revenus_par_mois.append({
+                'mois': mois_debut.strftime('%b %Y'),
+                'revenu': float(revenu or 0)
+            })
+    except Exception as e:
+        # En cas d'erreur, on crée des données vides
+        revenus_par_mois = [{'mois': '', 'revenu': 0} for _ in range(12)]
     
     # Statistiques de croissance (simulation basée sur l'activité récente)
     try:
@@ -119,20 +165,68 @@ def dashboard_view(request):
     # Puis récupérer les 10 dernières tâches pour l'affichage
     taches_creation_client = taches_creation_client.order_by('-created_at')[:10]
     
+    # Calcul des indicateurs de performance
+    try:
+        # Taux de remplissage moyen des lots
+        taux_remplissage = Lot.objects.annotate(
+            taux_remplissage=(Count('colis') * 100) / F('nombre_colis_prevus')
+        ).aggregate(avg=Avg('taux_remplissage'))['avg'] or 0
+        
+        # Taux de conversion clients (clients avec au moins un colis / total clients)
+        clients_actifs = Client.objects.filter(colis__isnull=False).distinct().count()
+        taux_conversion = (clients_actifs / total_clients * 100) if total_clients > 0 else 0
+        
+        # Temps moyen de traitement des colis (en jours)
+        temps_traitement = Colis.objects.filter(
+            date_reception__isnull=False,
+            date_expedition__isnull=False
+        ).annotate(
+            duree=F('date_expedition') - F('date_reception')
+        ).aggregate(avg=Avg('duree'))['avg']
+        
+        # Convertir en jours si nécessaire
+        if temps_traitement:
+            temps_traitement = temps_traitement.days
+        else:
+            temps_traitement = 0
+            
+    except Exception as e:
+        taux_remplissage = 0
+        taux_conversion = 0
+        temps_traitement = 0
+    
     context = {
         'stats': {
+            # Totaux
             'total_clients': total_clients,
             'total_lots': total_lots,
             'total_colis': total_colis,
+            
+            # Répartition des lots
             'lots_ouverts': lots_ouverts,
             'lots_fermes': lots_fermes,
             'lots_expedies': lots_expedies,
+            
+            # Répartition des colis
             'colis_recus': colis_recus,
             'colis_en_transit': colis_en_transit,
             'colis_en_attente': colis_en_attente,
+            
+            # Revenus
             'revenus_mois': revenus_mois,
+            'revenus_mois_precedent': revenus_mois_precedent,
+            'evolution_revenus': evolution_revenus,
             'total_revenus': total_revenus,
+            'revenus_par_mois': revenus_par_mois,
+            
+            # Croissance
             'croissance_clients': croissance_clients,
+            
+            # Indicateurs de performance
+            'taux_remplissage': round(taux_remplissage, 1) if taux_remplissage else 0,
+            'taux_conversion': round(taux_conversion, 1) if taux_conversion else 0,
+            'temps_traitement': temps_traitement,
+            
             # Statistiques tâches client
             'taches_client_pending': taches_pending,
             'taches_client_completed': taches_completed,

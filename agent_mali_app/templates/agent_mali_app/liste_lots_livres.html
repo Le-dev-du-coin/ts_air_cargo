@@ -1,5 +1,6 @@
 {% extends 'components/base_agent_mali.html' %}
 {% load static %}
+{% load mali_filters %}
 
 {% block title %}Lots Complètement Livrés - Agent Mali - {{ block.super }}{% endblock %}
 
@@ -12,7 +13,13 @@
                 <i class="fas fa-boxes"></i> {{ total_lots }} lots
             </span>
             <span class="badge bg-success text-white ms-2">
-                <i class="fas fa-box"></i> {{ total_colis_livres }}/{{ total_colis }} colis livrés
+                <i class="fas fa-check-circle"></i> {{ total_colis_livres }} colis livrés
+            </span>
+            <span class="badge bg-warning text-dark ms-2">
+                <i class="fas fa-exclamation-triangle"></i> {{ total_colis_perdus }} colis perdus
+            </span>
+            <span class="badge bg-secondary text-white ms-2">
+                <i class="fas fa-box"></i> {{ total_colis }} colis au total
             </span>
         </div>
     </div>
@@ -50,7 +57,7 @@
                                 <th>N° Lot</th>
                                 <th>Type</th>
                                 <th>Date d'expédition</th>
-                                <th>Date de livraison</th>
+                                <th>Date de réception</th>
                                 <th>Colis</th>
                                 <th>Statut</th>
                                 <th>Actions</th>
@@ -60,7 +67,10 @@
                             {% for lot in page_obj %}
                             <tr>
                                 <td>
-                                    <strong>{{ lot.numero_lot }}</strong>
+                                    <a href="{% url 'agent_mali:details_lot' lot.id %}" class="text-primary font-weight-bold">
+                                        {{ lot.numero_lot }}
+                                        <i class="fas fa-external-link-alt ms-1"></i>
+                                    </a>
                                 </td>
                                 <td>
                                     {% if lot.type_lot|lower == 'express' %}
@@ -72,22 +82,43 @@
                                         </span>
                                 </td>
                                 <td>{{ lot.date_expedition|date:"d/m/Y H:i"|default:"-" }}</td>
-                                <td>{{ lot.date_modification|date:"d/m/Y H:i"|default:"-" }}</td>
+                                <td>{{ lot.date_arrivee|date:"d/m/Y H:i"|default:"-" }}</td>
                                 <td>
-                                    <span class="badge bg-primary">{{ lot.nb_colis_livres }}/{{ lot.nb_colis }}</span>
+                                    <div class="d-flex flex-column">
+                                        <span class="badge bg-success mb-1">
+                                            <i class="fas fa-check-circle"></i> {{ lot.colis.all|filter_by_statut:'livre'|length }} livré(s)
+                                        </span>
+                                        {% with nb_perdus=lot.colis.all|filter_by_statut:'perdu'|length %}
+                                            {% if nb_perdus > 0 %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-exclamation-triangle"></i> {{ nb_perdus }} perdu(s)
+                                                </span>
+                                            {% endif %}
+                                        {% endwith %}
+                                        <span class="badge bg-secondary mt-1">
+                                            <i class="fas fa-box"></i> {{ lot.colis.count }} au total
+                                        </span>
+                                    </div>
                                 </td>
                                 <td>
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check-circle"></i> {{ lot.get_statut_display }}
+                                    <span class="badge bg-{{ lot.get_statut_display|lower }}">
+                                        <i class="fas fa-{{ lot.get_icon }}"></i> {{ lot.get_statut_display }}
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="{% url 'agent_mali:details_lot' lot.id %}" class="btn btn-sm btn-info" title="Voir les détails">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{% url 'agent_mali:exporter_lot_pdf' lot.id %}" class="btn btn-sm btn-secondary" title="Exporter en PDF">
-                                        <i class="fas fa-file-pdf"></i>
-                                    </a>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'agent_mali:details_lot' lot.id %}" class="btn btn-sm btn-primary" title="Voir les détails">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'agent_mali:exporter_lot_pdf' lot.id %}" class="btn btn-sm btn-secondary" title="Exporter en PDF">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                        {% if lot.statut == 'livre' %}
+                                            <a href="{% url 'agent_mali:paiement_lot' lot.id %}" class="btn btn-sm btn-success" title="Gérer le paiement">
+                                                <i class="fas fa-credit-card"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                             {% empty %}
