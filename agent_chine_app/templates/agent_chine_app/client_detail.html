@@ -15,6 +15,25 @@
                 <i class="bi bi-pencil"></i>
                 <span class="d-none d-sm-inline">Modifier</span>
             </a>
+            <form id="resetPasswordForm" method="post" action="{% url 'agent_chine:client_reset_password' client.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="button" 
+                        class="btn btn-danger"
+                        onclick="if(confirm('Êtes-vous sûr de vouloir réinitialiser le mot de passe de ce client ? Un nouveau mot de passe sera généré et envoyé par notification.')) { this.form.submit(); }">
+                    <i class="bi bi-key"></i>
+                    <span class="d-none d-sm-inline">Réinitialiser MDP</span>
+                </button>
+            </form>
+            
+            <!-- Version future avec SweetAlert2 -->
+            <script>
+                // Fonction à utiliser plus tard avec SweetAlert2
+                function confirmResetPassword() {
+                    if (confirm('Êtes-vous sûr de vouloir réinitialiser le mot de passe de ce client ? Un nouveau mot de passe sera généré et envoyé par notification.')) {
+                        document.getElementById('resetPasswordForm').submit();
+                    }
+                }
+            </script>
             <a href="{% url 'agent_chine:client_list' %}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i>
                 <span class="d-none d-sm-inline">Retour</span>

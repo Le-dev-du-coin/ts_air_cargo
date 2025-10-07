@@ -223,10 +223,15 @@ def colis_attente_paiement_view(request):
     }
     return render(request, 'agent_mali_app/colis_attente_paiement.html', context)
 
+from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
+
 @agent_mali_required
 def marquer_paiement_view(request, colis_id):
     """
-    Marquer un colis comme payé
+    Marquer un colis comme payé et gérer les ajustements de type Jeton Cédé
     """
     if request.method == 'POST':
         colis = get_object_or_404(Colis, id=colis_id, statut='livre')
@@ -238,11 +243,36 @@ def marquer_paiement_view(request, colis_id):
         )
         
         if livraisons.exists():
-            livraisons.update(statut_paiement='paye')
-            messages.success(
-                request, 
-                f"✅ Colis {colis.numero_suivi} marqué comme payé."
-            )
+            with transaction.atomic():
+                # Appliquer les ajustements de type Jeton Cédé s'ils existent
+                jc_adjustments = colis.price_adjustments.filter(
+                    adjustment_type='jc',
+                    status='active'
+                )
+                
+                # Appliquer chaque ajustement Jeton Cédé
+                for adjustment in jc_adjustments:
+                    try:
+                        adjustment.apply_adjustment()
+                        messages.info(
+                            request,
+                            f"ℹ️ Ajustement Jeton Cédé de {adjustment.adjustment_amount} FCFA appliqué."
+                        )
+                    except Exception as e:
+                        logger.error(f"Erreur lors de l'application de l'ajustement {adjustment.id}: {str(e)}")
+                
+                # Mettre à jour le statut de paiement des livraisons
+                livraisons.update(statut_paiement='paye')
+                
+                # Mettre à jour le statut du colis si nécessaire
+                if not colis.livraisons.filter(statut_paiement='en_attente').exists():
+                    colis.statut = 'paye'
+                    colis.save()
+                
+                messages.success(
+                    request, 
+                    f"✅ Colis {colis.numero_suivi} marqué comme payé."
+                )
         else:
             messages.warning(
                 request,

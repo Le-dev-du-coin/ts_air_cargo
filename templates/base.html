@@ -46,29 +46,7 @@
         </main>
     {% endif %}
 
-    <!-- Messages d'alerte -->
-    {% if messages %}
-        <div class="toast-container position-fixed bottom-0 end-0 p-3">
-            {% for message in messages %}
-                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header">
-                        <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-triangle{% elif message.tags == 'warning' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
-                        <strong class="me-auto">
-                            {% if message.tags == 'success' %}Succès
-                            {% elif message.tags == 'error' %}Erreur
-                            {% elif message.tags == 'warning' %}Attention
-                            {% else %}Information
-                            {% endif %}
-                        </strong>
-                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                    </div>
-                    <div class="toast-body">
-                        {{ message }}
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
+    <!-- Les messages sont maintenant gérés par SweetAlert2 -->
 
     <!-- Footer -->
     {% block footer %}
@@ -79,10 +57,65 @@
         </footer>
     {% endblock %}
 
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
     <!-- JavaScript personnalisé -->
     <script src="{% static 'js/main.js' %}"></script>
+    
+    <!-- Gestion des messages avec SweetAlert2 -->
+    {% if messages %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for message in messages %}
+                let icon = 'info';
+                if ('{{ message.tags }}' === 'success') icon = 'success';
+                else if ('{{ message.tags }}' === 'error') icon = 'error';
+                else if ('{{ message.tags }}' === 'warning') icon = 'warning';
+                
+                Swal.fire({
+                    icon: icon,
+                    title: '{{ message|escapejs }}',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 5000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+            {% endfor %}
+        });
+    </script>
+    {% endif %}
+    
+    <!-- Script pour les confirmations -->
+    <script>
+        function confirmAction(event, message = 'Êtes-vous sûr de vouloir effectuer cette action ?') {
+            event.preventDefault();
+            const form = event.target.closest('form');
+            
+            Swal.fire({
+                title: 'Confirmation',
+                text: message,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Oui, continuer',
+                cancelButtonText: 'Annuler'
+            }).then((result) => {
+                if (result.isConfirmed && form) {
+                    form.submit();
+                }
+            });
+        }
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

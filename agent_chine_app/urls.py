@@ -13,6 +13,7 @@ urlpatterns = [
     path('clients/create/', views.client_create_view, name='client_create'),
     path('clients/<int:client_id>/', views.client_detail_view, name='client_detail'),
     path('clients/<int:client_id>/edit/', views.client_edit_view, name='client_edit'),
+    path('clients/<int:client_id>/reset-password/', views.client_reset_password_view, name='client_reset_password'),  # POST only
     
     # Gestion des lots
     path('lots/', views.lot_list_view, name='lot_list'),

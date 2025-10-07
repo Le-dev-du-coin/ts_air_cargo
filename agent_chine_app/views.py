@@ -22,6 +22,7 @@ from .client_management import ClientAccountManager
 from .client_async_utils import create_client_async
 from django.contrib.auth import get_user_model
 from notifications_app.services import NotificationService
+from authentication.services import UserCreationService
 
 User = get_user_model()
 
@@ -1899,3 +1900,58 @@ def wachap_monitoring_view(request):
     }
     
     return render(request, 'agent_chine_app/wachap_monitoring.html', context)
+
+
+@agent_chine_required
+def client_reset_password_view(request, client_id):
+    """
+    Réinitialise le mot de passe d'un client et envoie une notification
+    Cette vue est appelée en POST uniquement et effectue l'action directement
+    """
+    if request.method != 'POST':
+        return redirect('agent_chine:client_detail', client_id=client_id)
+        
+    client = get_object_or_404(Client, id=client_id)
+    user = client.user
+    
+    try:
+        # Générer un nouveau mot de passe
+        new_password = UserCreationService.generate_temp_password()
+        
+        # Mettre à jour le mot de passe
+        user.set_password(new_password)
+        user.has_changed_default_password = False
+        user.save()
+        
+        # Mettre à jour le mot de passe dans l'objet client si nécessaire
+        if hasattr(client, 'password'):
+            client.password = make_password(new_password)
+            client.save()
+        
+        # Envoyer la notification
+        notification_sent = NotificationService.send_client_creation_notification(
+            user=user,
+            temp_password=new_password,
+            sender_role='agent_chine',
+            is_reset=True
+        )
+        
+        if notification_sent:
+            messages.success(
+                request, 
+                f"✅ Le mot de passe a été réinitialisé et envoyé à {user.telephone}"
+            )
+        else:
+            messages.warning(
+                request,
+                "⚠️ Le mot de passe a été réinitialisé mais l'envoi de la notification a échoué. "
+                f"Le nouveau mot de passe est : {new_password}"
+            )
+            
+    except Exception as e:
+        messages.error(
+            request,
+            f"❌ Erreur lors de la réinitialisation du mot de passe : {str(e)}"
+        )
+    
+    return redirect('agent_chine:client_detail', client_id=client_id)

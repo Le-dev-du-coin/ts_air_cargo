@@ -306,12 +306,12 @@ class WaChapService:
             except Exception:
                 pass
             
-            # Envoyer via l'API WaChap
+            # Envoyer via l'API WaChap avec timeout réduit à 15s
             response = requests.post(
                 f"{self.base_url}/send",
                 json=payload,
                 headers={'Content-Type': 'application/json'},
-                timeout=30
+                timeout=15  # Réduit de 30s à 15s pour éviter les blocages
             )
             
             # Calculer le temps de réponse
@@ -321,25 +321,54 @@ class WaChapService:
             logger.info(f"WaChap {region.title()} - Envoi vers {formatted_phone}: {response.status_code}")
             
             if response.status_code == 200:
-                # Tenter de parser la réponse
+                # Tenter de parser la réponse de manière robuste
                 try:
                     response_data = response.json()
-                except Exception:
-                    response_data = {"raw": response.text}
+                    logger.debug(f"WaChap {region} - Réponse API: {json.dumps(response_data, ensure_ascii=False)[:500]}")
+                except json.JSONDecodeError as je:
+                    logger.error(f"Erreur de décodage JSON de la réponse WaChap: {response.text}")
+                    response_data = {"raw": response.text, "error": "invalid_json"}
+                except Exception as e:
+                    logger.error(f"Erreur inattendue lors du parsing de la réponse: {str(e)}")
+                    response_data = {"raw": str(response.text)[:500], "error": "parsing_error"}
 
-                # Déterminer le succès métier (certaines réponses 200 peuvent contenir status=error)
-                top_status = str(response_data.get('status', '')).lower()
+                # Déterminer le succès métier avec plus de robustesse
+                success_flag = False
+                top_status = str(response_data.get('status', '')).lower().strip()
                 nested_status = ''
-                if isinstance(response_data.get('message'), dict):
-                    nested_status = str(response_data['message'].get('status', '')).lower()
-                success_flag = (top_status == 'success') or (nested_status == 'success')
+                
+                # Vérifier les structures de réponse connues
+                if 'message' in response_data and isinstance(response_data['message'], dict):
+                    nested_status = str(response_data['message'].get('status', '')).lower().strip()
+                
+                # Log supplémentaire pour le débogage
+                logger.debug(f"WaChap {region} - Statuts: top={top_status}, nested={nested_status}")
+                
+                # Marquer comme succès si l'un des statuts est 'success' ou si on a un message_id valide
+                success_flag = (top_status == 'success' or 
+                              nested_status == 'success' or 
+                              'id' in response_data or 
+                              'message_id' in response_data)
 
-                # Extraire l'ID du message (peut être imbriqué)
-                message_id = (
-                    response_data.get('id') or
-                    response_data.get('message_id') or
-                    (response_data.get('message', {}).get('key', {}).get('id') if isinstance(response_data.get('message'), dict) else None)
-                )
+                # Extraction robuste de l'ID du message
+                message_id = None
+                try:
+                    # Essayer différentes structures de réponse connues
+                    message_id = (
+                        response_data.get('id') or
+                        response_data.get('message_id') or
+                        (response_data.get('message', {}).get('key', {}).get('id') if isinstance(response_data.get('message'), dict) else None) or
+                        (response_data.get('data', {}).get('id') if isinstance(response_data.get('data'), dict) else None)
+                    )
+                    
+                    # Si on a un ID mais pas encore de succès, on considère quand même comme un succès
+                    if message_id and not success_flag:
+                        success_flag = True
+                        logger.info(f"Message considéré comme réussi grâce à la présence d'un ID: {message_id}")
+                        
+                except Exception as e:
+                    logger.error(f"Erreur lors de l'extraction de l'ID du message: {str(e)}")
+                    message_id = None
 
                 if success_flag:
                     success_msg = f"Message envoyé via WaChap {region.title()}"
@@ -374,28 +403,81 @@ class WaChapService:
                 
                 return False, error_msg, None
                 
-        except requests.exceptions.Timeout:
-            error_msg = f"Timeout WaChap {region} pour {phone}"
+        except requests.exceptions.Timeout as te:
             response_time = (timezone.now() - start_time).total_seconds() * 1000
-            logger.error(error_msg)
+            error_type = 'timeout'
+            error_details = f"Délai dépassé après {response_time:.0f}ms"
+            error_msg = f"{error_type.upper()} - Impossible d'envoyer le message WaChap {region} à {phone}: {error_details}"
+            
+            logger.error(error_msg, exc_info=True)
+            
+            # Enregistrer l'erreur dans le monitoring
             if attempt_id:
                 try:
                     from .monitoring import wachap_monitor
-                    wachap_monitor.record_message_error(attempt_id, 'timeout', error_msg, response_time)
+                    wachap_monitor.record_message_error(
+                        attempt_id, 
+                        error_type, 
+                        f"{error_type.upper()}: {error_details}", 
+                        response_time
+                    )
                 except ImportError:
-                    pass
+                    logger.error("Impossible d'accéder au module de monitoring")
+            
+            # Retourner des informations détaillées pour le débogage
             return False, error_msg, None
             
-        except requests.exceptions.RequestException as e:
-            error_msg = f"Erreur réseau WaChap {region} pour {phone}: {str(e)}"
+        except requests.exceptions.RequestException as re:
             response_time = (timezone.now() - start_time).total_seconds() * 1000
-            logger.error(error_msg)
+            error_type = 'network_error'
+            error_details = f"{type(re).__name__}: {str(re)}"
+            error_msg = f"{error_type.upper()} - Échec d'envoi WaChap {region} à {phone}: {error_details}"
+            
+            logger.error(error_msg, exc_info=True)
+            
+            # Déterminer le type d'erreur plus précisément
+            if isinstance(re, requests.exceptions.ConnectionError):
+                error_type = 'connection_error'
+            elif isinstance(re, requests.exceptions.SSLError):
+                error_type = 'ssl_error'
+            
+            # Enregistrer l'erreur dans le monitoring
             if attempt_id:
                 try:
                     from .monitoring import wachap_monitor
-                    wachap_monitor.record_message_error(attempt_id, 'network_error', error_msg, response_time)
+                    wachap_monitor.record_message_error(
+                        attempt_id, 
+                        error_type, 
+                        f"{error_type.upper()}: {error_details}", 
+                        response_time
+                    )
                 except ImportError:
-                    pass
+                    logger.error("Impossible d'accéder au module de monitoring")
+            
+            return False, error_msg, None
+            
+        except Exception as e:
+            # Capturer toutes les autres exceptions non gérées
+            response_time = (timezone.now() - start_time).total_seconds() * 1000
+            error_type = 'unexpected_error'
+            error_details = f"{type(e).__name__}: {str(e)}"
+            error_msg = f"ERREUR INATTENDUE - Échec d'envoi WaChap {region} à {phone}: {error_details}"
+            
+            logger.critical(error_msg, exc_info=True)
+            
+            # Enregistrer l'erreur critique
+            if attempt_id:
+                try:
+                    from .monitoring import wachap_monitor
+                    wachap_monitor.record_message_error(
+                        attempt_id, 
+                        error_type, 
+                        f"ERREUR_CRITIQUE: {error_details}", 
+                        response_time
+                    )
+                except ImportError:
+                    logger.error("Impossible d'accéder au module de monitoring")
+            
             return False, error_msg, None
             
         except Exception as e:

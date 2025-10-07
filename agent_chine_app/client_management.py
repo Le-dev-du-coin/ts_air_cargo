@@ -74,9 +74,17 @@ class ClientAccountManager:
 Équipe TS Air Cargo 🚀
 """
                     
-                    # Les notifications sont gérées par Celery dans une tâche séparée
-                    notification_sent = False  # Pas de notification dans cette version synchrone
-                    logger.info(f"✅ Compte client créé: {telephone} (notifications gérées par Celery)")
+                    # Envoyer la notification de création de compte
+                    from notifications_app.services import NotificationService
+                    notification_sent = NotificationService.send_client_creation_notification(
+                        user=result['user'],
+                        password=result['password'],
+                        sender_role='agent_chine'
+                    )
+                    if notification_sent:
+                        logger.info(f"✅ Notification envoyée pour {telephone}")
+                    else:
+                        logger.warning(f"⚠️ Échec envoi notification pour {telephone}")
                         
                 except Exception as e:
                     logger.error(f"Erreur envoi notification avec monitoring pour {telephone}: {str(e)}")
@@ -171,9 +179,17 @@ class ClientAccountManager:
 Équipe TS Air Cargo 🚀
 """
                         
-                        # Les notifications sont gérées par Celery dans une tâche séparée
-                        notification_sent = False  # Pas de notification dans cette version synchrone
-                        logger.info(f"✅ Compte client créé: {telephone} (notifications gérées par Celery)")
+                        # Envoyer la notification de création de compte
+                        from notifications_app.services import NotificationService
+                        notification_sent = NotificationService.send_client_creation_notification(
+                            user=user,
+                            password=final_password,
+                            sender_role='agent_chine'
+                        )
+                        if notification_sent:
+                            logger.info(f"✅ Notification envoyée pour {telephone}")
+                        else:
+                            logger.warning(f"⚠️ Échec envoi notification pour {telephone}")
                             
                     except Exception as e:
                         logger.error(f"Erreur envoi notification avec monitoring pour {telephone}: {str(e)}")

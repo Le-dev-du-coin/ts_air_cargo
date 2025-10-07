@@ -213,77 +213,48 @@ TS Air Cargo - Mode Développement"""
             return False, None
     
     @staticmethod
-    def send_client_creation_notification(user, temp_password):
+    def send_client_creation_notification(user, temp_password, sender_role=None, is_reset=False):
         """
-        Notification spécifique pour la création d'un compte client
-        """
-        # Message pour la création de compte
-        message = f"""
-🎉 Bienvenue chez TS Air Cargo !
-
-👤 Nom: {user.get_full_name()}
-📞 Téléphone: {user.telephone}
-✉️ Email: {user.email}
-
-🔑 Mot de passe temporaire: {temp_password}
-⚠️ Veuillez changer ce mot de passe lors de votre première connexion.
-
-🌐 Connectez-vous sur notre plateforme pour gérer vos envois.
-
-Équipe TS Air Cargo 🚀
-"""
-        
-        return NotificationService.send_notification(
-            user=user,
-            message=message,
-            method='whatsapp',
-            title='Création de compte TS Air Cargo',
-            categorie='creation_compte'
-        )
-    
-    @staticmethod
-    def send_whatsapp_message(phone_number, message):
-        """
-        Interface simplifiée pour l'envoi de messages WhatsApp
-        Compatible avec les anciennes interfaces
+        Notification pour la création ou la réinitialisation d'un compte client
         
         Args:
-            phone_number: Numéro de téléphone
-            message: Message à envoyer
+            user: L'utilisateur concerné
+            temp_password: Le mot de passe temporaire
+            sender_role: Le rôle de l'expéditeur (optionnel)
+            is_reset: Si True, c'est une réinitialisation de mot de passe
             
         Returns:
             bool: Succès de l'envoi
         """
         try:
-            # Redirection vers numéro de test en mode développement (si ADMIN_PHONE défini)
-            dev_mode = getattr(settings, 'DEBUG', False)
-            admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
-            test_phone = admin_phone if (dev_mode and admin_phone) else None
-            destination_phone = test_phone or phone_number
-            
-            # Message avec info de redirection si nécessaire
-            if test_phone and test_phone != phone_number:
-                enriched_message = f"""[DEV] Message pour: {phone_number}
-
-{message}
-
-TS Air Cargo - Mode Développement"""
+            # Déterminer le type de message
+            if is_reset:
+                title = "🔑 Réinitialisation de mot de passe"
+                welcome_msg = "Votre mot de passe a été réinitialisé avec succès."
+                categorie = 'reinitialisation_mot_de_passe'
             else:
-                enriched_message = message
-            
-            # Envoyer via WaChap
-            success, result_message, message_id = wachap_service.send_message(
-                phone=destination_phone,
-                message=enriched_message,
-                sender_role=None  # Auto-détection
+                title = "👋 Bienvenue chez TS Air Cargo"
+                welcome_msg = "Votre compte client a été créé avec succès."
+                categorie = 'creation_compte'
+
+            # Préparer le message
+            message = (
+                f"{title}\n\n"
+                f"{welcome_msg}\n\n"
+                f"👤 Identifiant: {user.telephone}\n"
+                f"🔑 Mot de passe temporaire: {temp_password}\n\n"
+                f"🔒 Pour des raisons de sécurité, veuillez changer votre mot de passe dès votre première connexion.\n\n"
+                f"Merci de votre confiance! 🚛"
             )
             
-            if success:
-                logger.info(f"Message WhatsApp direct envoyé à {phone_number} (via {destination_phone})")
-            else:
-                logger.error(f"Erreur envoi WhatsApp direct à {phone_number}: {result_message}")
-            
-            return success
+            # Envoyer la notification
+            return NotificationService.send_notification(
+                user=user,
+                message=message,
+                method='whatsapp',
+                title=title,
+                categorie=categorie
+            )
             
         except Exception as e:
             logger.error(f"Erreur envoi WhatsApp direct à {phone_number}: {str(e)}")
