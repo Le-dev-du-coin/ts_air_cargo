@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Count, Sum, Q, Avg, Case, When, IntegerField
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.db import transaction
@@ -13,6 +14,15 @@ import json
 import datetime
 from xhtml2pdf import pisa
 from io import BytesIO
+import pandas as pd
+from django.db.models import F, Value, CharField
+from django.db.models.functions import Concat
+from django.http import HttpResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
 from .models import Depense, ReceptionLot, Livraison, PriceAdjustment
 from agent_chine_app.models import Lot, Colis, Client
@@ -682,6 +692,10 @@ def recevoir_lot_view(request, lot_id):
             # Mettre à jour les frais de dédouanement si ce n'est pas une nouvelle réception
             if not created and frais_dedouanement > 0:
                 reception.frais_dedouanement = frais_dedouanement
+                
+            # Mettre à jour les frais de douane du lot (utilisé pour le calcul du bénéfice)
+            if frais_dedouanement > 0:
+                lot.frais_douane = frais_dedouanement
             
             # Ajouter l'observation avec horodatage
             if commentaire:

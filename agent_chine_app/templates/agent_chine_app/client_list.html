@@ -3,56 +3,56 @@
 
 {% block title %}Liste des Clients - TS Air Cargo{% endblock %}
 
-{% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">
-        <i class="bi bi-people"></i>
-        Gestion des Clients
-    </h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
+{% block page_title %}
+<div class="d-flex justify-content-between align-items-center">
+    <div>
+        <i class="bi bi-people me-2"></i>Gestion des Clients
+    </div>
+    <div>
         <a href="{% url 'agent_chine:client_create' %}" class="btn btn-primary">
-            <i class="bi bi-person-plus"></i>
+            <i class="bi bi-person-plus me-1"></i>
             <span class="d-none d-sm-inline">Nouveau Client</span>
         </a>
     </div>
 </div>
+{% endblock %}
+
+{% block content %}
 
 <!-- Barre de recherche et filtres -->
-<div class="card mb-4">
-    <div class="card-body">
+<div class="modern-card mb-4">
+    <div class="modern-card-body">
         <form method="get" class="row g-3">
-            <div class="col-md-8 col-12">
-                <label for="search" class="form-label">Rechercher un client</label>
+            <div class="col-md-6 col-12">
                 <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="bi bi-search"></i>
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
                     </span>
                     <input type="text" 
-                           class="form-control" 
+                           class="form-control border-start-0" 
                            id="search" 
                            name="search" 
                            value="{{ search_query }}"
-                           placeholder="Nom, prénom, téléphone ou adresse...">
+                           placeholder="Rechercher un client...">
                 </div>
             </div>
             <div class="col-md-4 col-12">
-                <label for="pays" class="form-label">Filtrer par pays</label>
                 <select class="form-select" name="pays">
                     <option value="">Tous les pays</option>
-                    <option value="ML">Mali</option>
-                    <option value="SN">Sénégal</option>
-                    <option value="CI">Côte d'Ivoire</option>
-                    <option value="BF">Burkina Faso</option>
-                    <option value="NE">Niger</option>
-                    <option value="GN">Guinée</option>
+                    <option value="ML" {% if request.GET.pays == 'ML' %}selected{% endif %}>Mali</option>
+                    <option value="SN" {% if request.GET.pays == 'SN' %}selected{% endif %}>Sénégal</option>
+                    <option value="CI" {% if request.GET.pays == 'CI' %}selected{% endif %}>Côte d'Ivoire</option>
+                    <option value="BF" {% if request.GET.pays == 'BF' %}selected{% endif %}>Burkina Faso</option>
+                    <option value="NE" {% if request.GET.pays == 'NE' %}selected{% endif %}>Niger</option>
+                    <option value="GN" {% if request.GET.pays == 'GN' %}selected{% endif %}>Guinée</option>
                 </select>
             </div>
-            <div class="col-12">
-                <button type="submit" class="btn btn-primary me-2">
-                    <i class="bi bi-search me-1"></i> Rechercher
+            <div class="col-md-2 col-12 d-flex">
+                <button type="submit" class="btn btn-primary flex-grow-1 me-2">
+                    <i class="bi bi-funnel me-1"></i>Filtrer
                 </button>
                 <a href="{% url 'agent_chine:client_list' %}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-clockwise me-1"></i> Réinitialiser
+                    <i class="bi bi-arrow-clockwise"></i>
                 </a>
             </div>
         </form>
@@ -60,78 +60,93 @@
 </div>
 
 <!-- Liste des clients -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h6 class="m-0 font-weight-bold text-primary">
+<div class="modern-card">
+    <div class="modern-card-header d-flex justify-content-between align-items-center">
+        <h5 class="modern-card-title m-0">
+            <i class="bi bi-people me-2"></i>
             Liste des Clients
             {% if search_query %}
             <small class="text-muted">- Résultats pour "{{ search_query }}"</small>
             {% endif %}
-        </h6>
-        <span class="badge bg-primary">{{ clients.paginator.count }} client{{ clients.paginator.count|pluralize }}</span>
+        </h5>
+        <span class="badge bg-primary rounded-pill">
+            {{ clients.paginator.count }} client{{ clients.paginator.count|pluralize }}
+        </span>
     </div>
-    <div class="card-body p-0">
+    <div class="modern-card-body p-0">
         {% if clients %}
             <!-- Version desktop -->
             <div class="d-none d-md-block">
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Client</th>
+                                <th class="ps-4">Client</th>
                                 <th>Téléphone</th>
                                 <th>Pays</th>
                                 <th>Adresse</th>
-                                <th>Colis</th>
+                                <th class="text-center">Colis</th>
                                 <th>Inscription</th>
-                                <th>Actions</th>
+                                <th class="text-end pe-4">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for client in clients %}
                             <tr>
-                                <td>
+                                <td class="ps-4">
                                     <div class="d-flex align-items-center">
-                                        <div class="avatar-circle me-2">
+                                        <div class="avatar-circle me-3" style="background-color: rgba(79, 70, 229, 0.1); color: #4f46e5;">
                                             <i class="bi bi-person-fill"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-bold">{{ client.user.get_full_name }}</div>
-                                            <div class="small text-muted">{{ client.user.email }}</div>
+                                            <div class="fw-bold text-dark">{{ client.user.get_full_name }}</div>
+                                            <div class="small text-muted">{{ client.user.email|default:'-' }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="text-primary fw-bold">{{ client.user.telephone }}</span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-info">{{ client.get_pays_display }}</span>
-                                </td>
-                                <td>
-                                    <div class="small text-truncate" style="max-width: 200px;">
-                                        {{ client.adresse }}
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-telephone text-primary me-2"></i>
+                                        <span class="fw-medium">{{ client.user.telephone|default:'-' }}</span>
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary">{{ client.colis.count }} colis</span>
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi bi-geo-alt me-1"></i>{{ client.get_pays_display }}
+                                    </span>
                                 </td>
                                 <td>
-                                    <small class="text-muted">{{ client.date_creation|date:"d/m/Y" }}</small>
+                                    <div class="small text-truncate" style="max-width: 200px;" data-bs-toggle="tooltip" title="{{ client.adresse }}">
+                                        <i class="bi bi-geo-alt text-muted me-1"></i>{{ client.adresse|truncatechars:30 }}
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary">
+                                        {{ client.colis.count }} colis
+                                    </span>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <a href="{% url 'agent_chine:client_detail' client.id %}" 
-                                           class="btn btn-outline-primary" 
-                                           data-bs-toggle="tooltip" 
-                                           title="Voir détails">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
-                                        <a href="{% url 'agent_chine:client_edit' client.id %}" 
-                                           class="btn btn-outline-warning" 
-                                           data-bs-toggle="tooltip" 
-                                           title="Modifier">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-calendar3 text-muted me-2"></i>
+                                        <small class="text-muted">{{ client.date_creation|date:"d/m/Y" }}</small>
+                                    </div>
+                                </td>
+                                <td class="pe-4">
+                                    <div class="d-flex justify-content-end">
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'agent_chine:client_detail' client.id %}" 
+                                               class="btn btn-sm btn-outline-primary rounded-start" 
+                                               data-bs-toggle="tooltip" 
+                                               title="Voir détails">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'agent_chine:client_edit' client.id %}" 
+                                               class="btn btn-sm btn-outline-primary rounded-end" 
+                                               data-bs-toggle="tooltip" 
+                                               title="Modifier">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -143,62 +158,76 @@
 
             <!-- Version mobile -->
             <div class="d-md-none">
-                {% for client in clients %}
-                <div class="border-bottom p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-center">
-                            <div class="avatar-circle me-2">
-                                <i class="bi bi-person-fill"></i>
+                <div class="list-group list-group-flush">
+                    {% for client in clients %}
+                    <div class="list-group-item border-0 border-bottom p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle me-3" style="background-color: rgba(79, 70, 229, 0.1); color: #4f46e5;">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold">{{ client.user.get_full_name }}</h6>
+                                    <div class="small text-muted">
+                                        <i class="bi bi-telephone me-1"></i>{{ client.user.telephone }}
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <div class="fw-bold">{{ client.user.get_full_name }}</div>
-                                <div class="small text-muted">{{ client.user.telephone }}</div>
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi bi-geo-alt me-1"></i>{{ client.get_pays_display }}
+                            </span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-geo-alt me-1"></i>{{ client.adresse|truncatechars:40 }}
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-primary bg-opacity-10 text-primary me-2">
+                                    <i class="bi bi-box-seam me-1"></i>{{ client.colis.count }} colis
+                                </span>
+                                <span class="small text-muted">
+                                    <i class="bi bi-calendar3 me-1"></i>{{ client.date_creation|date:"d/m/Y" }}
+                                </span>
                             </div>
                         </div>
-                        <span class="badge bg-info">{{ client.get_pays_display }}</span>
+                        
+                        <div class="d-flex">
+                            <a href="{% url 'agent_chine:client_detail' client.id %}" class="btn btn-sm btn-outline-primary me-2 flex-grow-1">
+                                <i class="bi bi-eye me-1"></i> Détails
+                            </a>
+                            <a href="{% url 'agent_chine:client_edit' client.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
                     </div>
-                    
-                    <div class="mb-2">
-                        <small class="text-muted d-block">{{ client.adresse|truncatechars:50 }}</small>
-                        <small class="text-muted">
-                            {{ client.colis.count }} colis • Inscrit le {{ client.date_creation|date:"d/m/Y" }}
-                        </small>
-                    </div>
-                    
-                    <div class="btn-group-mobile">
-                        <a href="{% url 'agent_chine:client_detail' client.id %}" class="btn btn-sm btn-primary">
-                            <i class="bi bi-eye"></i> Voir détails
-                        </a>
-                        <a href="{% url 'agent_chine:client_edit' client.id %}" class="btn btn-sm btn-outline-warning">
-                            <i class="bi bi-pencil"></i> Modifier
-                        </a>
-                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
         {% else %}
             <!-- État vide -->
-            <div class="text-center py-5">
-                <i class="bi bi-people" style="font-size: 4rem; color: #dee2e6;"></i>
-                <h5 class="mt-3 text-muted">
+            <div class="text-center py-5 px-3">
+                <div class="mb-4">
+                    <i class="bi bi-people" style="font-size: 4rem; color: #e5e7eb;"></i>
+                </div>
+                <h5 class="text-muted mb-3">
                     {% if search_query %}
                         Aucun client trouvé
                     {% else %}
                         Aucun client enregistré
                     {% endif %}
                 </h5>
-                <p class="text-muted">
+                <p class="text-muted mb-4">
                     {% if search_query %}
-                        Essayez avec d'autres termes de recherche
+                        Aucun client ne correspond à votre recherche. Essayez avec d'autres termes.
                     {% else %}
-                        Commencez par créer votre premier client
+                        Commencez par ajouter votre premier client pour gérer vos envois.
                     {% endif %}
                 </p>
-                {% if not search_query %}
-                    <a href="{% url 'agent_chine:client_create' %}" class="btn btn-primary">
-                        <i class="bi bi-person-plus"></i> Créer le premier client
-                    </a>
-                {% endif %}
+                <a href="{% url 'agent_chine:client_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>
+                    {% if search_query %}Nouvelle recherche{% else %}Ajouter un client{% endif %}
+                </a>
             </div>
         {% endif %}
     </div>

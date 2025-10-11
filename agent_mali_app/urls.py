@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import whatsapp_integration
+from . import export_views
 
 app_name = 'agent_mali'
 
@@ -12,6 +13,7 @@ urlpatterns = [
     path('lots-en-transit/', views.lots_en_transit_view, name='lots_en_transit'),
     path('lots-livres/', views.lots_livres_view, name='lots_livres'),
     path('lot/<int:lot_id>/', views.details_lot_view, name='details_lot'),
+    path('lot/<int:lot_id>/exporter-pdf/', views.exporter_lot_pdf, name='exporter_lot_pdf'),
     path('recevoir-lot/<int:lot_id>/', views.recevoir_lot_view, name='recevoir_lot'),
     
     # Gestion des livraisons
@@ -48,6 +50,10 @@ urlpatterns = [
     path('api/send-report-whatsapp/', views.send_report_whatsapp_api, name='send_report_whatsapp_api'),
     path('api/send-report-email/', views.send_report_email_api, name='send_report_email_api'),
     path('api/schedule-auto-report/', views.schedule_auto_report_api, name='schedule_auto_report_api'),
+    
+    # Exportation des colis
+    path('lot/<int:lot_id>/exporter/excel/', export_views.export_colis_excel, name='export_colis_excel'),
+    path('lot/<int:lot_id>/exporter/pdf/', export_views.export_colis_pdf, name='export_colis_pdf'),
     
     # Exports Excel
     path('export-depenses-excel/', views.export_depenses_excel, name='export_depenses_excel'),

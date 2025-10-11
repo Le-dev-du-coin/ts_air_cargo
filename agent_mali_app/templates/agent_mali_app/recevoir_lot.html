@@ -117,7 +117,7 @@
                 </p>
                 <div class="d-grid gap-2">
                     {% if lot.statut != 'arrive' %}
-                        <button class="btn btn-success" onclick="showReceptionModal()">
+                        <button class="btn btn-success" onclick="showDouaneModal()">
                             <i class="bi bi-download"></i> Réceptionner maintenant
                         </button>
                     {% else %}
@@ -146,6 +146,16 @@
     </div>
     <div class="card-body">
         {% if lot.colis.all %}
+            <!-- Boutons d'exportation -->
+            <div class="mb-3 d-flex justify-content-end gap-2">
+                <a href="{% url 'agent_mali:export_colis_excel' lot.id %}" class="btn btn-success btn-sm">
+                    <i class="bi bi-file-earmark-excel"></i> Exporter en Excel
+                </a>
+                <a href="{% url 'agent_mali:export_colis_pdf' lot.id %}" class="btn btn-danger btn-sm">
+                    <i class="bi bi-file-earmark-pdf"></i> Exporter en PDF
+                </a>
+            </div>
+            
             <div class="table-responsive">
                 <table class="table table-bordered" width="100%" cellspacing="0">
                     <thead>
@@ -249,6 +259,56 @@
     </div>
 </div>
 
+<!-- Modal de saisie des frais de douane -->
+<div class="modal fade" id="douaneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-currency-exchange me-2"></i>
+                    Frais de douane
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Information importante :</strong> 
+                    <p class="mb-0 mt-2">Veuillez saisir les frais de douane avant de procéder à la réception du lot.</p>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="frais_douane" class="form-label fw-bold">
+                        <i class="bi bi-cash-coin me-1"></i> Frais de douane (FCFA)
+                    </label>
+                    <div class="input-group">
+                        <input type="number" 
+                               class="form-control form-control-lg" 
+                               id="frais_douane" 
+                               min="0" 
+                               step="100"
+                               required
+                               placeholder="0">
+                        <span class="input-group-text bg-primary text-white">FCFA</span>
+                    </div>
+                    <div class="form-text">
+                        <i class="bi bi-info-circle"></i> 
+                        Ces frais seront utilisés pour le calcul du bénéfice du lot.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Annuler
+                </button>
+                <button type="button" class="btn btn-primary" onclick="proceedToReception()">
+                    <i class="bi bi-arrow-right-circle"></i> Continuer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de confirmation de réception -->
 <div class="modal fade" id="receptionModal" tabindex="-1">
     <div class="modal-dialog">
@@ -260,18 +320,25 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post">
+            <form method="post" id="receptionForm">
                 {% csrf_token %}
+                <input type="hidden" id="frais_douane_input" name="frais_douane" value="">
                 <div class="modal-body">
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle me-2"></i>
                         <strong>Attention :</strong> Cette action va :
                         <ul class="mb-0 mt-2">
                             <li>Marquer le lot comme "Arrivé au Mali"</li>
-                            <li>Changer le statut de tous les colis ({{ lot.colis.count }}) vers "Arrivé"</li>
-                            <li>Envoyer des notifications automatiques à tous les clients</li>
+                            <li>Changer le statut des colis sélectionnés vers "Arrivé"</li>
+                            <li>Envoyer des notifications automatiques aux clients</li>
                             <li>Créer un enregistrement de réception avec la date actuelle</li>
                         </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-currency-exchange me-2"></i>
+                        <strong>Frais de douane :</strong> 
+                        <span id="fraisDouaneAffiche" class="fw-bold">0 FCFA</span>
                     </div>
                     
                     <div class="mb-3">
@@ -281,44 +348,18 @@
                         <div class="form-text">Ce commentaire sera visible dans l'historique du lot</div>
                     </div>
                     
-                    <div class="form-check mb-4">
+                    <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="notification_clients" name="notifier_clients" checked>
                         <label class="form-check-label" for="notification_clients">
                             <strong>Notifier automatiquement les clients</strong>
-                            <div class="small text-muted">Envoyer SMS/WhatsApp UNIQUEMENT aux clients des colis sélectionnés</div>
-                            <div class="small text-info mt-1">
-                                <i class="bi bi-info-circle"></i> 
-                                Les notifications sont envoyées au numéro sandbox WhatsApp en mode test
-                            </div>
+                            <div class="small text-muted">Envoyer SMS/WhatsApp aux clients des colis sélectionnés</div>
                         </label>
-                    </div>
-                    
-                    <!-- Champ pour les frais de dédouanement -->
-                    <div class="mb-3">
-                        <label for="frais_dedouanement" class="form-label">
-                            <i class="bi bi-currency-exchange"></i> Frais de dédouanement (FCFA)
-                        </label>
-                        <div class="input-group">
-                            <input type="number" 
-                                   class="form-control" 
-                                   id="frais_dedouanement" 
-                                   name="frais_dedouanement" 
-                                   min="0" 
-                                   step="0.01"
-                                   value="0.00"
-                                   placeholder="Entrez les frais de dédouanement">
-                            <span class="input-group-text">FCFA</span>
-                        </div>
-                        <div class="form-text">
-                            <i class="bi bi-info-circle"></i> 
-                            Les frais de dédouanement seront enregistrés et inclus dans les rapports financiers.
-                        </div>
                     </div>
                 </div>
                 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Annuler
+                    <button type="button" class="btn btn-secondary" onclick="backToDouaneModal()">
+                        <i class="bi bi-arrow-left-circle"></i> Retour
                     </button>
                     <button type="submit" class="btn btn-success">
                         <i class="bi bi-check-circle"></i> Confirmer la réception
@@ -334,10 +375,47 @@
 <script>
     let selectedColis = [];
     
+    // Afficher le modal des frais de douane
+    function showDouaneModal() {
+        const douaneModal = new bootstrap.Modal(document.getElementById('douaneModal'));
+        douaneModal.show();
+    }
+    
+    // Passer au modal de confirmation après la saisie des frais de douane
+    function proceedToReception() {
+        const fraisDouane = document.getElementById('frais_douane').value;
+        
+        if (!fraisDouane || parseFloat(fraisDouane) <= 0) {
+            alert('Veuillez saisir un montant valide pour les frais de douane.');
+            return;
+        }
+        
+        // Mettre à jour le champ caché dans le formulaire
+        document.getElementById('frais_douane_input').value = fraisDouane;
+        document.getElementById('fraisDouaneAffiche').textContent = parseFloat(fraisDouane).toLocaleString('fr-FR') + ' FCFA';
+        
+        // Fermer le modal des frais de douane
+        const douaneModal = bootstrap.Modal.getInstance(document.getElementById('douaneModal'));
+        douaneModal.hide();
+        
+        // Afficher le modal de confirmation
+        showReceptionModal();
+    }
+    
+    // Revenir au modal des frais de douane
+    function backToDouaneModal() {
+        const receptionModal = bootstrap.Modal.getInstance(document.getElementById('receptionModal'));
+        receptionModal.hide();
+        
+        const douaneModal = new bootstrap.Modal(document.getElementById('douaneModal'));
+        douaneModal.show();
+    }
+    
+    // Afficher le modal de confirmation de réception
     function showReceptionModal() {
         // Copier les checkboxes sélectionnés dans le formulaire du modal
         const checkedBoxes = document.querySelectorAll('.colis-checkbox:checked');
-        const modalForm = document.querySelector('#receptionModal form');
+        const modalForm = document.getElementById('receptionForm');
         
         // Supprimer les anciens champs cachés
         const existingHiddenInputs = modalForm.querySelectorAll('input[name="colis_recus"]');

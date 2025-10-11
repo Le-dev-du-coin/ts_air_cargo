@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     
     # Third party apps
     'corsheaders',
+    'widget_tweaks',
     
     # TS Air Cargo Applications
     'authentication',

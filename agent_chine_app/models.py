@@ -93,6 +93,14 @@ class Lot(models.Model):
     date_fermeture = models.DateTimeField(null=True, blank=True)
     date_expedition = models.DateTimeField(null=True, blank=True)
     date_arrivee = models.DateTimeField(null=True, blank=True)
+    benefice = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="Bénéfice calculé (prix transport + frais douane - total colis)"
+    )
     
     agent_createur = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -102,30 +110,66 @@ class Lot(models.Model):
     )
     
     class Meta:
-        verbose_name = "Lot"
         verbose_name_plural = "Lots"
         ordering = ['-date_creation']
         
     def save(self, *args, **kwargs):
         if not self.numero_lot:
-            # Générer numéro de lot avec type: TYPE-YYYYMMDDXXX
-            date_str = timezone.now().strftime('%Y%m%d')
-            type_prefix = self.type_lot.upper()
+            # Générer le numéro de lot si c'est une nouvelle instance
+            prefix = self.type_lot.upper()
+            today = timezone.now().strftime('%Y%m%d')
             
-            count = Lot.objects.filter(
-                numero_lot__startswith=f"{type_prefix}-{date_str}"
-            ).count() + 1
+            # Trouver le prochain numéro de séquence
+            last_lot = Lot.objects.filter(
+                numero_lot__startswith=f"{prefix}-{today}"
+            ).order_by('-numero_lot').first()
             
-            self.numero_lot = f"{type_prefix}-{date_str}{count:03d}"
+            if last_lot:
+                try:
+                    seq = int(last_lot.numero_lot.split('-')[-1]) + 1
+                except (IndexError, ValueError):
+                    seq = 1
+            else:
+                seq = 1
+                
+            self.numero_lot = f"{prefix}-{today}-{seq:03d}"
+        
+        # Calculer le bénéfice si le prix de transport est défini
+        # Les frais de douane peuvent être None (seront traités comme 0)
+        if self.prix_transport is not None:
+            total_colis = sum(float(colis.get_prix_effectif()) for colis in self.colis.all())
+            frais_douane = float(self.frais_douane) if self.frais_douane is not None else 0.0
+            self.benefice = (float(self.prix_transport) + frais_douane) - total_colis
+        else:
+            self.benefice = None
             
         super().save(*args, **kwargs)
         
-    def get_total_value(self):
+    def recalculer_benefice(self):
         """
-        Calcule la valeur totale des colis dans ce lot
-        en additionnant les prix calculés de chaque colis
+        Recalcule le bénéfice et sauvegarde le lot
+        Utile après mise à jour des frais de douane par l'agent Mali
         """
-        return sum(colis.prix_calcule for colis in self.colis.all() if colis.prix_calcule is not None)
+        if self.prix_transport is not None:
+            total_colis = sum(float(colis.get_prix_effectif()) for colis in self.colis.all())
+            frais_douane = float(self.frais_douane) if self.frais_douane is not None else 0.0
+            self.benefice = (float(self.prix_transport) + frais_douane) - total_colis
+            self.save(update_fields=['benefice'])
+            return True
+        return False
+    
+    def get_benefice_percentage(self):
+        """
+        Calcule le pourcentage de marge bénéficiaire par rapport au coût total
+        """
+        if self.benefice is None or not self.prix_transport:
+            return 0.0
+            
+        total_cout = sum(float(colis.get_prix_effectif()) for colis in self.colis.all())
+        if total_cout == 0:
+            return 0.0
+            
+        return float((float(self.benefice) / total_cout) * 100)
         
     def __str__(self):
         return f"Lot {self.numero_lot} - {self.statut}"

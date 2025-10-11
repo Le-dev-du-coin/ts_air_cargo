@@ -85,6 +85,27 @@
             </div>
         </div>
     </div>
+    
+    <!-- Bénéfice -->
+    <div class="col-lg-4 mb-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="stat-value {% if lot.benefice and lot.benefice > 0 %}text-success{% elif lot.benefice and lot.benefice < 0 %}text-danger{% endif %}">
+                        {{ lot.benefice|default:"-"|floatformat:0 }}
+                    </h3>
+                    <p class="stat-label">Bénéfice (FCFA)</p>
+                    {% if lot.benefice is not None %}
+                    <div class="stat-change {% if lot.benefice > 0 %}positive{% elif lot.benefice < 0 %}negative{% endif %}">
+                        <i class="bi {% if lot.benefice > 0 %}bi-graph-up-arrow{% elif lot.benefice < 0 %}bi-graph-down-arrow{% else %}bi-dash-circle{% endif %}"></i>
+                        {{ lot.get_benefice_percentage|default:0|floatformat:1 }}% de marge
+                    </div>
+                    {% endif %}
+                </div>
+                <i class="stat-icon bi {% if lot.benefice and lot.benefice > 0 %}bi-cash-coin text-success{% elif lot.benefice and lot.benefice < 0 %}bi-cash-stack text-danger{% else %}bi-cash text-muted{% endif %}"></i>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Informations détaillées -->

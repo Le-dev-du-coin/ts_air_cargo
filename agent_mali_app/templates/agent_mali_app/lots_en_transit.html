@@ -182,9 +182,28 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 text-end">
-                            <div class="text-success fw-bold h6 mb-0">{{ lot.prix_transport|floatformat:0 }} CFA</div>
-                            <small class="text-muted">Transport</small>
+                        <div class="col-6">
+                            <div class="text-end">
+                                <div class="text-success fw-bold h6 mb-0">{{ lot.prix_transport|floatformat:0 }} CFA</div>
+                                <small class="text-muted">Transport</small>
+                            </div>
+                            {% if lot.frais_douane %}
+                            <div class="text-end mt-2">
+                                <div class="text-primary fw-bold h6 mb-0">{{ lot.frais_douane|floatformat:0 }} CFA</div>
+                                <small class="text-muted">Frais de douane</small>
+                            </div>
+                            {% endif %}
+                            {% if lot.benefice is not None %}
+                            <div class="text-end mt-2">
+                                <div class="fw-bold h6 mb-0 {% if lot.benefice >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ lot.benefice|floatformat:0 }} CFA
+                                    <span class="small fw-normal">
+                                        ({{ lot.get_benefice_percentage|floatformat:1 }}%)
+                                    </span>
+                                </div>
+                                <small class="text-muted">Bénéfice estimé</small>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     
