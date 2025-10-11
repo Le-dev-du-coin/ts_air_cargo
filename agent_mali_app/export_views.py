@@ -22,18 +22,18 @@ def export_colis_excel(request, lot_id):
     lot = get_object_or_404(Lot, id=lot_id)
     
     # Récupérer les colis du lot avec les informations nécessaires
-    colis_list = Colis.objects.filter(lot=lot).annotate(
-        nom_complet=Concat('client__prenom', Value(' '), 'client__nom', 
+    colis_list = Colis.objects.filter(lot=lot).select_related('client__user').annotate(
+        nom_complet=Concat('client__user__first_name', Value(' '), 'client__user__last_name', 
                           output_field=CharField())
     ).values(
-        'code_colis',
+        'numero_suivi',
         'nom_complet',
-        'client__telephone',
+        'client__user__telephone',
         'poids',
-        'prix_estime',
+        'prix_calcule',
         'statut',
         'date_creation',
-        'date_mise_a_jour'
+        'date_modification'
     )
     
     # Créer un DataFrame pandas avec les données
@@ -41,14 +41,14 @@ def export_colis_excel(request, lot_id):
     
     # Renommer les colonnes pour un affichage plus lisible
     df = df.rename(columns={
-        'code_colis': 'Code Colis',
+        'numero_suivi': 'N° de suivi',
         'nom_complet': 'Client',
-        'client__telephone': 'Téléphone',
+        'client__user__telephone': 'Téléphone',
         'poids': 'Poids (kg)',
-        'prix_estime': 'Prix (FCFA)',
+        'prix_calcule': 'Prix (FCFA)',
         'statut': 'Statut',
         'date_creation': 'Date de création',
-        'date_mise_a_jour': 'Dernière mise à jour'
+        'date_modification': 'Dernière mise à jour'
     })
     
     # Formater les dates
@@ -98,17 +98,17 @@ def export_colis_pdf(request, lot_id):
     lot = get_object_or_404(Lot, id=lot_id)
     
     # Récupérer les colis du lot avec les informations nécessaires
-    colis_list = Colis.objects.filter(lot=lot).annotate(
-        nom_complet=Concat('client__prenom', Value(' '), 'client__nom', 
+    colis_list = Colis.objects.filter(lot=lot).select_related('client__user').annotate(
+        nom_complet=Concat('client__user__first_name', Value(' '), 'client__user__last_name', 
                           output_field=CharField())
     ).values(
-        'code_colis',
+        'numero_suivi',
         'nom_complet',
-        'client__telephone',
+        'client__user__telephone',
         'poids',
-        'prix_estime',
+        'prix_calcule',
         'statut',
-    ).order_by('code_colis')
+    ).order_by('numero_suivi')
     
     # Créer un objet BytesIO pour le PDF
     response = HttpResponse(content_type='application/pdf')
@@ -148,12 +148,12 @@ def export_colis_pdf(request, lot_id):
         # Données du tableau
         for colis in colis_list:
             data.append([
-                colis['code_colis'],
+                colis['numero_suivi'],
                 colis['nom_complet'],
-                colis['client__telephone'],
-                f"{colis['poids']:.2f}" if colis['poids'] else 'N/A',
-                f"{colis['prix_estime']:,.0f}" if colis['prix_estime'] else 'N/A',
-                colis['statut'].capitalize()
+                colis['client__user__telephone'] or 'N/A',
+                f"{colis['poids']:.2f}" if colis['poids'] is not None else 'N/A',
+                f"{colis['prix_calcule']:,.0f}" if colis['prix_calcule'] is not None else 'N/A',
+                colis['statut'].capitalize() if colis['statut'] else 'N/A'
             ])
         
         # Créer le tableau

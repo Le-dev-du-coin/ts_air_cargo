@@ -88,11 +88,28 @@
                                 <td class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} CFA</td>
                             </tr>
                             <tr>
-                                <td><strong>Valeur totale:</strong></td>
+                                <td><strong>Frais de douane:</strong></td>
+                                <td class="fw-bold">
+                                    {% if lot.reception_mali and lot.reception_mali.frais_dedouanement %}
+                                        {{ lot.reception_mali.frais_dedouanement|floatformat:0 }} CFA
+                                    {% else %}
+                                        <span class="text-muted">Non défini</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Valeur totale des colis:</strong></td>
                                 <td class="text-primary fw-bold">
-                                    {% with total_value=lot.get_total_value %}
-                                        {{ total_value|floatformat:0 }} CFA
-                                    {% endwith %}
+                                    {{ total_parcel_value|floatformat:0 }} CFA
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Bénéfice estimé:</strong></td>
+                                <td class="{% if lot.benefice < 0 %}text-danger{% else %}text-success{% endif %} fw-bold">
+                                    {{ lot.benefice|default:0|floatformat:0 }} CFA
+                                    {% if lot.benefice < 0 %}
+                                        <i class="bi bi-exclamation-triangle-fill ms-1" title="Attention: bénéfice négatif"></i>
+                                    {% endif %}
                                 </td>
                             </tr>
                             <tr>
@@ -117,7 +134,7 @@
                 </p>
                 <div class="d-grid gap-2">
                     {% if lot.statut != 'arrive' %}
-                        <button class="btn btn-success" onclick="showDouaneModal()">
+                        <button class="btn btn-success" onclick="showReceptionModal()">
                             <i class="bi bi-download"></i> Réceptionner maintenant
                         </button>
                     {% else %}
@@ -236,7 +253,7 @@
                     <div class="text-center">
                         <div class="h4 text-success">
                             {% with total_value=lot.get_total_value %}
-                                {{ total_value|floatformat:0 }} 
+                            {{ total_parcel_value|floatformat:0 }}
                             {% endwith %} CFA
                         </div>
                         <div class="small text-muted">Valeur totale</div>
@@ -323,6 +340,7 @@
             <form method="post" id="receptionForm">
                 {% csrf_token %}
                 <input type="hidden" id="frais_douane_input" name="frais_douane" value="">
+                <input type="hidden" name="is_first_reception" value="{{ is_first_reception|yesno:'true,false' }}">
                 <div class="modal-body">
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle me-2"></i>
@@ -398,8 +416,8 @@
         const douaneModal = bootstrap.Modal.getInstance(document.getElementById('douaneModal'));
         douaneModal.hide();
         
-        // Afficher le modal de confirmation
-        showReceptionModal();
+        // Préparer et afficher le modal de réception
+        prepareReceptionModal();
     }
     
     // Revenir au modal des frais de douane
@@ -413,6 +431,22 @@
     
     // Afficher le modal de confirmation de réception
     function showReceptionModal() {
+        // Vérifier si c'est la première réception du lot
+        const isFirstReception = document.querySelector('input[name="is_first_reception"]').value === 'true';
+        
+        // Si c'est la première réception, afficher d'abord le modal des frais de douane
+        if (isFirstReception) {
+            const douaneModal = new bootstrap.Modal(document.getElementById('douaneModal'));
+            douaneModal.show();
+            return;
+        }
+        
+        // Sinon, continuer avec le modal de confirmation de réception
+        prepareReceptionModal();
+    }
+    
+    // Préparer et afficher le modal de réception
+    function prepareReceptionModal() {
         // Copier les checkboxes sélectionnés dans le formulaire du modal
         const checkedBoxes = document.querySelectorAll('.colis-checkbox:checked');
         const modalForm = document.getElementById('receptionForm');

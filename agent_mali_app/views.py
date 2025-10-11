@@ -646,6 +646,9 @@ def recevoir_lot_view(request, lot_id):
     """
     lot = get_object_or_404(Lot, id=lot_id, statut__in=['expedie', 'en_transit'])
     
+    # Calculer la valeur totale des colis
+    total_parcel_value = sum(colis.get_prix_effectif() for colis in lot.colis.all())
+    
     if request.method == 'POST':
         try:
             commentaire = request.POST.get('commentaire', '')
@@ -694,8 +697,9 @@ def recevoir_lot_view(request, lot_id):
                 reception.frais_dedouanement = frais_dedouanement
                 
             # Mettre à jour les frais de douane du lot (utilisé pour le calcul du bénéfice)
-            if frais_dedouanement > 0:
-                lot.frais_douane = frais_dedouanement
+            # Mettre à jour même si frais_dedouanement est à 0
+            lot.frais_douane = frais_dedouanement
+            lot.save(update_fields=['frais_douane'])  # Sauvegarder explicitement le champ frais_douane
             
             # Ajouter l'observation avec horodatage
             if commentaire:
@@ -746,8 +750,9 @@ def recevoir_lot_view(request, lot_id):
                 reception.date_reception = timezone.now()
             
             # Sauvegarder les modifications
-            lot.save()
             reception.save()
+            # Le lot est déjà sauvegardé avec les frais de douane, on le sauvegarde à nouveau pour le bénéfice
+            lot.save()
             
             # Envoyer des notifications de masse via tâche asynchrone
             colis_recus_count = colis_a_recevoir.count()
@@ -791,11 +796,20 @@ def recevoir_lot_view(request, lot_id):
     # Calculs pour affichage
     total_colis = lot.colis.count()
     total_poids = sum(float(c.poids) for c in lot.colis.all())
+    total_parcel_value = sum(colis.get_prix_effectif() for colis in lot.colis.all())
+    
+    # Vérifier si c'est la première réception du lot
+    is_first_reception = True
+    if hasattr(lot, 'reception_mali'):
+        # C'est la première réception si aucun colis n'a encore été reçu
+        is_first_reception = lot.reception_mali.nombre_colis_recus == 0
     
     context = {
         'lot': lot,
         'total_colis': total_colis,
         'total_poids': total_poids,
+        'total_parcel_value': total_parcel_value,
+        'is_first_reception': is_first_reception,
         'title': f'Réceptionner le lot {lot.numero_lot}',
     }
     return render(request, 'agent_mali_app/recevoir_lot.html', context)
