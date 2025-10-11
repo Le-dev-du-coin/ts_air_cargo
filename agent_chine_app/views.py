@@ -1335,10 +1335,32 @@ def colis_task_list(request):
     }
     
     # Tri par défaut : les plus récentes en premier (après les stats)
-    tasks = tasks.order_by('-created_at')[:100]  # Limiter à 100 résultats
+    tasks = tasks.order_by('-created_at')
+    
+    # Pagination
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    
+    # Nombre d'éléments par page (par défaut 25)
+    per_page = int(request.GET.get('per_page', 25))
+    paginator = Paginator(tasks, per_page)
+    
+    # Récupérer le numéro de page depuis la requête
+    page = request.GET.get('page')
+    
+    try:
+        tasks_paginated = paginator.page(page)
+    except PageNotAnInteger:
+        # Si le paramètre page n'est pas un entier, afficher la première page
+        tasks_paginated = paginator.page(1)
+    except EmptyPage:
+        # Si la page demandée est hors de portée, afficher la dernière page
+        tasks_paginated = paginator.page(paginator.num_pages)
     
     context = {
-        'tasks': tasks,
+        'tasks': tasks_paginated,
+        'paginator': paginator,
+        'page_obj': tasks_paginated,
+        'is_paginated': paginator.num_pages > 1,
         'stats': stats,
         'status_filter': status_filter,
         'operation_filter': operation_filter,

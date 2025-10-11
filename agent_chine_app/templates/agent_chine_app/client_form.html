@@ -156,45 +156,47 @@
                             <div class="row g-4">
                                 <!-- Prénom -->
                                 <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                    <div class="form-group required">
+                                        <label for="first_name" class="form-label">
+                                            <i class="bi bi-person me-1"></i>
                                             Prénom <span class="text-danger">*</span>
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text">
                                                 <i class="bi bi-person"></i>
                                             </span>
-                                            {% render_field form.first_name class="form-control" placeholder="Entrez le prénom" %}
+                                            <input type="text" 
+                                                   class="form-control" 
+                                                   id="first_name" 
+                                                   name="first_name"
+                                                   value="{{ client.user.first_name|default:'' }}"
+                                                   placeholder="Entrez le prénom"
+                                                   required>
                                         </div>
-                                        {% if form.first_name.errors %}
-                                            <div class="invalid-feedback d-block">
-                                                {{ form.first_name.errors.0 }}
-                                            </div>
-                                        {% else %}
-                                            <small class="form-text">Le prénom du client</small>
-                                        {% endif %}
+                                        <small class="form-text">Le prénom du client</small>
                                     </div>
                                 </div>
                                 
                                 <!-- Nom -->
                                 <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                    <div class="form-group required">
+                                        <label for="last_name" class="form-label">
+                                            <i class="bi bi-person-badge me-1"></i>
                                             Nom <span class="text-danger">*</span>
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text">
                                                 <i class="bi bi-person-badge"></i>
                                             </span>
-                                            {% render_field form.last_name class="form-control" placeholder="Entrez le nom" %}
+                                            <input type="text" 
+                                                   class="form-control" 
+                                                   id="last_name" 
+                                                   name="last_name"
+                                                   value="{{ client.user.last_name|default:'' }}"
+                                                   placeholder="Entrez le nom"
+                                                   required>
                                         </div>
-                                        {% if form.last_name.errors %}
-                                            <div class="invalid-feedback d-block">
-                                                {{ form.last_name.errors.0 }}
-                                            </div>
-                                        {% else %}
-                                            <small class="form-text">Le nom de famille du client</small>
-                                        {% endif %}
+                                        <small class="form-text">Le nom de famille du client</small>
                                     </div>
                                 </div>
                                 
@@ -222,240 +224,94 @@
                                 
                                 <!-- Téléphone -->
                                 <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.telephone.id_for_label }}" class="form-label">
+                                    <div class="form-group required">
+                                        <label for="telephone" class="form-label">
+                                            <i class="bi bi-phone me-1"></i>
                                             Téléphone <span class="text-danger">*</span>
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text">+223</span>
-                                            {% render_field form.telephone class="form-control" placeholder="XXXXXXXX" %}
+                                            <input type="tel" 
+                                                   class="form-control" 
+                                                   id="telephone" 
+                                                   name="telephone"
+                                                   value="{{ client.user.phone_number|default:'' }}"
+                                                   placeholder="00 00 00 00" 
+                                                   pattern="[0-9\s]{8,15}"
+                                                   required>
                                         </div>
-                                        {% if form.telephone.errors %}
-                                            <div class="invalid-feedback d-block">
-                                                {{ form.telephone.errors.0 }}
-                                            </div>
-                                        {% else %}
-                                            <small class="form-text">Numéro de téléphone au format malien (8 chiffres)</small>
-                                        {% endif %}
+                                        <small class="form-text">Format: 00 00 00 00</small>
                                     </div>
                                 </div>
                                 
                                 <!-- Pays -->
                                 <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.pays.id_for_label }}" class="form-label">
+                                    <div class="form-group required">
+                                        <label for="pays" class="form-label">
+                                            <i class="bi bi-globe me-1"></i>
                                             Pays <span class="text-danger">*</span>
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text">
                                                 <i class="bi bi-globe"></i>
                                             </span>
-                                            {% render_field form.pays class="form-select" %}
+                                            <select class="form-select" id="pays" name="pays" required>
+                                                {% for code, nom in countries %}
+                                                    <option value="{{ code }}" 
+                                                        {% if client.pays == code or code == 'ML' and not client.pays %}selected{% endif %}>
+                                                        {{ nom }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
                                         </div>
-                                        {% if form.pays.errors %}
-                                            <div class="invalid-feedback d-block">
-                                                {{ form.pays.errors.0 }}
-                                            </div>
-                                        {% else %}
-                                            <small class="form-text">Pays de résidence du client</small>
-                                        {% endif %}
+                                        <small class="form-text">Pays de résidence du client</small>
                                     </div>
                                 </div>
                                 
                                 <!-- Adresse -->
                                 <div class="col-12">
-                                    <div class="form-group">
-                                        <label for="{{ form.adresse.id_for_label }}" class="form-label">
+                                    <div class="form-group required">
+                                        <label for="adresse" class="form-label">
+                                            <i class="bi bi-geo-alt me-1"></i>
                                             Adresse complète <span class="text-danger">*</span>
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text">
                                                 <i class="bi bi-geo-alt"></i>
                                             </span>
-                                            {% render_field form.adresse class="form-control" placeholder="Rue, quartier, ville" %}
+                                            <input type="text" 
+                                                   class="form-control" 
+                                                   id="adresse" 
+                                                   name="adresse"
+                                                   value="{{ client.adresse|default:'' }}"
+                                                   placeholder="Rue, quartier, ville"
+                                                   required>
                                         </div>
-                                        {% if form.adresse.errors %}
-                                            <div class="invalid-feedback d-block">
-                                                {{ form.adresse.errors.0 }}
-                                            </div>
-                                        {% else %}
-                                            <small class="form-text">Adresse complète du client</small>
-                                        {% endif %}
+                                        <small class="form-text">Adresse complète du client</small>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
-                        {% if not client %}
-                        <!-- Section Mot de passe -->
-                        <div class="form-section mb-4">
-                            <div class="section-header">
-                                <div class="section-icon">
-                                    <i class="bi bi-shield-lock"></i>
-                                </div>
-                                <h6 class="mb-0">Sécurité du compte</h6>
-                            </div>
-                            
-                            <div class="row g-4">
-                                <!-- Mot de passe -->
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.password1.id_for_label }}" class="form-label">
-                                            Mot de passe <span class="text-danger">*</span>
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">
-                                                <i class="bi bi-key"></i>
-                                            </span>
-                                            {% render_field form.password1 class="form-control" placeholder="Créez un mot de passe sécurisé" %}
-                                            <button class="btn btn-outline-secondary" type="button" id="togglePassword1">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                        </div>
-                                        <div class="mt-2">
-                                            <div class="progress" style="height: 4px;">
-                                                <div id="password-strength-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                                            </div>
-                                            <small id="password-strength-text" class="form-text"></small>
-                                        </div>
-                                        {% if form.password1.errors %}
-                                            <div class="invalid-feedback d-block">
-                                                {{ form.password1.errors.0 }}
-                                            </div>
-                                        {% else %}
-                                            <small class="form-text">Minimum 8 caractères avec des chiffres et lettres</small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <!-- Confirmation mot de passe -->
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.password2.id_for_label }}" class="form-label">
-                                            Confirmer le mot de passe <span class="text-danger">*</span>
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">
-                                                <i class="bi bi-key-fill"></i>
-                                            </span>
-                                            {% render_field form.password2 class="form-control" placeholder="Confirmez le mot de passe" %}
-                                            <button class="btn btn-outline-secondary" type="button" id="togglePassword2">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                        </div>
-                                        {% if form.password2.errors %}
-                                            <div class="invalid-feedback d-block">
-                                                {{ form.password2.errors.0 }}
-                                            </div>
-                                        {% else %}
-                                            <small class="form-text">Les deux mots de passe doivent correspondre</small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
+
+                        <!-- Message d'information sur la création du compte -->
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Un mot de passe fort sera généré automatiquement et envoyé au client par WhatsApp lors de la création du compte.
                         </div>
-                        {% endif %}
                         
                         <!-- Boutons d'action -->
                         <div class="form-actions">
                             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center">
                                 <a href="{% url 'agent_chine:client_list' %}" class="btn btn-outline-secondary mb-2 mb-sm-0 me-sm-2">
-                                    <i class="bi bi-x-circle me-1"></i> Annuler
+                                    <i class="bi bi-arrow-left me-1"></i> Retour à la liste
                                 </a>
-                                <div>
-                                    <button type="submit" class="btn btn-primary px-4">
-                                        <i class="bi bi-check-circle me-1"></i>
-                                        {% if client %}Mettre à jour{% else %}Créer le compte{% endif %}
+                                <div class="d-flex flex-column flex-sm-row">
+                                    <button type="submit" class="btn btn-primary btn-submit">
+                                        <i class="bi bi-save me-1"></i> {{ submit_text|default:"Enregistrer" }}
                                     </button>
                                 </div>
                             </div>
                         </div>
-
-
-                    {% if not client %}
-                    <!-- Sécurité du compte -->
-                    <div class="form-section mb-4">
-                        <div class="d-flex align-items-center mb-4">
-                            <div class="bg-soft-primary rounded p-2 me-3">
-                                <i class="bi bi-shield-lock-fill text-primary"></i>
-                            </div>
-                            <h6 class="mb-0">Sécurité du compte</h6>
-                        </div>
-                        
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="password" class="form-label">
-                                        <i class="bi bi-key me-1 text-muted"></i>
-                                        Mot de passe <span class="text-danger">*</span>
-                                    </label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="bi bi-key-fill text-muted"></i>
-                                        </span>
-                                        <input type="password" 
-                                               class="form-control border-end-0" 
-                                               id="password" 
-                                               name="password" 
-                                               minlength="6"
-                                               placeholder="••••••"
-                                               aria-label="Créer un mot de passe"
-                                               required
-                                               onkeyup="checkPasswordStrength(this.value)">
-                                        <button class="btn btn-outline-secondary border-start-0" 
-                                                type="button" 
-                                                onclick="togglePassword('password')"
-                                                aria-label="Afficher le mot de passe">
-                                            <i class="bi bi-eye" id="password-toggle"></i>
-                                        </button>
-                                    </div>
-                                    <div class="password-strength mt-2">
-                                        <div class="progress" style="height: 5px;">
-                                            <div id="password-strength-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                                        </div>
-                                        <small id="password-strength-text" class="form-text"></small>
-                                    </div>
-                                    <div class="form-text text-muted small mt-1">
-                                        <i class="bi bi-info-circle me-1"></i>Minimum 6 caractères, avec des majuscules, chiffres et caractères spéciaux.
-                                    </div>
-                                    <div class="invalid-feedback">
-                                        <i class="bi bi-exclamation-circle me-1"></i>Le mot de passe doit contenir au moins 6 caractères.
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="confirm_password" class="form-label">
-                                        <i class="bi bi-key-fill me-1 text-muted"></i>
-                                        Confirmation <span class="text-danger">*</span>
-                                    </label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="bi bi-key-fill text-muted"></i>
-                                        </span>
-                                        <input type="password" 
-                                               class="form-control border-end-0" 
-                                               id="confirm_password" 
-                                               name="confirm_password" 
-                                               minlength="6"
-                                               placeholder="Confirmez le mot de passe"
-                                               aria-label="Confirmer le mot de passe"
-                                               required>
-                                        <button class="btn btn-outline-secondary border-start-0" 
-                                                type="button" 
-                                                onclick="togglePassword('confirm_password')"
-                                                aria-label="Afficher la confirmation du mot de passe">
-                                            <i class="bi bi-eye" id="confirm_password-toggle"></i>
-                                        </button>
-                                    </div>
-                                    <div class="invalid-feedback">
-                                        <i class="bi bi-exclamation-circle me-1"></i>Les mots de passe ne correspondent pas.
-                                    </div>
-                                </div>
-                            </div>
-                    </div>
-                    {% endif %}
                         </div>
                     </div>
                 </form>
@@ -467,119 +323,29 @@
 
 {% block extra_js %}
 <script>
-// Fonction pour vérifier la force du mot de passe
-function checkPasswordStrength(password) {
-    let strength = 0;
-    const strengthBar = document.getElementById('password-strength-bar');
-    const strengthText = document.getElementById('password-strength-text');
+// Fonction pour formater le numéro de téléphone
+function formatPhoneNumber(input) {
+    // Ne formater que si l'utilisateur est en train de taper
+    if (document.activeElement !== input) return;
     
-    // Réinitialiser la barre de force
-    strengthBar.style.width = '0%';
-    strengthBar.className = 'progress-bar';
+    let value = input.value.replace(/\D/g, '');
     
-    if (!password) {
-        strengthText.textContent = '';
-        return;
+    // Si le numéro commence par 223 et a plus de 3 chiffres, ajouter le +
+    if (value.startsWith('223') && value.length > 3) {
+        value = '+' + value;
     }
     
-    // Vérifier la longueur
-    if (password.length >= 8) strength += 25;
-    
-    // Vérifier les lettres minuscules
-    if (password.match(/[a-z]/)) strength += 15;
-    
-    // Vérifier les lettres majuscules
-    if (password.match(/[A-Z]/)) strength += 15;
-    
-    // Vérifier les chiffres
-    if (password.match(/[0-9]/)) strength += 15;
-    
-    // Vérifier les caractères spéciaux
-    if (password.match(/[^A-Za-z0-9]/)) strength += 15;
-    
-    // Vérifier les motifs courants (à éviter)
-    if (password.match(/password|123456|azerty|qwerty/i)) strength = Math.max(10, strength - 20);
-    
-    // Mettre à jour la barre de progression
-    strength = Math.min(100, Math.max(0, strength));
-    strengthBar.style.width = strength + '%';
-    
-    // Mettre à jour le texte et la couleur
-    if (strength < 30) {
-        strengthBar.classList.add('bg-danger');
-        strengthText.textContent = 'Faible';
-        strengthText.className = 'form-text text-danger';
-    } else if (strength < 70) {
-        strengthBar.classList.add('bg-warning');
-        strengthText.textContent = 'Moyen';
-        strengthText.className = 'form-text text-warning';
-    } else {
-        strengthBar.classList.add('bg-success');
-        strengthText.textContent = 'Fort';
-        strengthText.className = 'form-text text-success';
+    // Formater: +223 XX XX XX XX
+    if (value.startsWith('+223') && value.length > 4) {
+        const formatted = value.replace(/(\+223)(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+        input.value = formatted;
+    } else if (value.length > 0) {
+        // Pour les numéros courts, ne pas ajouter de formatage
+        input.value = value;
     }
 }
 
-// Toggle password visibility
-function togglePassword(fieldId) {
-    const field = document.getElementById(fieldId);
-    const toggle = document.getElementById(fieldId + '-toggle');
-    
-    if (field.type === 'password') {
-        field.type = 'text';
-        toggle.className = 'bi bi-eye-slash';
-        toggle.setAttribute('aria-label', 'Masquer le mot de passe');
-    } else {
-        field.type = 'password';
-        toggle.className = 'bi bi-eye';
-        toggle.setAttribute('aria-label', 'Afficher le mot de passe');
-    }
-}
-
-// Validation des mots de passe
 document.addEventListener('DOMContentLoaded', function() {
-    // Sélectionner le formulaire
-    const form = document.getElementById('clientForm');
-    
-    // Validation des mots de passe
-    const password = document.getElementById('password');
-    const confirmPassword = document.getElementById('confirm_password');
-    
-    if (password && confirmPassword) {
-        function validatePassword() {
-            // Réinitialiser les messages de validation
-            confirmPassword.setCustomValidity('');
-            
-            // Vérifier si les mots de passe correspondent
-            if (password.value !== confirmPassword.value) {
-                confirmPassword.setCustomValidity('Les mots de passe ne correspondent pas');
-                confirmPassword.classList.add('is-invalid');
-                return false;
-            }
-            
-            // Vérifier la force du mot de passe
-            if (password.value.length < 6) {
-                password.setCustomValidity('Le mot de passe doit contenir au moins 6 caractères');
-                password.classList.add('is-invalid');
-                return false;
-            }
-            
-            // Si tout est valide
-            password.classList.remove('is-invalid');
-            confirmPassword.classList.remove('is-invalid');
-            return true;
-        }
-        
-        // Événements de validation en temps réel
-        password.addEventListener('input', function() {
-            this.classList.remove('is-invalid');
-            checkPasswordStrength(this.value);
-            validatePassword();
-        });
-        
-        confirmPassword.addEventListener('input', validatePassword);
-    }
-    
     // Validation du téléphone
     const telephone = document.getElementById('telephone');
     if (telephone) {
@@ -606,6 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Validation du formulaire avant soumission
+    const form = document.getElementById('clientForm');
     if (form) {
         form.addEventListener('submit', function(event) {
             // Empêcher la soumission par défaut
@@ -614,16 +381,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 event.stopPropagation();
             }
             
-            // Valider les mots de passe si nécessaire
-            if (password && confirmPassword && !validatePassword()) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            
             this.classList.add('was-validated');
             
             // Afficher un message de succès si le formulaire est valide
-            if (this.checkValidity() && (!password || validatePassword())) {
+            if (this.checkValidity()) {
                 // Désactiver le bouton de soumission pour éviter les doubles soumissions
                 const submitButton = this.querySelector('button[type="submit"]');
                 if (submitButton) {
@@ -632,12 +393,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }, false);
+        
+        // Ajouter la classe is-invalid aux champs invalides après la soumission
+        const invalidFields = form.querySelectorAll(':invalid');
+        invalidFields.forEach(field => {
+            field.classList.add('is-invalid');
+        });
     }
     
-    // Ajouter la classe is-invalid aux champs invalides après la soumission
-    const invalidFields = form.querySelectorAll(':invalid');
-    invalidFields.forEach(field => {
-        field.classList.add('is-invalid');
+    // Gérer la perte de focus pour le formatage du téléphone
+    if (telephone) {
+        telephone.addEventListener('blur', function() {
+            formatPhoneNumber(this);
+        });
+    }
+    
+    // Style des champs au focus
+    document.querySelectorAll('.form-control').forEach(input => {
+        input.addEventListener('focus', function() {
+            const inputGroupText = this.parentElement.querySelector('.input-group-text');
+            if (inputGroupText) {
+                inputGroupText.classList.add('bg-white', 'border-primary');
+            }
+            this.classList.add('border-primary');
+        });
+        
+        input.addEventListener('blur', function() {
+            const inputGroupText = this.parentElement.querySelector('.input-group-text');
+            if (inputGroupText) {
+                inputGroupText.classList.remove('bg-white', 'border-primary');
+            }
+            this.classList.remove('border-primary');
+        });
     });
 });
 
@@ -663,22 +450,5 @@ function formatPhoneNumber(input) {
     }
 }
 
-// Gérer la perte de focus pour le formatage du téléphone
-document.getElementById('telephone')?.addEventListener('blur', function() {
-    formatPhoneNumber(this);
-});
-
-// Style des champs au focus
-document.querySelectorAll('.form-control').forEach(input => {
-    input.addEventListener('focus', function() {
-        this.parentElement.querySelector('.input-group-text').classList.add('bg-white', 'border-primary');
-        this.classList.add('border-primary');
-    });
-    
-    input.addEventListener('blur', function() {
-        this.parentElement.querySelector('.input-group-text').classList.remove('bg-white', 'border-primary');
-        this.classList.remove('border-primary');
-    });
-});
 </script>
 {% endblock %}

@@ -247,6 +247,22 @@
     </div>
     
     <!-- Liste des tâches -->
+    <!-- Barre d'information de pagination -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="text-muted">
+            Affichage de <strong>{{ tasks.start_index }}</strong> à <strong>{{ tasks.end_index }}</strong> sur <strong>{{ tasks.paginator.count }}</strong> tâches
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="me-2">Tâches par page :</span>
+            <select class="form-select form-select-sm" style="width: auto;" onchange="updatePageSize(this.value)">
+                <option value="10" {% if tasks.paginator.per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if tasks.paginator.per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if tasks.paginator.per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if tasks.paginator.per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </div>
+    </div>
+
     <div class="tasks-table">
         {% if tasks %}
         <div class="table-responsive">
@@ -267,7 +283,7 @@
                 </thead>
                 <tbody>
                     {% for task in tasks %}
-                    <tr class="task-row" onclick="window.location='{% url 'agent_chine:colis_task_status' task.task_id %}'">
+                    <tr class="task-row" data-task-url="{% url 'agent_chine:colis_task_status' task.task_id %}" style="cursor: pointer;">
                         <td>
                             <span class="task-id-short">{{ task.task_id|slice:":8" }}...</span>
                         </td>
@@ -347,6 +363,71 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination -->
+        <nav aria-label="Navigation des tâches" class="mt-4">
+            <ul class="pagination justify-content-center flex-wrap">
+                {% if tasks.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&per_page={{ tasks.paginator.per_page }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" aria-label="Première">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.previous_page_number }}&per_page={{ tasks.paginator.per_page }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" aria-label="Précédent">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;&laquo;</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;</span>
+                    </li>
+                {% endif %}
+                
+                {% for num in tasks.paginator.page_range %}
+                    {% if tasks.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > tasks.number|add:'-3' and num < tasks.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}&per_page={{ tasks.paginator.per_page }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% elif num == tasks.paginator.num_pages and tasks.paginator.num_pages > 3 %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}&per_page={{ tasks.paginator.per_page }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if tasks.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.next_page_number }}&per_page={{ tasks.paginator.per_page }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" aria-label="Suivant">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ tasks.paginator.num_pages }}&per_page={{ tasks.paginator.per_page }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" aria-label="Dernière">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;&raquo;</span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        
         {% else %}
         <div class="no-tasks">
             <i>📋</i>
@@ -384,25 +465,57 @@
         button.classList.add('spinning');
         setTimeout(() => {
             window.location.reload();
-        }, 300);
+        }, 30000);
     }
     
-    // Auto-refresh toutes les 30 secondes si il y a des tâches en cours
-    const hasRunningTasks = {{ stats.running|default:0 }} + {{ stats.pending|default:0 }} > 0;
-    if (hasRunningTasks) {
-        setTimeout(() => {
-            window.location.reload();
-        }, 30000); // 30 secondes
-        
-        // Indicateur visuel du prochain refresh
-        let countdown = 30;
-        const countdownInterval = setInterval(() => {
-            countdown--;
-            if (countdown <= 0) {
-                clearInterval(countdownInterval);
-            }
-        }, 1000);
+    // Fonction pour mettre à jour le nombre d'éléments par page
+    function updatePageSize(perPage) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', perPage);
+        // Retour à la première page lors du changement de taille de page
+        url.searchParams.set('page', 1);
+        window.location.href = url.toString();
     }
+    
+    // Gestion du clic sur une ligne de tâche
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gestion du clic sur une ligne de tâche
+        document.querySelectorAll('.task-row').forEach(row => {
+            row.addEventListener('click', function() {
+                const taskUrl = this.getAttribute('data-task-url');
+                if (taskUrl) {
+                    window.location.href = taskUrl;
+                }
+            });
+        });
+
+        // Auto-refresh toutes les 30 secondes si il y a des tâches en cours
+        const runningTasks = parseInt('{{ stats.running|default:0 }}');
+        const pendingTasks = parseInt('{{ stats.pending|default:0 }}');
+        const hasRunningTasks = (runningTasks + pendingTasks) > 0;
+        
+        if (hasRunningTasks) {
+            // Ne pas rafraîchir si on est sur une page différente de la première
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPage = parseInt(urlParams.get('page') || '1');
+            
+            if (currentPage === 1) {
+                // Indicateur visuel du prochain refresh
+                let countdown = 30;
+                const countdownInterval = setInterval(() => {
+                    countdown--;
+                    const refreshIcon = document.getElementById('refresh-icon');
+                    if (refreshIcon) {
+                        refreshIcon.title = 'Rafraîchissement automatique dans ' + countdown + 's';
+                    }
+                    if (countdown <= 0) {
+                        clearInterval(countdownInterval);
+                        window.location.reload();
+                    }
+                }, 1000);
+            }
+        }
+    });
     
     // Raccourci clavier pour actualiser (F5 ou Ctrl+R)
     document.addEventListener('keydown', function(e) {
