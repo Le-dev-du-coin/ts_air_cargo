@@ -372,12 +372,52 @@ TS Air Cargo - Mode Développement"""
             except Exception as e:
                 logger.error(f"Erreur WhatsApp critique pour {user.telephone}: {str(e)}")
             
-            # TODO: Implémenter l'envoi SMS via Orange API quand la configuration sera prête
-            # Pour l'instant, on se base uniquement sur WhatsApp
+            # Envoyer via SMS (Orange API) si configuré
+            try:
+                from .orange_sms_service import orange_sms_service
+                from .models import SMSLog
+                
+                if orange_sms_service.is_configured():
+                    # Version courte pour SMS (limite de caractères)
+                    sms_message = (
+                        f"{title}\n"
+                        f"Identifiant: {user.telephone}\n"
+                        f"Mot de passe: {temp_password}\n"
+                        f"Changez-le dès votre première connexion.\n"
+                        f"TS Air Cargo"
+                    )
+                    
+                    # Enregistrer le log SMS
+                    sms_log = SMSLog.objects.create(
+                        user=user,
+                        destinataire_telephone=user.telephone,
+                        message=sms_message,
+                        provider='orange',
+                        statut='pending',
+                        metadata={'type': notification_type}
+                    )
+                    
+                    # Envoyer le SMS
+                    sms_success, message_id, response_data = orange_sms_service.send_sms(user.telephone, sms_message)
+                    
+                    if sms_success:
+                        sms_log.mark_as_sent(message_id)
+                        results['sms'] = True
+                        logger.info(f"SMS Orange envoyé à {user.telephone}: {message_id}")
+                    else:
+                        sms_log.mark_as_failed(message_id)
+                        logger.error(f"SMS Orange échoué pour {user.telephone}: {message_id}")
+                else:
+                    logger.debug("Orange SMS non configuré, envoi SMS non disponible")
+            except Exception as e:
+                logger.error(f"Erreur SMS Orange pour {user.telephone}: {str(e)}")
+            
+            # Au moins un canal doit réussir
+            results['success'] = results['whatsapp'] or results['sms']
             
             logger.info(
                 f"Notification critique pour {user.telephone}: "
-                f"WA={results['whatsapp']}, SMS={results['sms']} (non configuré), Succès={results['success']}"
+                f"WA={results['whatsapp']}, SMS={results['sms']}, Succès={results['success']}"
             )
             
             return results

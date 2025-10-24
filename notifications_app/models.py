@@ -528,3 +528,132 @@ class NotificationTask(models.Model):
         if failed_count is not None:
             self.notifications_failed = failed_count
         self.save(update_fields=['notifications_sent', 'notifications_failed'])
+
+
+class SMSLog(models.Model):
+    """
+    Modèle pour tracker les envois de SMS (Orange, Twilio, etc.)
+    """
+    PROVIDER_CHOICES = [
+        ('orange', 'Orange SMS'),
+        ('twilio', 'Twilio'),
+        ('aws_sns', 'AWS SNS'),
+    ]
+    
+    STATUT_CHOICES = [
+        ('pending', 'En attente'),
+        ('sent', 'Envoyé'),
+        ('delivered', 'Délivré'),
+        ('failed', 'Échec'),
+        ('expired', 'Expiré'),
+    ]
+    
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sms_logs',
+        verbose_name='Utilisateur'
+    )
+    
+    destinataire_telephone = models.CharField(
+        max_length=20,
+        verbose_name='Numéro destinataire'
+    )
+    
+    message = models.TextField(
+        verbose_name='Contenu du SMS'
+    )
+    
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        default='orange',
+        verbose_name='Provider'
+    )
+    
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='pending',
+        verbose_name='Statut'
+    )
+    
+    message_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='ID du message'
+    )
+    
+    error_message = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Message d'erreur"
+    )
+    
+    cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        blank=True,
+        null=True,
+        verbose_name='Coût (FCFA)'
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Date de création'
+    )
+    
+    sent_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Date d'envoi"
+    )
+    
+    delivered_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name='Date de livraison'
+    )
+    
+    metadata = models.JSONField(
+        blank=True,
+        default=dict,
+        verbose_name='Métadonnées'
+    )
+    
+    class Meta:
+        verbose_name = 'Log SMS'
+        verbose_name_plural = 'Logs SMS'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['destinataire_telephone'], name='notificatio_destina_sms_idx'),
+            models.Index(fields=['statut'], name='notificatio_statut_sms_idx'),
+            models.Index(fields=['created_at'], name='notificatio_created_sms_idx'),
+        ]
+    
+    def __str__(self):
+        return f"SMS vers {self.destinataire_telephone} - {self.get_statut_display()}"
+    
+    def mark_as_sent(self, message_id=None):
+        """Marquer le SMS comme envoyé"""
+        self.statut = 'sent'
+        self.sent_at = timezone.now()
+        if message_id:
+            self.message_id = message_id
+        self.save(update_fields=['statut', 'sent_at', 'message_id'])
+    
+    def mark_as_delivered(self):
+        """Marquer le SMS comme délivré"""
+        self.statut = 'delivered'
+        self.delivered_at = timezone.now()
+        self.save(update_fields=['statut', 'delivered_at'])
+    
+    def mark_as_failed(self, error_message=None):
+        """Marquer le SMS comme échoué"""
+        self.statut = 'failed'
+        if error_message:
+            self.error_message = error_message
+        self.save(update_fields=['statut', 'error_message'])

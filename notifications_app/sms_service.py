@@ -135,57 +135,26 @@ class SMSService:
     @staticmethod
     def _send_via_orange_mali(phone_number: str, message: str) -> Tuple[bool, Optional[str]]:
         """
-        Envoie un SMS via Orange Mali API
+        Envoie un SMS via Orange Mali API (vraie implémentation OAuth2)
         """
         try:
-            import requests
+            from .orange_sms_service import orange_sms_service
             
-            api_key = getattr(settings, 'ORANGE_MALI_API_KEY', '').strip()
-            sender_id = getattr(settings, 'ORANGE_MALI_SENDER_ID', 'TS AIR CARGO')
-            api_url = getattr(settings, 'ORANGE_MALI_API_URL', 'https://api.orange.com/smsmessaging/v1/outbound')
+            # Utiliser le service Orange SMS complet
+            success, message_id, response_data = orange_sms_service.send_sms(phone_number, message)
             
-            if not api_key:
-                logger.warning("Configuration Orange Mali incomplète, SMS non envoyé")
-                return False, "Configuration Orange Mali manquante"
-            
-            # Préparer la requête
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-            
-            payload = {
-                'outboundSMSMessageRequest': {
-                    'address': phone_number,
-                    'senderAddress': sender_id,
-                    'outboundSMSTextMessage': {
-                        'message': message
-                    }
-                }
-            }
-            
-            # Envoyer le SMS
-            response = requests.post(
-                api_url,
-                json=payload,
-                headers=headers,
-                timeout=10
-            )
-            
-            if response.status_code in [200, 201]:
-                message_id = response.json().get('outboundSMSMessageRequest', {}).get('resourceURL', 'unknown')
-                logger.info(f"SMS Orange Mali envoyé à {phone_number}")
+            if success:
+                logger.info(f"SMS Orange envoyé à {phone_number} - ID: {message_id}")
                 return True, message_id
             else:
-                error_msg = f"Erreur {response.status_code}: {response.text}"
-                logger.error(f"Échec Orange Mali pour {phone_number}: {error_msg}")
-                return False, error_msg
+                logger.error(f"Échec SMS Orange pour {phone_number}: {message_id}")
+                return False, message_id
                 
-        except ImportError:
-            logger.error("Module 'requests' non installé")
-            return False, "Module requests non installé"
+        except ImportError as e:
+            logger.error(f"Module orange_sms_service non disponible: {str(e)}")
+            return False, "Service Orange SMS non disponible"
         except Exception as e:
-            logger.error(f"Erreur Orange Mali pour {phone_number}: {str(e)}")
+            logger.error(f"Erreur SMS Orange pour {phone_number}: {str(e)}")
             return False, str(e)
     
     @staticmethod
@@ -207,7 +176,12 @@ class SMSService:
                 getattr(settings, 'AWS_SECRET_ACCESS_KEY', '').strip()
             ])
         elif provider == 'orange_mali':
-            return bool(getattr(settings, 'ORANGE_MALI_API_KEY', '').strip())
+            # Utiliser le service Orange SMS complet
+            try:
+                from .orange_sms_service import orange_sms_service
+                return orange_sms_service.is_configured()
+            except ImportError:
+                return False
         
         return False
 
