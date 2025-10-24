@@ -168,17 +168,35 @@ TS Air Cargo - Mode Développement"""
     @staticmethod
     def _send_sms(user, message):
         """
-        Envoie un SMS (à implémenter avec un provider SMS)
+        Envoie un SMS via le service SMS configuré (Twilio, AWS SNS, Orange Mali)
         """
-        # TODO: Intégrer avec un service SMS selon les besoins
-        # Pour l'instant, simuler l'envoi (sans impression console)
-        logger.info(f"SMS simulé à {user.telephone}: {message[:50]}...")
-        return True, 'sms_simulation_id'
+        try:
+            from .sms_service import SMSService
+            
+            # Vérifier si le service SMS est configuré
+            if not SMSService.is_configured():
+                logger.warning(f"Service SMS non configuré, simulation pour {user.telephone}")
+                return True, 'sms_simulation_id'
+            
+            # Envoyer le SMS réel
+            success, message_id = SMSService.send_sms(user.telephone, message)
+            
+            if success:
+                logger.info(f"SMS envoyé à {user.telephone}, ID: {message_id}")
+            else:
+                logger.error(f"Échec envoi SMS à {user.telephone}: {message_id}")
+            
+            return success, message_id
+            
+        except Exception as e:
+            logger.error(f"Erreur envoi SMS à {user.telephone}: {str(e)}")
+            return False, str(e)
         
     @staticmethod
     def send_sms(telephone, message):
         """
-        Méthode publique pour envoyer un SMS directement via WaChap
+        Méthode publique pour envoyer un SMS directement
+        Utilise le vrai service SMS si configuré, sinon WaChap
         
         Args:
             telephone: Numéro de téléphone
@@ -188,18 +206,28 @@ TS Air Cargo - Mode Développement"""
             bool: True si l'envoi a réussi, False sinon
         """
         try:
-            from .wachap_service import wachap_service
+            from .sms_service import SMSService
             
-            # Utiliser le type de message 'account' pour les notifications de compte
+            # Essayer d'abord le vrai SMS si configuré
+            if SMSService.is_configured():
+                success, message_id = SMSService.send_sms(telephone, message)
+                if success:
+                    logger.info(f"SMS réel envoyé avec succès à {telephone}")
+                    return True
+                else:
+                    logger.warning(f"Échec SMS réel, tentative WaChap pour {telephone}")
+            
+            # Fallback sur WaChap
+            from .wachap_service import wachap_service
             success, result, _ = wachap_service.send_message_with_type(
                 phone=telephone,
                 message=message,
                 message_type='account',
-                sender_role='system'  # Utiliser le rôle système pour les notifications de compte
+                sender_role='system'
             )
             
             if success:
-                logger.info(f"SMS envoyé avec succès à {telephone}")
+                logger.info(f"SMS WaChap envoyé avec succès à {telephone}")
                 return True
             else:
                 logger.error(f"Échec d'envoi du SMS à {telephone}: {result}")
@@ -260,7 +288,7 @@ TS Air Cargo - Mode Développement"""
                 f"👤 Identifiant: {user.telephone}\n"
                 f"🔑 Mot de passe temporaire: {temp_password}\n\n"
                 f"🔒 Pour des raisons de sécurité, veuillez changer votre mot de passe dès votre première connexion.\n\n"
-                f"Merci de votre confiance! 🚛"
+                f"Merci de votre confiance! 🚚"
             )
             
             # Envoyer la notification
@@ -273,8 +301,99 @@ TS Air Cargo - Mode Développement"""
             )
             
         except Exception as e:
-            logger.error(f"Erreur envoi WhatsApp direct à {phone_number}: {str(e)}")
+            logger.error(f"Erreur envoi notification création/reset à {user.telephone}: {str(e)}")
             return False
+    
+    @staticmethod
+    def send_critical_notification(user, temp_password, notification_type='password_reset'):
+        """
+        Envoie une notification critique par PLUSIEURS canaux (WhatsApp + SMS)
+        Utilisé pour les notifications importantes comme la réinitialisation de mot de passe
+        
+        Args:
+            user: L'utilisateur concerné
+            temp_password: Le mot de passe temporaire
+            notification_type: Type de notification ('password_reset', 'account_creation')
+            
+        Returns:
+            dict: {
+                'whatsapp': bool (succès WhatsApp),
+                'sms': bool (succès SMS),
+                'success': bool (au moins un canal a réussi)
+            }
+        """
+        try:
+            # Déterminer le contenu selon le type
+            if notification_type == 'password_reset':
+                title = "🔑 Réinitialisation de mot de passe"
+                welcome_msg = "Votre mot de passe a été réinitialisé avec succès."
+                categorie = 'reinitialisation_mot_de_passe'
+            else:
+                title = "👋 Bienvenue chez TS Air Cargo"
+                welcome_msg = "Votre compte client a été créé avec succès."
+                categorie = 'creation_compte'
+            
+            # Préparer le message
+            message = (
+                f"{title}\n\n"
+                f"{welcome_msg}\n\n"
+                f"👤 Identifiant: {user.telephone}\n"
+                f"🔑 Mot de passe temporaire: {temp_password}\n\n"
+                f"🔒 Pour des raisons de sécurité, veuillez changer votre mot de passe dès votre première connexion.\n\n"
+                f"Merci de votre confiance! 🚚"
+            )
+            
+            # Résultats d'envoi
+            results = {
+                'whatsapp': False,
+                'sms': False,
+                'success': False
+            }
+            
+            # 1. Envoyer via WhatsApp
+            try:
+                whatsapp_success = NotificationService.send_notification(
+                    user=user,
+                    message=message,
+                    method='whatsapp',
+                    title=title,
+                    categorie=categorie
+                )
+                results['whatsapp'] = whatsapp_success
+                logger.info(f"WhatsApp critique envoyé à {user.telephone}: {whatsapp_success}")
+            except Exception as e:
+                logger.error(f"Erreur WhatsApp critique pour {user.telephone}: {str(e)}")
+            
+            # 2. Envoyer via SMS réel
+            try:
+                # Version courte pour SMS (limite de caractères)
+                sms_message = (
+                    f"{title}\n"
+                    f"Identifiant: {user.telephone}\n"
+                    f"Mot de passe: {temp_password}\n"
+                    f"Changez-le dès votre première connexion.\n"
+                    f"TS Air Cargo"
+                )
+                
+                sms_success, sms_id = NotificationService._send_sms(user, sms_message)
+                results['sms'] = sms_success
+                logger.info(f"SMS critique envoyé à {user.telephone}: {sms_success}")
+            except Exception as e:
+                logger.error(f"Erreur SMS critique pour {user.telephone}: {str(e)}")
+            
+            # Au moins un canal doit réussir
+            results['success'] = results['whatsapp'] or results['sms']
+            
+            logger.info(
+                f"Notification critique pour {user.telephone}: "
+                f"WA={results['whatsapp']}, SMS={results['sms']}, Succès={results['success']}"
+            )
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Erreur envoi notification critique à {user.telephone}: {str(e)}")
+            return {'whatsapp': False, 'sms': False, 'success': False}
     
     @staticmethod
     def send_urgent_notification(user, message, title="🚨 Notification Urgente"):

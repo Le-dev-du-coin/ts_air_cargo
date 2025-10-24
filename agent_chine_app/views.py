@@ -1999,8 +1999,9 @@ def wachap_monitoring_view(request):
 @agent_chine_required
 def client_reset_password_view(request, client_id):
     """
-    Réinitialise le mot de passe d'un client et envoie une notification
+    Réinitialise le mot de passe d'un client et envoie une notification critique
     Cette vue est appelée en POST uniquement et effectue l'action directement
+    Les notifications sont envoyées par WhatsApp ET SMS pour garantir la réception
     """
     if request.method != 'POST':
         return redirect('agent_chine:client_detail', client_id=client_id)
@@ -2012,34 +2013,45 @@ def client_reset_password_view(request, client_id):
         # Générer un nouveau mot de passe
         new_password = UserCreationService.generate_temp_password()
         
-        # Mettre à jour le mot de passe
+        # Mettre à jour le mot de passe (une seule fois dans User)
         user.set_password(new_password)
         user.has_changed_default_password = False
         user.save()
         
-        # Mettre à jour le mot de passe dans l'objet client si nécessaire
-        if hasattr(client, 'password'):
-            client.password = make_password(new_password)
-            client.save()
+        # Note: Le modèle Client n'a pas de champ password, 
+        # le mot de passe est stocké uniquement dans User
         
-        # Envoyer la notification
-        notification_sent = NotificationService.send_client_creation_notification(
+        # Envoyer la notification critique (WhatsApp + SMS)
+        notification_result = NotificationService.send_critical_notification(
             user=user,
             temp_password=new_password,
-            sender_role='agent_chine',
-            is_reset=True
+            notification_type='password_reset'
         )
         
-        if notification_sent:
+        # Afficher le message approprié selon les résultats
+        if notification_result['whatsapp'] and notification_result['sms']:
             messages.success(
-                request, 
-                f"✅ Le mot de passe a été réinitialisé et envoyé à {user.telephone}"
+                request,
+                f"✅ Mot de passe réinitialisé avec succès. "
+                f"Notifications envoyées par WhatsApp et SMS à {user.telephone}"
+            )
+        elif notification_result['whatsapp']:
+            messages.warning(
+                request,
+                f"⚠️ Mot de passe réinitialisé. Notification WhatsApp envoyée à {user.telephone}. "
+                f"SMS non envoyé. Nouveau mot de passe : {new_password}"
+            )
+        elif notification_result['sms']:
+            messages.warning(
+                request,
+                f"⚠️ Mot de passe réinitialisé. Notification SMS envoyée à {user.telephone}. "
+                f"WhatsApp non envoyé. Nouveau mot de passe : {new_password}"
             )
         else:
             messages.warning(
                 request,
-                "⚠️ Le mot de passe a été réinitialisé mais l'envoi de la notification a échoué. "
-                f"Le nouveau mot de passe est : {new_password}"
+                f"⚠️ Mot de passe réinitialisé mais les notifications ont échoué. "
+                f"Veuillez communiquer ce mot de passe au client : {new_password}"
             )
             
     except Exception as e:
