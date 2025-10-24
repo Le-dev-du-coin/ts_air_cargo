@@ -95,13 +95,19 @@ class NotificationService:
             # Déterminer le rôle de l'expéditeur pour la sélection d'instance
             # Déterminer le type de message et le rôle expéditeur
             message_type = 'notification'
-            if categorie in ['creation_compte', 'otp', 'system', 'information_systeme']:
-                message_type = 'account' if categorie == 'creation_compte' else 'otp' if categorie == 'otp' else 'system'
-            elif title and ('OTP' in title or 'Compte' in title or 'Système' in title):
+            if categorie in ['creation_compte', 'reinitialisation_mot_de_passe', 'otp', 'system', 'information_systeme']:
+                # Réinitialisation mot de passe = account (même traitement que création compte)
+                if categorie in ['creation_compte', 'reinitialisation_mot_de_passe']:
+                    message_type = 'account'
+                elif categorie == 'otp':
+                    message_type = 'otp'
+                else:
+                    message_type = 'system'
+            elif title and ('OTP' in title or 'Compte' in title or 'Système' in title or 'Réinitialisation' in title or 'mot de passe' in title):
                 # fallback basé sur le titre
                 if 'OTP' in title:
                     message_type = 'otp'
-                elif 'Compte' in title:
+                elif 'Compte' in title or 'Réinitialisation' in title or 'mot de passe' in title:
                     message_type = 'account'
                 elif 'Système' in title:
                     message_type = 'system'
@@ -307,7 +313,8 @@ TS Air Cargo - Mode Développement"""
     @staticmethod
     def send_critical_notification(user, temp_password, notification_type='password_reset'):
         """
-        Envoie une notification critique par PLUSIEURS canaux (WhatsApp + SMS)
+        Envoie une notification critique via WhatsApp (WaChap)
+        L'envoi SMS via Orange API sera configuré ultérieurement
         Utilisé pour les notifications importantes comme la réinitialisation de mot de passe
         
         Args:
@@ -318,7 +325,7 @@ TS Air Cargo - Mode Développement"""
         Returns:
             dict: {
                 'whatsapp': bool (succès WhatsApp),
-                'sms': bool (succès SMS),
+                'sms': bool (succès SMS - False pour l'instant),
                 'success': bool (au moins un canal a réussi)
             }
         """
@@ -346,11 +353,11 @@ TS Air Cargo - Mode Développement"""
             # Résultats d'envoi
             results = {
                 'whatsapp': False,
-                'sms': False,
+                'sms': False,  # SMS Orange API sera configuré ultérieurement
                 'success': False
             }
             
-            # 1. Envoyer via WhatsApp
+            # Envoyer via WhatsApp (WaChap)
             try:
                 whatsapp_success = NotificationService.send_notification(
                     user=user,
@@ -360,33 +367,17 @@ TS Air Cargo - Mode Développement"""
                     categorie=categorie
                 )
                 results['whatsapp'] = whatsapp_success
+                results['success'] = whatsapp_success
                 logger.info(f"WhatsApp critique envoyé à {user.telephone}: {whatsapp_success}")
             except Exception as e:
                 logger.error(f"Erreur WhatsApp critique pour {user.telephone}: {str(e)}")
             
-            # 2. Envoyer via SMS réel
-            try:
-                # Version courte pour SMS (limite de caractères)
-                sms_message = (
-                    f"{title}\n"
-                    f"Identifiant: {user.telephone}\n"
-                    f"Mot de passe: {temp_password}\n"
-                    f"Changez-le dès votre première connexion.\n"
-                    f"TS Air Cargo"
-                )
-                
-                sms_success, sms_id = NotificationService._send_sms(user, sms_message)
-                results['sms'] = sms_success
-                logger.info(f"SMS critique envoyé à {user.telephone}: {sms_success}")
-            except Exception as e:
-                logger.error(f"Erreur SMS critique pour {user.telephone}: {str(e)}")
-            
-            # Au moins un canal doit réussir
-            results['success'] = results['whatsapp'] or results['sms']
+            # TODO: Implémenter l'envoi SMS via Orange API quand la configuration sera prête
+            # Pour l'instant, on se base uniquement sur WhatsApp
             
             logger.info(
                 f"Notification critique pour {user.telephone}: "
-                f"WA={results['whatsapp']}, SMS={results['sms']}, Succès={results['success']}"
+                f"WA={results['whatsapp']}, SMS={results['sms']} (non configuré), Succès={results['success']}"
             )
             
             return results

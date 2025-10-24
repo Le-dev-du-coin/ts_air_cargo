@@ -62,16 +62,17 @@ logger.error(f"Erreur envoi notification création/reset à {user.telephone}: {s
 
 ---
 
-### 5. ❌ Pas d'envoi SMS réel pour notifications critiques
-**Problème actuel** :
-- La méthode `_send_sms()` simule l'envoi (ligne 169-176)
-- Aucun provider SMS réel n'est configuré
-- Les notifications critiques (réinitialisation mot de passe) doivent utiliser SMS ET WhatsApp
+### 5. ✅ Envoi SMS via Orange API (configuration ultérieure)
+**État actuel** :
+- Pour l'instant, les notifications utilisent **WaChap** uniquement (WhatsApp)
+- L'infrastructure pour l'envoi SMS via **Orange SMS API** est prête
+- La configuration sera effectuée ultérieurement quand les credentials Orange seront disponibles
+- La méthode `send_critical_notification()` est implémentée et prête pour ajouter SMS
 
-**Solution proposée** :
-1. Intégrer un provider SMS (Twilio, AWS SNS, ou Orange SMS Mali)
-2. Créer une méthode `send_critical_notification()` qui envoie via WhatsApp ET SMS
-3. Utiliser cette méthode pour la réinitialisation de mot de passe
+**Solution implémentée** :
+1. ✅ Infrastructure SMS avec support Orange Mali API créée (`sms_service.py`)
+2. ✅ Méthode `send_critical_notification()` implémentée (WhatsApp pour l'instant)
+3. 🕒 Configuration Orange SMS API à ajouter dans `.env` plus tard
 
 ---
 

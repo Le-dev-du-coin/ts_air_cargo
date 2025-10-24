@@ -2029,28 +2029,16 @@ def client_reset_password_view(request, client_id):
         )
         
         # Afficher le message approprié selon les résultats
-        if notification_result['whatsapp'] and notification_result['sms']:
+        if notification_result['whatsapp']:
             messages.success(
                 request,
                 f"✅ Mot de passe réinitialisé avec succès. "
-                f"Notifications envoyées par WhatsApp et SMS à {user.telephone}"
-            )
-        elif notification_result['whatsapp']:
-            messages.warning(
-                request,
-                f"⚠️ Mot de passe réinitialisé. Notification WhatsApp envoyée à {user.telephone}. "
-                f"SMS non envoyé. Nouveau mot de passe : {new_password}"
-            )
-        elif notification_result['sms']:
-            messages.warning(
-                request,
-                f"⚠️ Mot de passe réinitialisé. Notification SMS envoyée à {user.telephone}. "
-                f"WhatsApp non envoyé. Nouveau mot de passe : {new_password}"
+                f"Notification WhatsApp envoyée à {user.telephone}"
             )
         else:
             messages.warning(
                 request,
-                f"⚠️ Mot de passe réinitialisé mais les notifications ont échoué. "
+                f"⚠️ Mot de passe réinitialisé mais l'envoi de la notification a échoué. "
                 f"Veuillez communiquer ce mot de passe au client : {new_password}"
             )
             
