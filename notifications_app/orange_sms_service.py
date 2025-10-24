@@ -32,8 +32,9 @@ class OrangeSMSService:
         """Initialise le service avec les configurations"""
         self.client_id = getattr(settings, 'ORANGE_SMS_CLIENT_ID', '').strip()
         self.client_secret = getattr(settings, 'ORANGE_SMS_CLIENT_SECRET', '').strip()
-        self.sender_name = getattr(settings, 'ORANGE_SMS_SENDER_NAME', 'tel:+223XXXXXXXX').strip()
+        self.sender_name = getattr(settings, 'ORANGE_SMS_SENDER_NAME', '').strip()
         self.sender_phone = getattr(settings, 'ORANGE_SMS_SENDER_PHONE', '').strip()
+        self.use_sender_name = getattr(settings, 'ORANGE_SMS_USE_SENDER_NAME', False)
         self.use_sandbox = getattr(settings, 'ORANGE_SMS_USE_SANDBOX', True)
         
         # Sélectionner les URLs selon l'environnement
@@ -221,20 +222,23 @@ class OrangeSMSService:
         Retourne le sender à utiliser
         
         Returns:
-            str: Sender au format tel:+223XXXXXXXX ou sender name si configuré
+            str: Sender au format tel:+223XXXXXXXX ou sender name si activé
         """
-        # Si un sender name est configuré et valide (pas le placeholder)
-        if self.sender_name and not self.sender_name.startswith('tel:+223XXXXXXXX'):
+        # Si le Sender Name est activé ET configuré
+        if self.use_sender_name and self.sender_name:
+            logger.info(f"Utilisation du Sender Name: {self.sender_name}")
             return self.sender_name
         
         # Sinon utiliser le numéro de téléphone sender
         if self.sender_phone:
             formatted = self._format_phone_number(self.sender_phone)
-            return f'tel:+{formatted}'
+            sender = f'tel:+{formatted}'
+            logger.debug(f"Utilisation du numéro sender: {sender}")
+            return sender
         
-        # Fallback : sender par défaut (devra être remplacé)
-        logger.warning("⚠️ Sender Orange SMS non configuré, utilisation du placeholder")
-        return 'tel:+223XXXXXXXX'
+        # Fallback : erreur - pas de sender configuré
+        logger.error("❌ Aucun sender configuré (ni SENDER_PHONE ni SENDER_NAME)")
+        raise ValueError("Orange SMS: Aucun sender configuré. Définissez ORANGE_SMS_SENDER_PHONE ou ORANGE_SMS_SENDER_NAME")
     
     def get_balance(self) -> Optional[Dict[str, Any]]:
         """
@@ -304,8 +308,9 @@ def test_orange_sms_configuration():
     print(f"\n📋 Configuration:")
     print(f"  - Client ID: {'✅ Configuré' if service.client_id else '❌ Manquant'}")
     print(f"  - Client Secret: {'✅ Configuré' if service.client_secret else '❌ Manquant'}")
-    print(f"  - Sender Name: {service.sender_name}")
     print(f"  - Sender Phone: {service.sender_phone if service.sender_phone else '❌ Non configuré'}")
+    print(f"  - Sender Name: {service.sender_name if service.sender_name else '❌ Non configuré'}")
+    print(f"  - Utiliser Sender Name: {'✅ Oui' if service.use_sender_name else '❌ Non (utilise numéro)'}")
     print(f"  - Environnement: {'🧪 Sandbox (Test)' if service.use_sandbox else '🚀 Production'}")
     print(f"  - Service configuré: {'✅ Oui' if service.is_configured() else '❌ Non'}")
     
@@ -320,8 +325,9 @@ def test_orange_sms_configuration():
         print(f"\n⚠️  Configuration incomplète. Ajoutez dans .env:")
         print(f"  ORANGE_SMS_CLIENT_ID=votre_client_id")
         print(f"  ORANGE_SMS_CLIENT_SECRET=votre_client_secret")
-        print(f"  ORANGE_SMS_SENDER_PHONE=+223XXXXXXXX (optionnel)")
-        print(f"  ORANGE_SMS_SENDER_NAME=YourBrandName (optionnel, à configurer plus tard)")
+        print(f"  ORANGE_SMS_SENDER_PHONE=+223XXXXXXXX (requis pour commencer)")
+        print(f"  ORANGE_SMS_SENDER_NAME=TSAIRCARGO (optionnel, après validation Orange)")
+        print(f"  ORANGE_SMS_USE_SENDER_NAME=False (True après validation du Sender Name)")
         print(f"  ORANGE_SMS_USE_SANDBOX=True (False pour production)")
     
     print("\n" + "="*60 + "\n")

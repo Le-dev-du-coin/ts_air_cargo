@@ -47,11 +47,14 @@ Après création de l'app, vous obtiendrez :
 ORANGE_SMS_CLIENT_ID=votre_client_id_ici
 ORANGE_SMS_CLIENT_SECRET=votre_client_secret_ici
 
-# Sender (Numéro de téléphone pour l'instant, Sender Name plus tard)
+# Sender (Numéro de téléphone REQUIS pour commencer)
 ORANGE_SMS_SENDER_PHONE=+223XXXXXXXX
 
-# Sender Name (à configurer quand disponible via Orange)
-# ORANGE_SMS_SENDER_NAME=TSAIRCARGO
+# Sender Name (nom personnalisé, après validation Orange)
+ORANGE_SMS_SENDER_NAME=TSAIRCARGO
+
+# Activer l'utilisation du Sender Name (False jusqu'à validation Orange)
+ORANGE_SMS_USE_SENDER_NAME=False
 
 # Environnement (True pour sandbox/test, False pour production)
 ORANGE_SMS_USE_SANDBOX=True
@@ -70,9 +73,41 @@ SMS_PROVIDER=orange_mali
 ORANGE_SMS_CLIENT_ID=AbCdEfGh1234567890
 ORANGE_SMS_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
 ORANGE_SMS_SENDER_PHONE=+22373451676
-# ORANGE_SMS_SENDER_NAME sera disponible plus tard
+ORANGE_SMS_SENDER_NAME=TSAIRCARGO
+ORANGE_SMS_USE_SENDER_NAME=False
 ORANGE_SMS_USE_SANDBOX=True
 ```
+
+---
+
+## Authentification Orange API
+
+### Processus OAuth2
+
+L'API Orange SMS utilise OAuth2 avec les étapes suivantes :
+
+1. **Obtention du token** :
+   ```
+   POST https://api.orange.com/oauth/v3/token
+   Authorization: Basic {base64(client_id:client_secret)}
+   Content-Type: application/x-www-form-urlencoded
+   
+   grant_type=client_credentials
+   ```
+
+2. **Envoi SMS** :
+   ```
+   POST https://api.orange.com/smsmessaging/v1/outbound/{sender}/requests
+   Authorization: Bearer {access_token}
+   Content-Type: application/json
+   ```
+
+### Cache des tokens
+
+Le système cache automatiquement les tokens pour éviter les appels répétés :
+- **Durée** : 1 heure (3600s)
+- **Sécurité** : Cache expire 5 minutes avant l'expiration réelle
+- **Renouvellement** : Automatique à l'expiration
 
 ---
 
@@ -130,8 +165,14 @@ Au lieu de  `+223XXXXXXXX`, vos SMS afficheront **"TSAIRCARGO"** ou **"TS Air Ca
 ```bash
 # Dans .env
 ORANGE_SMS_SENDER_NAME=TSAIRCARGO
-# Le système utilisera automatiquement le Sender Name si configuré
+ORANGE_SMS_USE_SENDER_NAME=True  # <-- Activer ici après validation
 ```
+
+**Important** : Le système utilise le Sender Name UNIQUEMENT si :
+1. `ORANGE_SMS_SENDER_NAME` est défini
+2. `ORANGE_SMS_USE_SENDER_NAME=True`
+
+Sinon, il utilise `ORANGE_SMS_SENDER_PHONE` par défaut.
 
 ---
 
@@ -155,13 +196,14 @@ ORANGE_SMS_SENDER_NAME=TSAIRCARGO
 
 ### ✅ Implémenté
 
-- OAuth2 authentication automatique
+- OAuth2 authentication automatique (Basic + Bearer)
 - Cache des tokens (1h - 5min sécurité)
 - Envoi de SMS transactionnel
 - Tracking des SMS (modèle `SMSLog`)
 - Gestion d'erreurs complète
 - Support Sandbox et Production
 - Format automatique des numéros (Mali)
+- Sender Name avec contrôle booléen (USE_SENDER_NAME)
 
 ### 🕒 À venir
 
