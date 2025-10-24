@@ -178,20 +178,36 @@ TS Air Cargo - Mode Développement"""
     @staticmethod
     def send_sms(telephone, message):
         """
-        Méthode publique pour envoyer un SMS directement
+        Méthode publique pour envoyer un SMS directement via WaChap
         
         Args:
             telephone: Numéro de téléphone
             message: Message à envoyer
+            
+        Returns:
+            bool: True si l'envoi a réussi, False sinon
         """
         try:
-            # TODO: Intégrer avec un service SMS selon les besoins
-            # Pour l'instant, simuler l'envoi
-            logger.info(f"SMS envoyé à {telephone}: {message}")
-            return True
+            from .wachap_service import wachap_service
+            
+            # Utiliser le type de message 'account' pour les notifications de compte
+            success, result, _ = wachap_service.send_message_with_type(
+                phone=telephone,
+                message=message,
+                message_type='account',
+                sender_role='system'  # Utiliser le rôle système pour les notifications de compte
+            )
+            
+            if success:
+                logger.info(f"SMS envoyé avec succès à {telephone}")
+                return True
+            else:
+                logger.error(f"Échec d'envoi du SMS à {telephone}: {result}")
+                return False
+                
         except Exception as e:
-            logger.error(f"Erreur envoi SMS à {telephone}: {str(e)}")
-            raise e
+            logger.error(f"Erreur lors de l'envoi du SMS à {telephone}: {str(e)}")
+            return False
     
     @staticmethod
     def _send_email(user, message, title):

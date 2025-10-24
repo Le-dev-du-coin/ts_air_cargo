@@ -46,7 +46,7 @@ python-bidi==0.6.6
 python-dateutil==2.9.0.post0
 python-decouple==3.8
 python-dotenv==1.1.1
-python-magic-bin==0.4.14
+python-magic>=0.4.27
 PyYAML==6.0.3
 redis==6.2.0
 reportlab==4.4.3
