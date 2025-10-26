@@ -109,6 +109,7 @@ class OrangeSMSService:
     def send_sms(self, phone: str, message: str) -> Tuple[bool, Optional[str], Optional[Dict]]:
         """
         Envoie un SMS via Orange API
+        En mode dev (DEBUG=True), redirige vers ADMIN_PHONE si configuré
         
         Args:
             phone: Numéro de téléphone au format international (+223XXXXXXXX)
@@ -127,6 +128,17 @@ class OrangeSMSService:
             return False, "Impossible d'obtenir le token d'accès", None
         
         try:
+            # En mode dev, rediriger vers le numéro de test (comme WaChap)
+            original_phone = phone
+            dev_mode = getattr(settings, 'DEBUG', False)
+            admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
+            
+            if dev_mode and admin_phone:
+                phone = admin_phone
+                # Enrichir le message pour identifier le destinataire réel
+                message = f"[DEV - Destinataire réel: {original_phone}]\n\n{message}"
+                logger.info(f"Mode DEV: SMS redirigé de {original_phone} vers {admin_phone}")
+            
             # Formater le numéro de téléphone
             formatted_phone = self._format_phone_number(phone)
             
