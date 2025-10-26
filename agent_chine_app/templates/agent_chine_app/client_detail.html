@@ -24,14 +24,17 @@
                     <span class="d-none d-sm-inline">Réinitialiser MDP</span>
                 </button>
             </form>
-            <button type="button" 
-                    class="btn btn-outline-danger"
-                    data-bs-toggle="tooltip"
-                    title="Réinitialiser et envoyer UNIQUEMENT par SMS"
-                    onclick="alert('🚧 Fonctionnalité disponible après configuration Orange SMS API')">
-                <i class="bi bi-chat-text"></i>
-                <span class="d-none d-sm-inline">RMP par SMS</span>
-            </button>
+            <form id="resetPasswordSmsForm" method="post" action="{% url 'agent_chine:client_reset_password_sms' client.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="button" 
+                        class="btn btn-outline-danger"
+                        data-bs-toggle="tooltip"
+                        title="Réinitialiser et envoyer UNIQUEMENT par SMS (Orange API)"
+                        onclick="if(confirm('⚠️ Êtes-vous sûr de vouloir réinitialiser le mot de passe et envoyer UNIQUEMENT par SMS (via Orange API) ?\n\nAssurez-vous que les credentials Orange API sont configurés.')) { this.form.submit(); }">
+                    <i class="bi bi-chat-text"></i>
+                    <span class="d-none d-sm-inline">RMP par SMS</span>
+                </button>
+            </form>
             
             <!-- Version future avec SweetAlert2 -->
             <script>

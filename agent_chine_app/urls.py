@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import whatsapp_views
+from . import views_password_reset_sms
 
 app_name = 'agent_chine'
 
@@ -14,6 +15,7 @@ urlpatterns = [
     path('clients/<int:client_id>/', views.client_detail_view, name='client_detail'),
     path('clients/<int:client_id>/edit/', views.client_edit_view, name='client_edit'),
     path('clients/<int:client_id>/reset-password/', views.client_reset_password_view, name='client_reset_password'),  # POST only
+    path('clients/<int:client_id>/reset-password-sms/', views_password_reset_sms.client_reset_password_sms_view, name='client_reset_password_sms'),  # POST only - SMS uniquement
     
     # Gestion des lots
     path('lots/', views.lot_list_view, name='lot_list'),

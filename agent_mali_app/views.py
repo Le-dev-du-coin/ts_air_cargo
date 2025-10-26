@@ -11,8 +11,10 @@ from django.conf import settings
 import os
 import json
 import datetime
-from xhtml2pdf import pisa
-from io import BytesIO
+# NOTE: xhtml2pdf disabled due to cryptography incompatibility with Python 3.13
+# TODO: Re-enable when compatible version is available or migrate to weasyprint
+# from xhtml2pdf import pisa
+# from io import BytesIO
 
 from .models import Depense, ReceptionLot, Livraison, PriceAdjustment
 from agent_chine_app.models import Lot, Colis, Client
@@ -34,45 +36,10 @@ def agent_mali_required(view_func):
 def exporter_lot_pdf(request, lot_id):
     """
     Exporte les détails d'un lot en PDF
+    Currently disabled due to xhtml2pdf/cryptography incompatibility with Python 3.13
     """
-    lot = get_object_or_404(Lot, id=lot_id)
-    colis_list = lot.colis.all().order_by('date_creation')
-    
-    # Statistiques
-    total_colis = colis_list.count()
-    colis_livres = colis_list.filter(statut='livre').count()
-    colis_perdus = colis_list.filter(statut='perdu').count()
-    colis_en_attente = total_colis - colis_livres - colis_perdus
-    
-    context = {
-        'lot': lot,
-        'colis_list': colis_list,
-        'total_colis': total_colis,
-        'colis_livres': colis_livres,
-        'colis_perdus': colis_perdus,
-        'colis_en_attente': colis_en_attente,
-        'date_export': timezone.now().strftime('%d/%m/%Y %H:%M')
-    }
-    
-    # Rendu du template en HTML
-    html_string = render_to_string('agent_mali_app/export_lot_pdf.html', context)
-    
-    # Création du PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="lot_{lot.numero_lot}_{timezone.now().strftime("%Y%m%d_%H%M")}.pdf"'
-    
-    # Génération du PDF
-    pdf = pisa.CreatePDF(
-        html_string,
-        dest=response,
-        encoding='UTF-8',
-        link_callback=None
-    )
-    
-    if not pdf.err:
-        return response
-    
-    return HttpResponse('Une erreur est survenue lors de la génération du PDF', status=500)
+    messages.error(request, "🚧 Export PDF temporairement indisponible")
+    return redirect('agent_mali:lots_list')
 
 def details_lot_view(request, lot_id):
     """

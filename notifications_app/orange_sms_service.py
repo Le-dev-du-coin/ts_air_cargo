@@ -133,24 +133,31 @@ class OrangeSMSService:
             # Déterminer le sender
             sender = self._get_sender()
             
+            # Extraire le sender pour l'URL (sans tel: et sans +)
+            sender_for_url = sender.replace('tel:', '').replace('+', '')
+            
             # Préparer la requête SMS
             headers = {
                 'Authorization': f'Bearer {access_token}',
                 'Content-Type': 'application/json'
             }
             
+            # Le senderAddress doit avoir le format tel:+ selon Orange API
             payload = {
                 'outboundSMSMessageRequest': {
-                    'address': f'tel:{formatted_phone}',
-                    'senderAddress': sender,
+                    'address': f'tel:+{formatted_phone}',
+                    'senderAddress': f'tel:+{sender_for_url}',  # Format standard REST
                     'outboundSMSTextMessage': {
                         'message': message
                     }
                 }
             }
             
-            # URL avec le sender
-            sms_url = self.sms_url_template.format(sender=sender.replace('tel:', '').replace('+', ''))
+            # URL avec le sender - doit correspondre au senderAddress (avec tel:+)
+            # On URL-encode le sender pour gérer les caractères spéciaux
+            import urllib.parse
+            sender_for_url_encoded = urllib.parse.quote(f'tel:+{sender_for_url}', safe='')
+            sms_url = self.sms_url_template.format(sender=sender_for_url_encoded)
             
             logger.info(f"Envoi SMS Orange vers {formatted_phone}")
             logger.debug(f"URL: {sms_url}")

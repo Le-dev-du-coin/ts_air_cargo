@@ -200,6 +200,22 @@ ALERT_DB_ERROR_THRESHOLD = int(os.getenv('ALERT_DB_ERROR_THRESHOLD', '3'))
 # Email Report Recipients
 EMAIL_REPORT_RECIPIENTS = os.getenv('EMAIL_REPORT_RECIPIENTS', '').split(',')
 
+# === ORANGE SMS API CONFIGURATION ===
+# Credentials OAuth2 (REQUIS)
+ORANGE_SMS_CLIENT_ID = os.getenv('ORANGE_SMS_CLIENT_ID', '')
+ORANGE_SMS_CLIENT_SECRET = os.getenv('ORANGE_SMS_CLIENT_SECRET', '')
+
+# Sender Configuration
+ORANGE_SMS_SENDER_PHONE = os.getenv('ORANGE_SMS_SENDER_PHONE', '')  # Format: +22370702150
+ORANGE_SMS_SENDER_NAME = os.getenv('ORANGE_SMS_SENDER_NAME', '')  # Après validation Orange
+ORANGE_SMS_USE_SENDER_NAME = os.getenv('ORANGE_SMS_USE_SENDER_NAME', 'False').lower() == 'true'
+
+# Environnement
+ORANGE_SMS_USE_SANDBOX = os.getenv('ORANGE_SMS_USE_SANDBOX', 'True').lower() == 'true'
+
+# Provider SMS (pour notifications_app)
+SMS_PROVIDER = os.getenv('SMS_PROVIDER', 'orange_mali')  # 'orange_mali', 'twilio', etc.
+
 # === CELERY CONFIGURATION ===
 # Celery Settings pour tâches asynchrones
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
