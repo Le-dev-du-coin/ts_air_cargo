@@ -95,13 +95,19 @@ class NotificationService:
             # Déterminer le rôle de l'expéditeur pour la sélection d'instance
             # Déterminer le type de message et le rôle expéditeur
             message_type = 'notification'
-            if categorie in ['creation_compte', 'otp', 'system', 'information_systeme']:
-                message_type = 'account' if categorie == 'creation_compte' else 'otp' if categorie == 'otp' else 'system'
-            elif title and ('OTP' in title or 'Compte' in title or 'Système' in title):
+            if categorie in ['creation_compte', 'reinitialisation_mot_de_passe', 'otp', 'system', 'information_systeme']:
+                # Réinitialisation mot de passe = account (même traitement que création compte)
+                if categorie in ['creation_compte', 'reinitialisation_mot_de_passe']:
+                    message_type = 'account'
+                elif categorie == 'otp':
+                    message_type = 'otp'
+                else:
+                    message_type = 'system'
+            elif title and ('OTP' in title or 'Compte' in title or 'Système' in title or 'Réinitialisation' in title or 'mot de passe' in title):
                 # fallback basé sur le titre
                 if 'OTP' in title:
                     message_type = 'otp'
-                elif 'Compte' in title:
+                elif 'Compte' in title or 'Réinitialisation' in title or 'mot de passe' in title:
                     message_type = 'account'
                 elif 'Système' in title:
                     message_type = 'system'
@@ -168,30 +174,74 @@ TS Air Cargo - Mode Développement"""
     @staticmethod
     def _send_sms(user, message):
         """
-        Envoie un SMS (à implémenter avec un provider SMS)
+        Envoie un SMS via le service SMS configuré (Twilio, AWS SNS, Orange Mali)
         """
-        # TODO: Intégrer avec un service SMS selon les besoins
-        # Pour l'instant, simuler l'envoi (sans impression console)
-        logger.info(f"SMS simulé à {user.telephone}: {message[:50]}...")
-        return True, 'sms_simulation_id'
+        try:
+            from .sms_service import SMSService
+            
+            # Vérifier si le service SMS est configuré
+            if not SMSService.is_configured():
+                logger.warning(f"Service SMS non configuré, simulation pour {user.telephone}")
+                return True, 'sms_simulation_id'
+            
+            # Envoyer le SMS réel
+            success, message_id = SMSService.send_sms(user.telephone, message)
+            
+            if success:
+                logger.info(f"SMS envoyé à {user.telephone}, ID: {message_id}")
+            else:
+                logger.error(f"Échec envoi SMS à {user.telephone}: {message_id}")
+            
+            return success, message_id
+            
+        except Exception as e:
+            logger.error(f"Erreur envoi SMS à {user.telephone}: {str(e)}")
+            return False, str(e)
         
     @staticmethod
     def send_sms(telephone, message):
         """
         Méthode publique pour envoyer un SMS directement
+        Utilise le vrai service SMS si configuré, sinon WaChap
         
         Args:
             telephone: Numéro de téléphone
             message: Message à envoyer
+            
+        Returns:
+            bool: True si l'envoi a réussi, False sinon
         """
         try:
-            # TODO: Intégrer avec un service SMS selon les besoins
-            # Pour l'instant, simuler l'envoi
-            logger.info(f"SMS envoyé à {telephone}: {message}")
-            return True
+            from .sms_service import SMSService
+            
+            # Essayer d'abord le vrai SMS si configuré
+            if SMSService.is_configured():
+                success, message_id = SMSService.send_sms(telephone, message)
+                if success:
+                    logger.info(f"SMS réel envoyé avec succès à {telephone}")
+                    return True
+                else:
+                    logger.warning(f"Échec SMS réel, tentative WaChap pour {telephone}")
+            
+            # Fallback sur WaChap
+            from .wachap_service import wachap_service
+            success, result, _ = wachap_service.send_message_with_type(
+                phone=telephone,
+                message=message,
+                message_type='account',
+                sender_role='system'
+            )
+            
+            if success:
+                logger.info(f"SMS WaChap envoyé avec succès à {telephone}")
+                return True
+            else:
+                logger.error(f"Échec d'envoi du SMS à {telephone}: {result}")
+                return False
+                
         except Exception as e:
-            logger.error(f"Erreur envoi SMS à {telephone}: {str(e)}")
-            raise e
+            logger.error(f"Erreur lors de l'envoi du SMS à {telephone}: {str(e)}")
+            return False
     
     @staticmethod
     def _send_email(user, message, title):
@@ -244,7 +294,7 @@ TS Air Cargo - Mode Développement"""
                 f"👤 Identifiant: {user.telephone}\n"
                 f"🔑 Mot de passe temporaire: {temp_password}\n\n"
                 f"🔒 Pour des raisons de sécurité, veuillez changer votre mot de passe dès votre première connexion.\n\n"
-                f"Merci de votre confiance! 🚛"
+                f"Merci de votre confiance! 🚚"
             )
             
             # Envoyer la notification
@@ -257,8 +307,124 @@ TS Air Cargo - Mode Développement"""
             )
             
         except Exception as e:
-            logger.error(f"Erreur envoi WhatsApp direct à {phone_number}: {str(e)}")
+            logger.error(f"Erreur envoi notification création/reset à {user.telephone}: {str(e)}")
             return False
+    
+    @staticmethod
+    def send_critical_notification(user, temp_password, notification_type='password_reset'):
+        """
+        Envoie une notification critique via WhatsApp (WaChap)
+        L'envoi SMS via Orange API sera configuré ultérieurement
+        Utilisé pour les notifications importantes comme la réinitialisation de mot de passe
+        
+        Args:
+            user: L'utilisateur concerné
+            temp_password: Le mot de passe temporaire
+            notification_type: Type de notification ('password_reset', 'account_creation')
+            
+        Returns:
+            dict: {
+                'whatsapp': bool (succès WhatsApp),
+                'sms': bool (succès SMS - False pour l'instant),
+                'success': bool (au moins un canal a réussi)
+            }
+        """
+        try:
+            # Déterminer le contenu selon le type
+            if notification_type == 'password_reset':
+                title = "🔑 Réinitialisation de mot de passe"
+                welcome_msg = "Votre mot de passe a été réinitialisé avec succès."
+                categorie = 'reinitialisation_mot_de_passe'
+            else:
+                title = "👋 Bienvenue chez TS Air Cargo"
+                welcome_msg = "Votre compte client a été créé avec succès."
+                categorie = 'creation_compte'
+            
+            # Préparer le message
+            message = (
+                f"{title}\n\n"
+                f"{welcome_msg}\n\n"
+                f"👤 Identifiant: {user.telephone}\n"
+                f"🔑 Mot de passe temporaire: {temp_password}\n\n"
+                f"🔒 Pour des raisons de sécurité, veuillez changer votre mot de passe dès votre première connexion.\n\n"
+                f"Merci de votre confiance! 🚚"
+            )
+            
+            # Résultats d'envoi
+            results = {
+                'whatsapp': False,
+                'sms': False,  # SMS Orange API sera configuré ultérieurement
+                'success': False
+            }
+            
+            # Envoyer via WhatsApp (WaChap)
+            try:
+                whatsapp_success = NotificationService.send_notification(
+                    user=user,
+                    message=message,
+                    method='whatsapp',
+                    title=title,
+                    categorie=categorie
+                )
+                results['whatsapp'] = whatsapp_success
+                results['success'] = whatsapp_success
+                logger.info(f"WhatsApp critique envoyé à {user.telephone}: {whatsapp_success}")
+            except Exception as e:
+                logger.error(f"Erreur WhatsApp critique pour {user.telephone}: {str(e)}")
+            
+            # Envoyer via SMS (Orange API) si configuré
+            try:
+                from .orange_sms_service import orange_sms_service
+                from .models import SMSLog
+                
+                if orange_sms_service.is_configured():
+                    # Version courte pour SMS (limite de caractères)
+                    sms_message = (
+                        f"{title}\n"
+                        f"Identifiant: {user.telephone}\n"
+                        f"Mot de passe: {temp_password}\n"
+                        f"Changez-le dès votre première connexion.\n"
+                        f"TS Air Cargo"
+                    )
+                    
+                    # Enregistrer le log SMS
+                    sms_log = SMSLog.objects.create(
+                        user=user,
+                        destinataire_telephone=user.telephone,
+                        message=sms_message,
+                        provider='orange',
+                        statut='pending',
+                        metadata={'type': notification_type}
+                    )
+                    
+                    # Envoyer le SMS
+                    sms_success, message_id, response_data = orange_sms_service.send_sms(user.telephone, sms_message)
+                    
+                    if sms_success:
+                        sms_log.mark_as_sent(message_id)
+                        results['sms'] = True
+                        logger.info(f"SMS Orange envoyé à {user.telephone}: {message_id}")
+                    else:
+                        sms_log.mark_as_failed(message_id)
+                        logger.error(f"SMS Orange échoué pour {user.telephone}: {message_id}")
+                else:
+                    logger.debug("Orange SMS non configuré, envoi SMS non disponible")
+            except Exception as e:
+                logger.error(f"Erreur SMS Orange pour {user.telephone}: {str(e)}")
+            
+            # Au moins un canal doit réussir
+            results['success'] = results['whatsapp'] or results['sms']
+            
+            logger.info(
+                f"Notification critique pour {user.telephone}: "
+                f"WA={results['whatsapp']}, SMS={results['sms']}, Succès={results['success']}"
+            )
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Erreur envoi notification critique à {user.telephone}: {str(e)}")
+            return {'whatsapp': False, 'sms': False, 'success': False}
     
     @staticmethod
     def send_urgent_notification(user, message, title="🚨 Notification Urgente"):

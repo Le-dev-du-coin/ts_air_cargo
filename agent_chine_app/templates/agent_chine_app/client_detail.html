@@ -19,9 +19,20 @@
                 {% csrf_token %}
                 <button type="button" 
                         class="btn btn-danger"
-                        onclick="if(confirm('Êtes-vous sûr de vouloir réinitialiser le mot de passe de ce client ? Un nouveau mot de passe sera généré et envoyé par notification.')) { this.form.submit(); }">
+                        onclick="if(confirm('Êtes-vous sûr de vouloir réinitialiser le mot de passe de ce client ? Un nouveau mot de passe sera généré et envoyé par WhatsApp + SMS.')) { this.form.submit(); }">
                     <i class="bi bi-key"></i>
                     <span class="d-none d-sm-inline">Réinitialiser MDP</span>
+                </button>
+            </form>
+            <form id="resetPasswordSmsForm" method="post" action="{% url 'agent_chine:client_reset_password_sms' client.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="button" 
+                        class="btn btn-outline-danger"
+                        data-bs-toggle="tooltip"
+                        title="Réinitialiser et envoyer UNIQUEMENT par SMS (Orange API)"
+                        onclick="if(confirm('⚠️ Êtes-vous sûr de vouloir réinitialiser le mot de passe et envoyer UNIQUEMENT par SMS (via Orange API) ?\n\nAssurez-vous que les credentials Orange API sont configurés.')) { this.form.submit(); }">
+                    <i class="bi bi-chat-text"></i>
+                    <span class="d-none d-sm-inline">RMP par SMS</span>
                 </button>
             </form>
             
@@ -184,10 +195,10 @@
                         </button>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <button class="btn btn-success btn-block w-100" onclick="sendNotification()">
+                        <a href="{% url 'agent_chine:send_custom_sms' client.id %}" class="btn btn-success btn-block w-100">
                             <i class="bi bi-chat-dots"></i>
                             Envoyer SMS
-                        </button>
+                        </a>
                     </div>
                     <div class="col-md-4 mb-2">
                         <button class="btn btn-info btn-block w-100" onclick="exportClientData()">
