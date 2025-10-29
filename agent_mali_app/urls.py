@@ -11,6 +11,7 @@ urlpatterns = [
     
     # Gestion des lots
     path('lots-en-transit/', views.lots_en_transit_view, name='lots_en_transit'),
+    path('lots-receptionnes/', views.lots_receptionnes_view, name='lots_receptionnes'),
     path('lots-livres/', views.lots_livres_view, name='lots_livres'),
     path('lot/<int:lot_id>/', views.details_lot_view, name='details_lot'),
     path('lot/<int:lot_id>/exporter-pdf/', views.exporter_lot_pdf, name='exporter_lot_pdf'),

@@ -571,8 +571,14 @@
                     </a>
                 </div>
                 <div class="nav-item">
+                    <a href="{% url 'agent_mali:lots_receptionnes' %}" class="nav-link {% if 'lots_receptionnes' in request.resolver_match.url_name %}active{% endif %}">
+                        <i class="bi bi-box-seam"></i>
+                        <span>Lots Réceptionnés</span>
+                    </a>
+                </div>
+                <div class="nav-item">
                     <a href="{% url 'agent_mali:lots_livres' %}" class="nav-link {% if 'lots_livres' in request.resolver_match.url_name %}active{% endif %}">
-                        <i class="bi bi-check-circle"></i>
+                        <i class="bi bi-check2-circle"></i>
                         <span>Lots Livrés</span>
                     </a>
                 </div>

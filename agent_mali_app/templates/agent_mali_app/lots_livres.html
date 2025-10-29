@@ -1,0 +1,245 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Lots Livrés - TS Air Cargo Mali{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid transparent;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    }
+    
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .lot-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .lot-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 25px rgba(0,0,0,0.12) !important;
+    }
+    
+    .icon-circle {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .empty-state-icon {
+        width: 100px;
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .card-header {
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+        border-radius: 6px;
+        padding: 0.375rem 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header avec actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Lots Livrés</h2>
+        <p class="text-muted mb-0">Archive complète des lots livrés avec traçabilité</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Statistiques rapides -->
+<div class="row mb-4 g-3">
+    <!-- Carte 1: Nombre de lots livrés -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #8b5cf6;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-purple bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-check2-circle" style="color: #8b5cf6; font-size: 1.5rem;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ total_lots }}</h3>
+                <p class="text-muted mb-0 small">Lots Livrés</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carte 2: Total colis livrés -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #10b981;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-box-seam-fill" style="color: #10b981; font-size: 1.5rem;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ total_colis_livres }}</h3>
+                <p class="text-muted mb-0 small">Colis Livrés</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carte 3: Revenus de livraison -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #3b82f6;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-cash-coin" style="color: #3b82f6; font-size: 1.5rem;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ revenus_livraison|floatformat:0|intcomma }}</h3>
+                <p class="text-muted mb-0 small">Revenus (FCFA)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carte 4: Bénéfice total -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #f59e0b;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-warning bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-graph-up-arrow" style="color: #f59e0b; font-size: 1.5rem;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ benefice_total|floatformat:0|intcomma }}</h3>
+                <p class="text-muted mb-0 small">Bénéfice Total (FCFA)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des lots livrés -->
+{% if lots %}
+    <div class="row g-3">
+        {% for lot in lots %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm lot-card">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="icon-circle bg-purple bg-opacity-10">
+                                <i class="bi bi-check2-circle" style="color: #8b5cf6;"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0 fw-bold">Lot {{ lot.numero_lot }}</h5>
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar3"></i> Livré le {{ lot.date_arrivee|date:"d/m/Y" }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge" style="background-color: #8b5cf6;">
+                                <i class="bi bi-check2-circle"></i> Livré
+                            </span>
+                            <span class="badge bg-info">
+                                {{ lot.type_lot|upper }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-box text-primary"></i>
+                                <div>
+                                    <small class="text-muted d-block">Colis Livrés</small>
+                                    <strong>{{ lot.colis.filter.count }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-truck text-warning"></i>
+                                <div>
+                                    <small class="text-muted d-block">Transport</small>
+                                    <strong>{{ lot.prix_transport|floatformat:0|intcomma }} F</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-shield-check text-info"></i>
+                                <div>
+                                    <small class="text-muted d-block">Frais Douane</small>
+                                    <strong>{{ lot.frais_douane|default:0|floatformat:0|intcomma }} F</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-graph-up text-success"></i>
+                                <div>
+                                    <small class="text-muted d-block">Bénéfice</small>
+                                    <strong class="{% if lot.benefice >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ lot.benefice|default:0|floatformat:0|intcomma }} F
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Résumé des colis -->
+                    <div class="alert alert-success border-0 mb-0">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>
+                                <strong>{{ lot.colis.filter.count }} colis</strong> ont été livrés avec succès
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <a href="{% url 'agent_mali:details_lot' lot.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i> Voir détails
+                        </a>
+                        <a href="{% url 'agent_mali:exporter_lot_pdf' lot.id %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-file-pdf"></i> Exporter PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <!-- État vide -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <div class="empty-state-icon bg-light rounded-circle mx-auto mb-3">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+            </div>
+            <h5 class="mb-2">Aucun lot livré</h5>
+            <p class="text-muted mb-3">Les lots complètement livrés apparaîtront ici pour traçabilité</p>
+            <a href="{% url 'agent_mali:lots_receptionnes' %}" class="btn btn-primary">
+                <i class="bi bi-box-seam"></i> Voir les lots réceptionnés
+            </a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

@@ -253,6 +253,22 @@ def dashboard_view(request):
         applied_by__is_agent_mali=True
     ).select_related('colis__client__user', 'applied_by').order_by('-created_at')[:5]
     
+    # Colis livrés ce mois
+    colis_livres_mois = Colis.objects.filter(
+        statut='livre',
+        livraisons__date_livraison_effective__gte=debut_mois,
+        livraisons__statut='livree'
+    ).distinct().count()
+    
+    # Valeur totale de tous les colis (en transit + arrivés + livrés)
+    valeur_totale_colis = Colis.objects.filter(
+        statut__in=['en_transit', 'expedie', 'arrive', 'livre']
+    ).aggregate(total=Sum('prix_calcule'))['total'] or 0
+    
+    # Calcul du bénéfice total des lots réceptionnés
+    lots_receptionnes = Lot.objects.filter(statut__in=['arrive', 'livre'])
+    benefice_total_lots = sum(float(lot.benefice or 0) for lot in lots_receptionnes if lot.benefice)
+    
     context = {
         'stats': {
             'lots_en_transit': lots_en_transit,
@@ -261,13 +277,16 @@ def dashboard_view(request):
             'colis_en_transit': colis_en_transit,
             'colis_arrives': colis_arrives,
             'colis_livres': colis_livres,
+            'colis_livres_mois': colis_livres_mois,
             'colis_perdus': colis_perdus,
             'livraisons_aujourd_hui': livraisons_aujourd_hui,
             'revenus_livraison_mois': float(revenus_livraison_mois),
             'revenus_livraison_aujourd_hui': float(revenus_livraison_aujourd_hui),
             'valeur_stock_magasin': float(valeur_stock_magasin),
+            'valeur_totale_colis': float(valeur_totale_colis),
             'depenses_mois': float(depenses_mois),
             'benefice_mois': benefice_mois,
+            'benefice_total_lots': benefice_total_lots,
             'colis_a_livrer': colis_a_livrer,
             'colis_attente_paiement': colis_attente_paiement,
             # Statistiques ajustements
@@ -606,6 +625,79 @@ def lots_en_transit_view(request):
     return render(request, 'agent_mali_app/lots_en_transit.html', context)
 
 @agent_mali_required
+def lots_receptionnes_view(request):
+    """
+    Liste des lots réceptionnés au Mali (statut: arrive)
+    Les colis sont groupés par lot pour une meilleure organisation
+    """
+    lots = Lot.objects.filter(
+        statut='arrive'
+    ).select_related('agent_createur').prefetch_related('colis__client__user').order_by('-date_arrivee')
+    
+    # Calculs pour statistiques
+    total_lots = lots.count()
+    total_colis = sum(lot.colis.count() for lot in lots)
+    total_colis_arrives = sum(lot.colis.filter(statut='arrive').count() for lot in lots)
+    
+    # Calcul de la valeur totale des colis réceptionnés
+    valeur_totale_colis = 0
+    for lot in lots:
+        valeur_totale_colis += sum(float(colis.prix_calcule or 0) for colis in lot.colis.filter(statut='arrive'))
+    
+    # Calcul du bénéfice total des lots réceptionnés
+    benefice_total = sum(float(lot.benefice or 0) for lot in lots if lot.benefice)
+    
+    context = {
+        'lots': lots,
+        'total_lots': total_lots,
+        'total_colis': total_colis,
+        'total_colis_arrives': total_colis_arrives,
+        'valeur_totale_colis': valeur_totale_colis,
+        'benefice_total': benefice_total,
+        'title': 'Lots Réceptionnés',
+    }
+    return render(request, 'agent_mali_app/lots_receptionnes.html', context)
+
+@agent_mali_required
+def lots_livres_view(request):
+    """
+    Liste des lots complètement livrés (statut: livre)
+    Archive avec traçabilité complète de tous les lots livrés
+    """
+    lots = Lot.objects.filter(
+        statut='livre'
+    ).select_related('agent_createur').prefetch_related('colis__client__user').order_by('-date_arrivee')
+    
+    # Calculs pour statistiques
+    total_lots = lots.count()
+    total_colis_livres = sum(lot.colis.filter(statut='livre').count() for lot in lots)
+    
+    # Calcul de la valeur totale des colis livrés
+    valeur_totale_livree = 0
+    for lot in lots:
+        valeur_totale_livree += sum(float(colis.prix_calcule or 0) for colis in lot.colis.filter(statut='livre'))
+    
+    # Calcul du bénéfice total des lots livrés
+    benefice_total = sum(float(lot.benefice or 0) for lot in lots if lot.benefice)
+    
+    # Calcul des revenus de livraison
+    revenus_livraison = 0
+    for lot in lots:
+        for colis in lot.colis.filter(statut='livre'):
+            revenus_livraison += float(colis.montant_livraison or 0)
+    
+    context = {
+        'lots': lots,
+        'total_lots': total_lots,
+        'total_colis_livres': total_colis_livres,
+        'valeur_totale_livree': valeur_totale_livree,
+        'benefice_total': benefice_total,
+        'revenus_livraison': revenus_livraison,
+        'title': 'Lots Livrés',
+    }
+    return render(request, 'agent_mali_app/lots_livres.html', context)
+
+@agent_mali_required
 def recevoir_lot_view(request, lot_id):
     """
     Réceptionner un lot au Mali avec gestion de la réception partielle
@@ -889,6 +981,19 @@ def marquer_livre_view(request, colis_id):
             # Mettre à jour le statut du colis et le prix final
             colis.statut = 'livre'
             colis.save()
+            
+            # Vérifier si tous les colis du lot sont maintenant livrés
+            lot = colis.lot
+            if lot and lot.statut == 'arrive':
+                # Compter les colis livrés vs total
+                total_colis = lot.colis.count()
+                colis_livres = lot.colis.filter(statut='livre').count()
+                
+                # Si tous les colis sont livrés, passer le lot au statut "livre"
+                if colis_livres == total_colis:
+                    lot.statut = 'livre'
+                    lot.save()
+                    messages.info(request, f"📦 Le lot {lot.numero_lot} est maintenant complètement livré !")
             
             # Mettre à jour le statut de paiement si le jeton couvre le montant total
             if jeton_cede and jeton_cede >= colis.get_prix_effectif():
