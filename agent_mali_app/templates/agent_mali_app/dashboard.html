@@ -17,8 +17,6 @@
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         height: 100%;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
-        border-left: 4px solid transparent;
-        cursor: pointer;
     }
     
     .stat-card:hover {
@@ -59,580 +57,621 @@
     }
     
     .stat-icon {
-        font-size: 1.5rem;
-        opacity: 0.8;
+        font-size: 2.5rem;
+        opacity: 0.2;
     }
     
-    .action-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        background-color: #3b82f6;
-        color: white;
-        border-radius: 0.5rem;
-        text-decoration: none;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-    
-    .action-btn:hover {
-        background-color: #2563eb;
-        color: white;
-        transform: translateY(-1px);
-    }
-    
-    .action-btn-outline {
-        background-color: transparent;
-        border: 1px solid #d1d5db;
-        color: #374151;
-    }
-    
-    .action-btn-outline:hover {
-        background-color: #f9fafb;
-        border-color: #9ca3af;
-    }
-    
-    .modern-card {
-        background: white;
-        border-radius: 0.75rem;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    .chart-container {
+        position: relative;
+        height: 300px;
         margin-bottom: 1.5rem;
+    }
+    
+    .performance-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         height: 100%;
     }
     
-    .modern-card-header {
-        padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
+    .performance-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
     }
     
-    .modern-card-title {
-        font-size: 1.125rem;
-        font-weight: 600;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .modern-card-body {
-        padding: 1.5rem;
-    }
-    
-    .project-item {
-        transition: all 0.2s;
-        border-radius: 0.5rem;
-    }
-    
-    .project-item:hover {
-        transform: translateX(4px);
-    }
-    
-    .project-icon {
-        flex-shrink: 0;
-    }
-    
-    .project-title {
-        font-weight: 500;
-        margin-bottom: 0.25rem;
-    }
-    
-    .project-desc {
-        font-size: 0.875rem;
+    .performance-label {
         color: #6b7280;
-        margin-bottom: 0;
+        font-size: 0.875rem;
     }
     
     .progress {
-        height: 0.5rem;
-        border-radius: 0.25rem;
+        height: 8px;
+        border-radius: 4px;
+        background-color: #e5e7eb;
+        margin-top: 1rem;
     }
     
     .progress-bar {
-        background-color: #3b82f6;
+        background-color: #4f46e5;
+        border-radius: 4px;
     }
-    
-    /* Animations */
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+
+    /* Styles pour les cartes modernes */
+    .modern-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
     }
-    
-    .animate-pulse {
-        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+    .modern-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        background-color: #f9fafb;
     }
-    
+
+    .modern-card-title {
+        margin: 0;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #111827;
+    }
+
+    .modern-card-body {
+        padding: 1.5rem;
+    }
+
+    /* Styles pour les éléments de projet */
+    .project-item {
+        transition: all 0.2s ease;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .project-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .project-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    /* Styles pour les boutons d'action */
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        color: white;
+        background-color: #4f46e5;
+        border: none;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+        background-color: #4338ca;
+        color: white;
+        text-decoration: none;
+    }
+
+    .action-btn-outline {
+        background-color: transparent;
+        border: 1px solid #4f46e5;
+        color: #4f46e5;
+    }
+
+    .action-btn-outline:hover {
+        background-color: #f5f3ff;
+    }
+
+    /* Styles pour les tableaux */
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th,
+    .table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .table th {
+        font-weight: 600;
+        color: #4b5563;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .badge-success {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-warning {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-danger {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .badge-info {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+
+    /* Animation de chargement */
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
-    
+
     .animate-spin {
         animation: spin 1s linear infinite;
     }
     
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-        .stat-card {
-            margin-bottom: 1rem;
-        }
-        
-        .modern-card {
-            margin-bottom: 1rem;
-        }
+    .border-left-primary {
+        border-left: .25rem solid var(--bs-primary) !important;
+    }
+    .border-left-success {
+        border-left: .25rem solid var(--bs-success) !important;
+    }
+    .border-left-info {
+        border-left: .25rem solid var(--bs-info) !important;
+    }
+    .border-left-warning {
+        border-left: .25rem solid var(--bs-warning) !important;
+    }
+    .text-gray-800 {
+        color: #5a5c69 !important;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- Header Actions -->
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
-    <div class="mb-3 mb-md-0">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
         <h2 class="h4 mb-1">Bienvenue, {{ user.get_full_name }}! 🇲🇱</h2>
-        <p class="text-muted mb-0">Vue d'ensemble des opérations au Mali aujourd'hui</p>
+        <p class="text-muted mb-1">Voici un aperçu de vos activités aujourd'hui</p>
     </div>
     <div class="d-flex gap-2">
         <a href="{% url 'agent_mali:lots_en_transit' %}" class="action-btn">
             <i class="bi bi-truck"></i>
-            Réceptionner Lots
+            Réceptionner des lots
         </a>
         <a href="{% url 'agent_mali:colis_a_livrer' %}" class="action-btn action-btn-outline">
             <i class="bi bi-box-seam"></i>
-            Gérer Livraisons
+            Gérer les livraisons
         </a>
     </div>
 </div>
 
-<!-- Cartes de statistiques -->
+<!-- Cartes de statistiques principales -->
 <div class="row mb-4">
     <!-- Lots en transit -->
     <div class="col-xl-3 col-md-6 mb-4">
         <a href="{% url 'agent_mali:lots_en_transit' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #3b82f6;">
+            <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h3 class="stat-value">{{ stats.lots_en_transit|intcomma }}</h3>
-                        <p class="stat-label">Lots En Transit</p>
-                        <div class="stat-change positive">
-                            <i class="bi bi-arrow-up"></i>
-                            En route vers Mali
+                        <h3 class="stat-value">{{ stats.lots_en_transit|default:0 }}</h3>
+                        <p class="stat-label">Lots en Transit</p>
+                        {% if stats.lots_en_transit_change is not None %}
+                        <div class="stat-change {% if stats.lots_en_transit_change > 0 %}positive{% else %}negative{% endif %}">
+                            <i class="bi {% if stats.lots_en_transit_change > 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                            {% if stats.lots_en_transit_change > 0 %}+{% endif %}{{ stats.lots_en_transit_change|floatformat:0 }}%
                         </div>
+                        {% endif %}
                     </div>
-                    <div class="p-3 rounded" style="background-color: rgba(59, 130, 246, 0.1);">
-                        <i class="bi bi-truck" style="color: #3b82f6; font-size: 1.5rem;"></i>
-                    </div>
+                    <i class="bi bi-truck stat-icon" style="color: #4f46e5;"></i>
                 </div>
             </div>
         </a>
     </div>
 
-    <!-- Colis arrivés -->
+    <!-- Colis à livrer -->
     <div class="col-xl-3 col-md-6 mb-4">
         <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #10b981;">
+            <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h3 class="stat-value">{{ stats.colis_arrives|intcomma }}</h3>
-                        <p class="stat-label">Colis Arrivés</p>
-                        <div class="stat-change positive">
-                            <i class="bi bi-arrow-up"></i>
-                            Prêts à livrer
+                        <h3 class="stat-value">{{ stats.colis_a_livrer|default:0 }}</h3>
+                        <p class="stat-label">Colis à Livrer</p>
+                        {% if stats.colis_a_livrer_change %}
+                        <div class="stat-change {% if stats.colis_a_livrer_change > 0 %}positive{% else %}negative{% endif %}">
+                            <i class="bi {% if stats.colis_a_livrer_change > 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                            {% if stats.colis_a_livrer_change > 0 %}+{% endif %}{{ stats.colis_a_livrer_change|floatformat:0 }}%
                         </div>
+                        {% endif %}
                     </div>
-                    <div class="p-3 rounded" style="background-color: rgba(16, 185, 129, 0.1);">
-                        <i class="bi bi-box-seam" style="color: #10b981; font-size: 1.5rem;"></i>
-                    </div>
+                    <i class="bi bi-box-seam stat-icon" style="color: #10b981;"></i>
                 </div>
             </div>
         </a>
     </div>
 
-    <!-- Livrés aujourd'hui -->
+    <!-- Colis livrés ce mois -->
     <div class="col-xl-3 col-md-6 mb-4">
         <a href="{% url 'agent_mali:lots_livres' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #8b5cf6;">
+            <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h3 class="stat-value">{{ stats.livraisons_aujourd_hui|intcomma }}</h3>
-                        <p class="stat-label">Livrés Aujourd'hui</p>
-                        <div class="stat-change positive">
-                            <i class="bi bi-check-circle"></i>
-                            {{ "now"|date:"d/m/Y" }}
+                        <h3 class="stat-value">{{ stats.colis_livres_mois|default:0 }}</h3>
+                        <p class="stat-label">Colis Livrés (Mois)</p>
+                        {% if stats.colis_livres_change %}
+                        <div class="stat-change {% if stats.colis_livres_change > 0 %}positive{% else %}negative{% endif %}">
+                            <i class="bi {% if stats.colis_livres_change > 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                            {% if stats.colis_livres_change > 0 %}+{% endif %}{{ stats.colis_livres_change|floatformat:0 }}%
                         </div>
+                        {% endif %}
                     </div>
-                    <div class="p-3 rounded" style="background-color: rgba(139, 92, 246, 0.1);">
-                        <i class="bi bi-check2-circle" style="color: #8b5cf6; font-size: 1.5rem;"></i>
-                    </div>
+                    <i class="bi bi-check2-circle stat-icon" style="color: #3b82f6;"></i>
                 </div>
             </div>
         </a>
     </div>
 
-    <!-- En attente de paiement -->
-    <div class="col-xl-3 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:colis_attente_paiement' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #f59e0b;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value">{{ stats.en_attente_paiement|intcomma }}</h3>
-                        <p class="stat-label">En Attente Paiement</p>
-                        <div class="stat-change negative">
-                            <i class="bi bi-clock-history"></i>
-                            À régulariser
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: rgba(245, 158, 11, 0.1);">
-                        <i class="bi bi-credit-card" style="color: #f59e0b; font-size: 1.5rem;"></i>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
-    <!-- Revenus du mois -->
+    <!-- Dépenses du mois -->
     <div class="col-xl-3 col-md-6 mb-4">
         <a href="{% url 'agent_mali:depenses' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #ec4899;">
+            <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h3 class="stat-value">{{ stats.revenus_livraison_mois|floatformat:0|intcomma }} F</h3>
-                        <p class="stat-label">Revenus du Mois</p>
-                        <div class="stat-change {% if stats.depenses_mois <= stats.revenus_livraison_mois %}positive{% else %}negative{% endif %}">
-                            <i class="bi bi-{% if stats.depenses_mois <= stats.revenus_livraison_mois %}arrow-up{% else %}arrow-down{% endif %}"></i>
-                            Dépenses: {{ stats.depenses_mois|floatformat:0|intcomma }} F
+                        <h3 class="stat-value">{{ stats.depenses_mois|default:0|floatformat:0|intcomma }} CFA</h3>
+                        <p class="stat-label">Dépenses (Mois)</p>
+                        {% if stats.depenses_change %}
+                        <div class="stat-change {% if stats.depenses_change < 0 %}positive{% else %}negative{% endif %}">
+                            <i class="bi {% if stats.depenses_change < 0 %}bi-arrow-down{% else %}bi-arrow-up{% endif %}"></i>
+                            {% if stats.depenses_change > 0 %}+{% endif %}{{ stats.depenses_change|floatformat:0 }}%
                         </div>
+                        {% endif %}
                     </div>
-                    </div>
+                    <i class="bi bi-cash-stack stat-icon" style="color: #ef4444;"></i>
                 </div>
             </div>
         </a>
     </div>
 </div>
 
-<!-- Cartes pour Colis Perdus et Attente de Paiement -->
+<!-- Graphique des revenus -->
 <div class="row mb-4">
-    <!-- Colis perdus -->
-    <div class="col-xl-3 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}?etat=perdu" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #ef4444;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value" style="color: #ef4444;">{{ stats.colis_perdus|default:0|intcomma }}</h3>
-                        <p class="stat-label">Colis Perdus</p>
-                        <div class="stat-change {% if stats.colis_perdus > 0 %}negative{% else %}positive{% endif %}">
-                            <i class="bi bi-{% if stats.colis_perdus > 0 %}exclamation-triangle{% else %}check-circle{% endif %}"></i>
-                            {% if stats.colis_perdus > 0 %}Nécessite attention{% else %}Aucune perte{% endif %}
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: rgba(239, 68, 68, 0.1);">
-                        <i class="bi bi-x-circle" style="color: #ef4444; font-size: 1.5rem;"></i>
-                    </div>
+    <div class="col-12">
+        <div class="modern-card">
+            <div class="modern-card-header d-flex justify-content-between align-items-center">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-graph-up"></i>
+                    Évolution des Revenus (12 derniers mois)
+                </h5>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="revenueFilter" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-funnel"></i> Filtre
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="revenueFilter">
+                        <li><a class="dropdown-item active" href="#" data-period="12">12 derniers mois</a></li>
+                        <li><a class="dropdown-item" href="#" data-period="6">6 derniers mois</a></li>
+                        <li><a class="dropdown-item" href="#" data-period="3">3 derniers mois</a></li>
+                    </ul>
                 </div>
             </div>
-        </a>
-    </div>
-    
-    <!-- En attente de paiement -->
-    <div class="col-xl-3 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:colis_attente_paiement' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #f59e0b;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value" style="color: #f59e0b;">{{ stats.colis_attente_paiement|default:0|intcomma }}</h3>
-                        <p class="stat-label">En Attente de Paiement</p>
-                        <div class="stat-change {% if stats.colis_attente_paiement > 0 %}negative{% else %}positive{% endif %}">
-                            <i class="bi bi-{% if stats.colis_attente_paiement > 0 %}clock-history{% else %}check-circle{% endif %}"></i>
-                            {% if stats.colis_attente_paiement > 0 %}À encaisser{% else %}Paiements à jour{% endif %}
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: rgba(245, 158, 11, 0.1);">
-                        <i class="bi bi-clock-history" style="color: #f59e0b; font-size: 1.5rem;"></i>
-                    </div>
+            <div class="modern-card-body">
+                <div class="chart-container">
+                    <canvas id="revenueChart"></canvas>
                 </div>
             </div>
-        </a>
-    </div>
-    
-    <!-- Statistiques des Ajustements -->
-    <div class="col-xl-3 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:ajustements_rapport' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #8b5cf6;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value" style="color: #8b5cf6;">{{ stats.jetons_cedes_mois|floatformat:0|intcomma }} F</h3>
-                        <p class="stat-label">Jetons Cédés (JC)</p>
-                        <div class="stat-change">
-                            <i class="bi bi-coins"></i>
-                            Ce mois
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: rgba(139, 92, 246, 0.1);">
-                        <i class="bi bi-coin" style="color: #8b5cf6; font-size: 1.5rem;"></i>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
-    
-    <!-- Remises accordées -->
-    <div class="col-xl-3 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}?remise=oui" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #10b981;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value" style="color: #10b981;">{{ stats.remises_mois|floatformat:0|intcomma }} F</h3>
-                        <p class="stat-label">Remises Accordées</p>
-                        <div class="stat-change">
-                            <i class="bi bi-percent"></i>
-                            Ce mois
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: rgba(16, 185, 129, 0.1);">
-                        <i class="bi bi-tag" style="color: #10b981; font-size: 1.5rem;"></i>
-                    </div>
-                </div>
-            </div>
-        </a>
+        </div>
     </div>
 </div>
 
-<!-- Section Financière Détaillée -->
+<!-- Indicateurs de performance -->
 <div class="row mb-4">
-    <!-- Revenus aujourd'hui -->
-    <div class="col-xl-4 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:rapports' %}?periode=aujourdhui" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #10b981;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value" style="color: #10b981;">{{ stats.revenus_livraison_aujourd_hui|floatformat:0|intcomma }} F</h3>
-                        <p class="stat-label">Revenus Aujourd'hui</p>
-                        <div class="stat-change positive">
-                            <i class="bi bi-calendar-day"></i>
-                            {{ "now"|date:"d M Y" }}
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: rgba(16, 185, 129, 0.1);">
-                        <i class="bi bi-cash-coin" style="color: #10b981; font-size: 1.5rem;"></i>
-                    </div>
+    <div class="col-md-4 mb-4">
+        <div class="performance-card">
+            <div class="d-flex align-items-center mb-3">
+                <div class="me-3 p-2 rounded" style="background-color: rgba(79, 70, 229, 0.1);">
+                    <i class="bi bi-speedometer2" style="color: #4f46e5; font-size: 1.5rem;"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Performance Globale</h6>
+                    <small class="text-muted">Score basé sur l'activité</small>
                 </div>
             </div>
-        </a>
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="performance-value" style="color: #4f46e5;">
+                    {{ stats.taux_remplissage|default:0|floatformat:0 }}
+                    <small class="text-muted">/100</small>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted">Taux de remplissage</div>
+                    <div class="small">{{ stats.taux_remplissage|default:0|floatformat:1 }}%</div>
+                </div>
+            </div>
+            <div class="progress mt-3">
+                <div class="progress-bar" role="progressbar" 
+                     style="width: {{ stats.taux_remplissage|default:0 }}%" 
+                     aria-valuenow="{{ stats.taux_remplissage|default:0 }}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- Valeur du stock -->
-    <div class="col-xl-4 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: #3b82f6;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value" style="color: #3b82f6;">{{ stats.valeur_stock_magasin|floatformat:0|intcomma }} F</h3>
-                        <p class="stat-label">Stock Mali (Valeur)</p>
-                        <div class="stat-change">
-                            <i class="bi bi-archive"></i>
-                            {{ stats.colis_arrives|intcomma }} colis
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: rgba(59, 130, 246, 0.1);">
-                        <i class="bi bi-archive-fill" style="color: #3b82f6; font-size: 1.5rem;"></i>
-                    </div>
+    <div class="col-md-4 mb-4">
+        <div class="performance-card">
+            <div class="d-flex align-items-center mb-3">
+                <div class="me-3 p-2 rounded" style="background-color: rgba(16, 185, 129, 0.1);">
+                    <i class="bi bi-people" style="color: #10b981; font-size: 1.5rem;"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Clients</h6>
+                    <small class="text-muted">Fidélisation et conversion</small>
                 </div>
             </div>
-        </a>
+            <div class="row text-center">
+                <div class="col-6 border-end">
+                    <div class="performance-value" style="color: #10b981;">
+                        {{ stats.taux_conversion|default:0|floatformat:0 }}%
+                    </div>
+                    <div class="performance-label">Taux de conversion</div>
+                </div>
+                <div class="col-6">
+                    <div class="performance-value" style="color: #3b82f6;">
+                        {{ stats.croissance_clients|default:0|floatformat:0 }}%
+                    </div>
+                    <div class="performance-label">Croissance mensuelle</div>
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- Bénéfice/Perte Mensuel -->
-    <div class="col-xl-4 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:rapports' %}" class="text-decoration-none">
-            <div class="stat-card" style="border-left-color: {% if stats.benefice_mois >= 0 %}#10b981{% else %}#ef4444{% endif %};">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="stat-value" style="color: {% if stats.benefice_mois >= 0 %}#10b981{% else %}#ef4444{% endif %};">{{ stats.benefice_mois|floatformat:0|intcomma }} F</h3>
-                        <p class="stat-label">Bénéfice/Perte Mensuel</p>
-                        <div class="stat-change {% if stats.benefice_mois >= 0 %}positive{% else %}negative{% endif %}">
-                            <i class="bi bi-{% if stats.benefice_mois >= 0 %}trending-up{% else %}trending-down{% endif %}"></i>
-                            {% if stats.benefice_mois >= 0 %}Profitable{% else %}Déficitaire{% endif %}
-                        </div>
-                    </div>
-                    <div class="p-3 rounded" style="background-color: {% if stats.benefice_mois >= 0 %}rgba(16, 185, 129, 0.1){% else %}rgba(239, 68, 68, 0.1){% endif %};">
-                        <i class="bi bi-graph-{% if stats.benefice_mois >= 0 %}up{% else %}down{% endif %}" style="color: {% if stats.benefice_mois >= 0 %}#10b981{% else %}#ef4444{% endif %}; font-size: 1.5rem;"></i>
-                    </div>
+    <div class="col-md-4 mb-4">
+        <div class="performance-card">
+            <div class="d-flex align-items-center mb-3">
+                <div class="me-3 p-2 rounded" style="background-color: rgba(245, 158, 11, 0.1);">
+                    <i class="bi bi-clock" style="color: #f59e0b; font-size: 1.5rem;"></i>
+                </div>
+                <div>
+                    <h6 class="mb-0">Traitement</h6>
+                    <small class="text-muted">Efficacité opérationnelle</small>
                 </div>
             </div>
-        </a>
+            <div class="row text-center">
+                <div class="col-6 border-end">
+                    <div class="performance-value" style="color: #f59e0b;">
+                        {{ stats.temps_traitement|default:0 }}
+                    </div>
+                    <div class="performance-label">Jours de traitement moyen</div>
+                </div>
+                <div class="col-6">
+                    <div class="performance-value" style="color: #8b5cf6;">
+                        {{ stats.lots_fermes|default:0 }}
+                    </div>
+                    <div class="performance-label">Lots fermés ce mois</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- Activités récentes et Actions rapides -->
+<!-- Activités récentes et Projets ouverts -->
 <div class="row mb-4">
-    <!-- Lots reçus récemment -->
+    <!-- Activités récentes avec vraies données -->
     <div class="col-xl-6 col-lg-6 mb-4">
         <div class="modern-card">
             <div class="modern-card-header d-flex justify-content-between align-items-center">
-                <h5 class="modern-card-title">Lots Récents</h5>
+                <h5 class="modern-card-title">Activités Récentes</h5>
                 <small class="text-muted">{{ "now"|date:"d M Y, H:i" }}</small>
             </div>
             <div class="modern-card-body">
-                {% if derniers_lots_recus %}
-                    {% for lot in derniers_lots_recus|slice:":3" %}
-                    <div class="activity-item d-flex align-items-center mb-3 p-3" style="background: rgba({% if lot.statut == 'en_transit' or lot.statut == 'expedie' %}23, 162, 184{% else %}40, 167, 69{% endif %}, 0.1); border-radius: 0.75rem;">
-                        <div class="activity-icon me-3" style="width: 40px; height: 40px; background: {% if lot.statut == 'en_transit' or lot.statut == 'expedie' %}var(--info-color){% else %}var(--success-color){% endif %}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
-                            <i class="bi bi-{% if lot.statut == 'en_transit' or lot.statut == 'expedie' %}truck{% else %}check-circle{% endif %}"></i>
+                <div class="d-flex align-items-center mb-4">
+                    <div class="position-relative">
+                        {% with angle=stats.lots_ouverts|default:0 %}
+                        <div style="width: 100px; height: 100px; background: conic-gradient(var(--success-color) 0deg, var(--success-color) {% if angle %}{{ angle }}0{% else %}0{% endif %}deg, #e5e7eb {% if angle %}{{ angle }}0{% else %}0{% endif %}deg, #e5e7eb 360deg); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        {% endwith %}
+                            <div style="width: 60px; height: 60px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem; color: var(--dark-color);">
+                                {{ stats.lots_ouverts }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ms-4">
+                        <div class="text-muted small">Lots</div>
+                        <div class="fw-bold">Actifs</div>
+                    </div>
+                </div>
+                
+                {% if derniers_lots %}
+                    {% for lot in derniers_lots|slice:":2" %}
+                    <div class="activity-item d-flex align-items-center mb-3 p-3" style="background: rgba({% if lot.statut == 'ouvert' %}16, 185, 129{% elif lot.statut == 'ferme' %}245, 158, 11{% else %}59, 130, 246{% endif %}, 0.1); border-radius: 0.75rem;">
+                        <div class="activity-icon me-3" style="width: 40px; height: 40px; background: {% if lot.statut == 'ouvert' %}var(--success-color){% elif lot.statut == 'ferme' %}var(--warning-color){% else %}var(--info-color){% endif %}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i class="bi bi-{% if lot.statut == 'ouvert' %}box{% elif lot.statut == 'ferme' %}box-seam{% else %}truck{% endif %}"></i>
                         </div>
                         <div class="flex-grow-1">
                             <div class="fw-semibold">Lot {{ lot.numero_lot }}</div>
                             <div class="text-muted small">{{ lot.get_statut_display }} - {{ lot.colis.count }} colis</div>
                         </div>
                         <div class="text-end">
-                            {% if lot.statut == 'en_transit' or lot.statut == 'expedie' %}
-                                <a href="{% url 'agent_mali:recevoir_lot' lot.id %}" class="btn btn-sm btn-outline-success">
-                                    <i class="bi bi-download"></i> Réceptionner
-                                </a>
-                            {% else %}
-                                <div class="fw-bold text-success">{{ lot.colis.count }}</div>
-                                <div class="text-muted small">{{ lot.date_arrivee|date:"d M, H:i" }}</div>
-                            {% endif %}
+                            <div class="fw-bold text-success">{% if lot.colis.count %}{{ lot.colis.count }}{% else %}0{% endif %}</div>
+                            <div class="text-muted small">{{ lot.date_creation|date:"d M, H:i" }}</div>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <div class="text-center text-muted py-4">
-                        <i class="bi bi-truck" style="font-size: 2rem; opacity: 0.3;"></i>
-                        <p class="mt-2 mb-0">Aucun lot récent</p>
-                        <small>Les lots en transit apparaîtront ici</small>
+                        <i class="bi bi-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                        <p class="mt-2 mb-0">Aucune activité récente</p>
+                        <small>Créez votre premier lot pour commencer</small>
                     </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-<!-- Actions rapides et statistiques -->
+    <!-- Actions rapides et statistiques temps réel -->
     <div class="col-xl-6 col-lg-6 mb-4">
         <div class="modern-card">
             <div class="modern-card-header d-flex justify-content-between align-items-center">
                 <h5 class="modern-card-title">Actions Rapides</h5>
                 <div class="text-muted small">
-                    <div>Opérations Mali</div>
+                    <div>Status en temps réel</div>
                     <div>{{ "now"|date:"H:i" }}</div>
                 </div>
             </div>
             <div class="modern-card-body">
-                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(23, 162, 184, 0.1); border-radius: 0.75rem;">
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(59, 130, 246, 0.1); border-radius: 0.75rem;">
                     <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--info-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
-                        <i class="bi bi-truck"></i>
+                        <i class="bi bi-kanban"></i>
                     </div>
                     <div class="flex-grow-1">
-                        <div class="fw-semibold">Lots En Transit</div>
-                        <div class="text-muted small">À réceptionner au Mali</div>
+                        <div class="fw-semibold">Lots Ouverts</div>
+                        <div class="text-muted small">Lots actifs en cours de remplissage</div>
                     </div>
                     <div class="text-end">
-                        <div class="fw-bold text-info">{{ stats.lots_en_transit }}</div>
-                        <a href="{% url 'agent_mali:lots_en_transit' %}" class="text-muted small text-decoration-none">Voir tous</a>
+                        <div class="fw-bold text-info">{{ stats.lots_ouverts }}</div>
+                        <a href="{% url 'agent_chine:lot_list' %}" class="text-muted small text-decoration-none">Voir tous</a>
                     </div>
                 </div>
                 
-                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(40, 167, 69, 0.1); border-radius: 0.75rem;">
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(16, 185, 129, 0.1); border-radius: 0.75rem;">
                     <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--success-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
                         <i class="bi bi-box-seam"></i>
                     </div>
                     <div class="flex-grow-1">
-                        <div class="fw-semibold">Colis à Livrer</div>
-                        <div class="text-muted small">Arrivés et prêts</div>
+                        <div class="fw-semibold">Lots Fermés</div>
+                        <div class="text-muted small">Prêts à être expédiés</div>
                     </div>
                     <div class="text-end">
-                        <div class="fw-bold text-success">{{ stats.colis_a_livrer }}</div>
-                        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-muted small text-decoration-none">Livrer</a>
+                        <div class="fw-bold text-success">{{ stats.lots_fermes }}</div>
+                        <a href="{% url 'agent_chine:lot_list' %}?statut=ferme" class="text-muted small text-decoration-none">Expédier</a>
                     </div>
                 </div>
                 
-                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(255, 193, 7, 0.1); border-radius: 0.75rem;">
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(139, 92, 246, 0.1); border-radius: 0.75rem;">
+                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: #8b5cf6; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="bi bi-truck"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Lots Expédiés</div>
+                        <div class="text-muted small">En route vers le Mali</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold" style="color: #8b5cf6;">{{ stats.lots_expedies }}</div>
+                        <a href="{% url 'agent_chine:lot_list' %}?statut=expedie" class="text-muted small text-decoration-none">Suivre</a>
+                    </div>
+                </div>
+                
+                {% if derniers_colis %}
+                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: rgba(245, 158, 11, 0.1); border-radius: 0.75rem;">
                     <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--warning-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
-                        <i class="bi bi-wallet2"></i>
+                        <i class="bi bi-archive"></i>
                     </div>
                     <div class="flex-grow-1">
-                        <div class="fw-semibold">Dépenses</div>
-                        <div class="text-muted small">Gestion budgétaire</div>
+                        <div class="fw-semibold">Dernier Colis</div>
+                        <div class="text-muted small">{{ derniers_colis.0.client.user.get_full_name }}</div>
                     </div>
                     <div class="text-end">
-                        <div class="fw-bold text-warning">{{ stats.depenses_mois|floatformat:0 }} F</div>
-                        <a href="{% url 'agent_mali:depenses' %}" class="text-muted small text-decoration-none">Gérer</a>
-                    </div>
-                </div>
-                
-                <div class="project-item d-flex align-items-center mb-3 p-3" style="background: {% if stats.colis_attente_paiement > 0 %}rgba(220, 53, 69, 0.1){% else %}rgba(108, 117, 125, 0.1){% endif %}; border-radius: 0.75rem;">
-                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: {% if stats.colis_attente_paiement > 0 %}#dc3545{% else %}#6c757d{% endif %}; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
-                        <i class="bi bi-{% if stats.colis_attente_paiement > 0 %}clock-history{% else %}check-circle{% endif %}"></i>
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="fw-semibold">{% if stats.colis_attente_paiement > 0 %}Attente de Paiement{% else %}Paiements à Jour{% endif %}</div>
-                        <div class="text-muted small">{% if stats.colis_attente_paiement > 0 %}Colis livrés non payés{% else %}Tous les paiements sont réglés{% endif %}</div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-bold {% if stats.colis_attente_paiement > 0 %}text-danger{% else %}text-success{% endif %}">{{ stats.colis_attente_paiement|default:0 }}</div>
-                        {% if stats.colis_attente_paiement > 0 %}
-                            <a href="{% url 'agent_mali:colis_attente_paiement' %}" class="text-muted small text-decoration-none">Gérer</a>
-                        {% else %}
-                            <span class="text-muted small">✓ À jour</span>
-                        {% endif %}
-                        <!-- Debug visible: {{ stats.colis_attente_paiement|default:'None' }} colis trouvés -->
-                    </div>
-                </div>
-                
-                {% if dernieres_livraisons %}
-                <div class="project-item d-flex align-items-center p-3" style="background: rgba(40, 167, 69, 0.1); border-radius: 0.75rem;">
-                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--primary-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
-                        <i class="bi bi-check2-circle"></i>
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="fw-semibold">Dernière Livraison</div>
-                        <div class="text-muted small">{{ dernieres_livraisons.0.colis.client.user.get_full_name }}</div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-bold text-primary">{{ dernieres_livraisons.0.colis.numero_suivi }}</div>
-                        <div class="text-muted small">{{ dernieres_livraisons.0.date_livraison_effective|date:"d/m H:i" }}</div>
+                        <div class="fw-bold text-warning">{{ derniers_colis.0.numero_suivi }}</div>
+                        <div class="text-muted small">{{ derniers_colis.0.date_creation|date:"d/m H:i" }}</div>
                     </div>
                 </div>
                 {% endif %}
+                
+                <div class="project-item d-flex align-items-center p-3" style="background: rgba(239, 68, 68, 0.1); border-radius: 0.75rem;">
+                    <div class="project-icon me-3" style="width: 40px; height: 40px; background: var(--danger-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">Total Clients</div>
+                        <div class="text-muted small">Base clients active</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-danger">{{ stats.total_clients }}</div>
+                        <a href="{% url 'agent_chine:client_list' %}" class="text-muted small text-decoration-none">Gérer</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Résumé des livraisons récentes -->
+<!-- Derniers lots et colis -->
 <div class="row">
-    <div class="col-12">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                <h6 class="m-0 font-weight-bold text-primary">Dernières Livraisons</h6>
-                <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-sm btn-primary">
-                    Voir tous les colis
+    <!-- Derniers lots -->
+    <div class="col-xl-6 col-lg-6 mb-4 equal-height">
+        <div class="modern-card">
+            <div class="modern-card-header d-flex justify-content-between align-items-center">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-box"></i>
+                    Derniers Lots
+                </h5>
+                <a href="{% url 'agent_chine:lot_list' %}" class="action-btn">
+                    <i class="bi bi-arrow-right"></i>
+                    Voir tous
                 </a>
             </div>
-            <div class="card-body">
-                {% if dernieres_livraisons %}
-                    <div class="table-responsive">
-                        <table class="table table-sm">
+            <div class="modern-card-body">
+                {% if derniers_lots %}
+                    <div class="table-modern">
+                        <table class="table mb-0">
                             <thead>
                                 <tr>
-                                    <th>N° Colis</th>
-                                    <th>Client</th>
-                                    <th>Destinataire</th>
-                                    <th>Date Livraison</th>
-                                    <th class="d-mobile-none">Prix Transport</th>
+                                    <th>N° Lot</th>
+                                    <th>Statut</th>
+                                    <th>Date</th>
+                                    <th class="d-mobile-none">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for livraison in dernieres_livraisons %}
+                                {% for lot in derniers_lots %}
                                 <tr>
                                     <td>
-                                        <span class="fw-semibold">{{ livraison.colis.numero_suivi }}</span>
+                                        <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="text-decoration-none fw-bold">
+                                            {{ lot.numero_lot }}
+                                        </a>
                                     </td>
-                                    <td class="small">{{ livraison.colis.client.user.get_full_name }}</td>
-                                    <td class="small">{{ livraison.nom_destinataire }}</td>
-                                    <td class="small">{{ livraison.date_livraison_effective|date:"d/m/Y H:i" }}</td>
-                                    <td class="small d-mobile-none">
-                                        {% if livraison.colis.prix_calcule %}
-                                            <span class="text-success fw-semibold">{{ livraison.colis.prix_calcule|floatformat:0 }} F</span>
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
+                                    <td>
+                                        <span class="status-badge status-{{ lot.statut }}">
+                                            {{ lot.get_statut_display }}
+                                        </span>
+                                    </td>
+                                    <td class="small">{{ lot.date_creation|date:"d/m/Y" }}</td>
+                                    <td class="d-mobile-none">
+                                        <a href="{% url 'agent_chine:lot_detail' lot.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -641,9 +680,68 @@
                     </div>
                 {% else %}
                     <div class="text-center text-muted py-4">
-                        <i class="bi bi-box-seam" style="font-size: 3rem;"></i>
-                        <p class="mt-2">Aucune livraison récente</p>
-                        <p class="small">Les livraisons effectuées apparaîtront ici</p>
+                        <i class="bi bi-box" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="mt-2">Aucun lot créé</p>
+                        <a href="{% url 'agent_chine:lot_create' %}" class="action-btn">
+                            <i class="bi bi-plus-circle"></i>
+                            Créer le premier lot
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Derniers colis -->
+    <div class="col-xl-6 col-lg-6 mb-4 equal-height">
+        <div class="modern-card">
+            <div class="modern-card-header d-flex justify-content-between align-items-center">
+                <h5 class="modern-card-title">
+                    <i class="bi bi-archive"></i>
+                    Derniers Colis
+                </h5>
+                <a href="{% url 'agent_chine:colis_list' %}" class="action-btn">
+                    <i class="bi bi-arrow-right"></i>
+                    Voir tous
+                </a>
+            </div>
+            <div class="modern-card-body">
+                {% if derniers_colis %}
+                    <div class="table-modern">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>N° Suivi</th>
+                                    <th>Client</th>
+                                    <th>Statut</th>
+                                    <th class="d-mobile-none">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for colis in derniers_colis %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="text-decoration-none fw-bold">
+                                            {{ colis.numero_suivi }}
+                                        </a>
+                                    </td>
+                                    <td class="small">{{ colis.client.user.get_full_name }}</td>
+                                    <td>
+                                        <span class="status-badge status-{{ colis.statut }}">
+                                            {{ colis.get_statut_display }}
+                                        </span>
+                                    </td>
+                                    <td class="small d-mobile-none">{{ colis.date_creation|date:"d/m/Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-archive" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="mt-2">Aucun colis créé</p>
+                        <p class="small">Créez d'abord un lot pour ajouter des colis</p>
                     </div>
                 {% endif %}
             </div>
@@ -651,102 +749,118 @@
     </div>
 </div>
 
-<!-- Ajustements de prix récents -->
-{% if derniers_ajustements %}
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                <h6 class="m-0 font-weight-bold text-warning">
-                    <i class="bi bi-coin"></i> Ajustements de Prix Récents
-                </h6>
-                <small class="text-muted">{{ "now"|date:"d M Y" }}</small>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>N° Colis</th>
-                                <th>Client</th>
-                                <th>Montant</th>
-                                <th>Raison</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for ajustement in derniers_ajustements|slice:":5" %}
-                            <tr>
-                                <td>
-                                    {% if ajustement.adjustment_type == 'jc' %}
-                                        <span class="badge bg-warning text-dark">
-                                            <i class="bi bi-coins"></i> JC
-                                        </span>
-                                    {% elif ajustement.adjustment_type == 'remise' %}
-                                        <span class="badge bg-success">
-                                            <i class="bi bi-percent"></i> Remise
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="fw-semibold text-primary">{{ ajustement.colis.numero_suivi }}</span>
-                                </td>
-                                <td class="small">{{ ajustement.colis.client.user.get_full_name }}</td>
-                                <td>
-                                    <span class="text-danger fw-semibold">-{{ ajustement.adjustment_amount|floatformat:0 }} F</span>
-                                </td>
-                                <td class="small text-muted">{{ ajustement.reason|truncatechars:30 }}</td>
-                                <td class="small text-muted">{{ ajustement.created_at|date:"d/m H:i" }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+<!-- Script pour le graphique des revenus -->
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Données du graphique
+        const revenueData = {
+            labels: {{ stats.revenus_par_mois|safe|default:'[]' }}.map(item => item.mois),
+            datasets: [{
+                label: 'Revenus (CFA)',
+                data: {{ stats.revenus_par_mois|safe|default:'[]' }}.map(item => item.revenu),
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                borderColor: '#4f46e5',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true,
+                pointBackgroundColor: '#4f46e5',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        };
+
+        // Configuration du graphique
+        const config = {
+            type: 'line',
+            data: revenueData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: { size: 12, weight: 'bold' },
+                        bodyFont: { size: 14 },
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return ' ' + context.parsed.y.toLocaleString('fr-FR') + ' CFA';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) {
+                                    return (value / 1000000).toFixed(1) + 'M';
+                                } else if (value >= 1000) {
+                                    return (value / 1000).toFixed(0) + 'K';
+                                }
+                                return value;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        };
+
+        // Initialisation du graphique
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        const revenueChart = new Chart(ctx, config);
+
+        // Gestion du filtre de période
+        document.querySelectorAll('[data-period]').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const period = parseInt(this.getAttribute('data-period'));
                 
-                <div class="row mt-3 pt-3 border-top">
-                    <div class="col-md-4">
-                        <div class="text-center">
-                            <div class="text-warning h6">{{ stats.jetons_cedes_mois|floatformat:0 }} F</div>
-                            <div class="small text-muted">
-                                <i class="bi bi-coins"></i> Jetons Cédés ce mois
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-center">
-                            <div class="text-success h6">{{ stats.remises_mois|floatformat:0 }} F</div>
-                            <div class="small text-muted">
-                                <i class="bi bi-percent"></i> Remises accordées ce mois
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-center">
-                            <div class="text-info h6">{{ stats.ajustements_total_mois|floatformat:0 }} F</div>
-                            <div class="small text-muted">
-                                <i class="bi bi-calculator"></i> Total ajustements
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
+                // Mettre à jour le bouton de filtre actif
+                document.querySelectorAll('[data-period]').forEach(item => {
+                    item.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Mettre à jour les données affichées (ici, on tronque simplement le tableau)
+                const newLabels = revenueData.labels.slice(-period);
+                const newData = revenueData.datasets[0].data.slice(-period);
+                
+                revenueChart.data.labels = newLabels;
+                revenueChart.data.datasets[0].data = newData;
+                revenueChart.update();
+            });
+        });
+    });
+</script>
+{% endblock %}
 
 <!-- Actions rapides mobiles -->
 <div class="d-md-none fixed-bottom bg-light border-top p-3">
     <div class="row">
         <div class="col-6">
-            <a href="{% url 'agent_mali:lots_en_transit' %}" class="btn btn-success btn-block">
-                <i class="bi bi-truck"></i> Réceptionner
+            <a href="{% url 'agent_chine:lot_create' %}" class="btn btn-primary btn-block">
+                <i class="bi bi-plus-circle"></i> Nouveau Lot
             </a>
         </div>
         <div class="col-6">
-            <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-outline-success btn-block">
-                <i class="bi bi-box-seam"></i> Livrer
+            <a href="{% url 'agent_chine:client_create' %}" class="btn btn-outline-primary btn-block">
+                <i class="bi bi-person-plus"></i> Client
             </a>
         </div>
     </div>
