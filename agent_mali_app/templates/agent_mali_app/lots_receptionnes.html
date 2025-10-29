@@ -90,6 +90,50 @@
     </div>
 </div>
 
+<!-- Barre de recherche et filtres -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label small">Rechercher</label>
+                <input type="text" name="search" class="form-control" placeholder="N° de lot..." value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Type Transport</label>
+                <select name="type_transport" class="form-select">
+                    <option value="">Tous</option>
+                    <option value="cargo" {% if type_transport == 'cargo' %}selected{% endif %}>Cargo</option>
+                    <option value="express" {% if type_transport == 'express' %}selected{% endif %}>Express</option>
+                    <option value="bateau" {% if type_transport == 'bateau' %}selected{% endif %}>Bateau</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Date Début</label>
+                <input type="date" name="date_debut" class="form-control" value="{{ date_debut }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Date Fin</label>
+                <input type="date" name="date_fin" class="form-control" value="{{ date_fin }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Trier par</label>
+                <select name="tri" class="form-select">
+                    <option value="-date_arrivee" {% if tri == '-date_arrivee' %}selected{% endif %}>Plus récent</option>
+                    <option value="date_arrivee" {% if tri == 'date_arrivee' %}selected{% endif %}>Plus ancien</option>
+                    <option value="-benefice" {% if tri == '-benefice' %}selected{% endif %}>Bénéfice ↓</option>
+                    <option value="benefice" {% if tri == 'benefice' %}selected{% endif %}>Bénéfice ↑</option>
+                    <option value="numero_lot" {% if tri == 'numero_lot' %}selected{% endif %}>N° Lot A-Z</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Statistiques rapides -->
 <div class="row mb-4 g-3">
     <!-- Carte 1: Nombre de lots réceptionnés -->
@@ -274,6 +318,45 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    {% if lots.has_other_pages %}
+    <nav aria-label="Navigation des lots" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if lots.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ lots.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ lots.number }} sur {{ lots.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if lots.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ lots.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ lots.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 {% else %}
     <!-- État vide -->
     <div class="card border-0 shadow-sm">
