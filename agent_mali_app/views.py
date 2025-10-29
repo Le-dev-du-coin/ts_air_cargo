@@ -74,7 +74,26 @@ def details_lot_view(request, lot_id):
     total_colis = colis_list.count()
     colis_livres = colis_list.filter(statut='livre').count()
     colis_perdus = colis_list.filter(statut='perdu').count()
+    colis_arrives = colis_list.filter(statut='arrive').count()
     colis_en_attente = total_colis - colis_livres - colis_perdus
+    
+    # Calculs financiers
+    valeur_totale_colis = sum(float(c.prix_calcule or 0) for c in colis_list)
+    prix_transport = float(lot.prix_transport or 0)
+    frais_douane = float(lot.frais_douane or 0)
+    benefice = float(lot.benefice or 0)
+    
+    # Pourcentage de marge bénéficiaire
+    if valeur_totale_colis > 0:
+        marge_beneficiaire = (benefice / valeur_totale_colis) * 100
+    else:
+        marge_beneficiaire = 0
+    
+    # Taux de livraison
+    if total_colis > 0:
+        taux_livraison = (colis_livres / total_colis) * 100
+    else:
+        taux_livraison = 0
     
     context = {
         'lot': lot,
@@ -82,7 +101,14 @@ def details_lot_view(request, lot_id):
         'total_colis': total_colis,
         'colis_livres': colis_livres,
         'colis_perdus': colis_perdus,
+        'colis_arrives': colis_arrives,
         'colis_en_attente': colis_en_attente,
+        'valeur_totale_colis': valeur_totale_colis,
+        'prix_transport': prix_transport,
+        'frais_douane': frais_douane,
+        'benefice': benefice,
+        'marge_beneficiaire': marge_beneficiaire,
+        'taux_livraison': taux_livraison,
         'title': f'Détails du lot {lot.numero_lot}'
     }
     
