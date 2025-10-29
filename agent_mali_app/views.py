@@ -630,11 +630,41 @@ def lots_receptionnes_view(request):
     Liste des lots réceptionnés au Mali (statut: arrive)
     Les colis sont groupés par lot pour une meilleure organisation
     """
+    # Base queryset
     lots = Lot.objects.filter(
         statut='arrive'
-    ).select_related('agent_createur').prefetch_related('colis__client__user').order_by('-date_arrivee')
+    ).select_related('agent_createur').prefetch_related('colis__client__user')
     
-    # Calculs pour statistiques
+    # Filtres
+    search_query = request.GET.get('search', '')
+    type_transport = request.GET.get('type_transport', '')
+    date_debut = request.GET.get('date_debut', '')
+    date_fin = request.GET.get('date_fin', '')
+    tri = request.GET.get('tri', '-date_arrivee')
+    
+    # Appliquer les filtres
+    if search_query:
+        lots = lots.filter(numero_lot__icontains=search_query)
+    
+    if type_transport:
+        lots = lots.filter(type_lot=type_transport)
+    
+    if date_debut:
+        lots = lots.filter(date_arrivee__gte=date_debut)
+    
+    if date_fin:
+        lots = lots.filter(date_arrivee__lte=date_fin)
+    
+    # Tri
+    lots = lots.order_by(tri)
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(lots, 20)  # 20 lots par page
+    page_number = request.GET.get('page')
+    lots_page = paginator.get_page(page_number)
+    
+    # Calculs pour statistiques (sur tous les lots, pas seulement la page)
     total_lots = lots.count()
     total_colis = sum(lot.colis.count() for lot in lots)
     total_colis_arrives = sum(lot.colis.filter(statut='arrive').count() for lot in lots)
@@ -648,12 +678,17 @@ def lots_receptionnes_view(request):
     benefice_total = sum(float(lot.benefice or 0) for lot in lots if lot.benefice)
     
     context = {
-        'lots': lots,
+        'lots': lots_page,
         'total_lots': total_lots,
         'total_colis': total_colis,
         'total_colis_arrives': total_colis_arrives,
         'valeur_totale_colis': valeur_totale_colis,
         'benefice_total': benefice_total,
+        'search_query': search_query,
+        'type_transport': type_transport,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'tri': tri,
         'title': 'Lots Réceptionnés',
     }
     return render(request, 'agent_mali_app/lots_receptionnes.html', context)
@@ -664,11 +699,41 @@ def lots_livres_view(request):
     Liste des lots complètement livrés (statut: livre)
     Archive avec traçabilité complète de tous les lots livrés
     """
+    # Base queryset
     lots = Lot.objects.filter(
         statut='livre'
-    ).select_related('agent_createur').prefetch_related('colis__client__user').order_by('-date_arrivee')
+    ).select_related('agent_createur').prefetch_related('colis__client__user')
     
-    # Calculs pour statistiques
+    # Filtres
+    search_query = request.GET.get('search', '')
+    type_transport = request.GET.get('type_transport', '')
+    date_debut = request.GET.get('date_debut', '')
+    date_fin = request.GET.get('date_fin', '')
+    tri = request.GET.get('tri', '-date_arrivee')
+    
+    # Appliquer les filtres
+    if search_query:
+        lots = lots.filter(numero_lot__icontains=search_query)
+    
+    if type_transport:
+        lots = lots.filter(type_lot=type_transport)
+    
+    if date_debut:
+        lots = lots.filter(date_arrivee__gte=date_debut)
+    
+    if date_fin:
+        lots = lots.filter(date_arrivee__lte=date_fin)
+    
+    # Tri
+    lots = lots.order_by(tri)
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(lots, 20)  # 20 lots par page
+    page_number = request.GET.get('page')
+    lots_page = paginator.get_page(page_number)
+    
+    # Calculs pour statistiques (sur tous les lots, pas seulement la page)
     total_lots = lots.count()
     total_colis_livres = sum(lot.colis.filter(statut='livre').count() for lot in lots)
     
@@ -687,12 +752,17 @@ def lots_livres_view(request):
             revenus_livraison += float(colis.montant_livraison or 0)
     
     context = {
-        'lots': lots,
+        'lots': lots_page,
         'total_lots': total_lots,
         'total_colis_livres': total_colis_livres,
         'valeur_totale_livree': valeur_totale_livree,
         'benefice_total': benefice_total,
         'revenus_livraison': revenus_livraison,
+        'search_query': search_query,
+        'type_transport': type_transport,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'tri': tri,
         'title': 'Lots Livrés',
     }
     return render(request, 'agent_mali_app/lots_livres.html', context)
@@ -712,7 +782,7 @@ def recevoir_lot_view(request, lot_id):
             commentaire = request.POST.get('commentaire', '')
             notifier_clients = request.POST.get('notifier_clients') == 'on'
             
-            # Récupérer les frais de dédouanement
+            # Récupérer les frais de dédouanement - OBLIGATOIRE
             frais_dedouanement = request.POST.get('frais_dedouanement', '0')
             try:
                 frais_dedouanement = float(frais_dedouanement) if frais_dedouanement else 0.0
@@ -720,6 +790,11 @@ def recevoir_lot_view(request, lot_id):
                     frais_dedouanement = 0.0
             except (ValueError, TypeError):
                 frais_dedouanement = 0.0
+            
+            # Validation : Les frais de douane sont obligatoires
+            if frais_dedouanement <= 0:
+                messages.error(request, "⚠️ Les frais de douane sont obligatoires pour réceptionner un lot. Veuillez saisir un montant supérieur à 0.")
+                return redirect('agent_mali:recevoir_lot', lot_id=lot.id)
             
             # Récupérer les colis sélectionnés pour réception
             colis_recus_ids = request.POST.getlist('colis_recus')

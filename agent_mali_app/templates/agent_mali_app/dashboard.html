@@ -367,6 +367,145 @@
     </div>
 </div>
 
+<!-- Statistiques secondaires - Nouvelles cartes -->
+<div class="row mb-4">
+    <!-- Bénéfice Total des Lots -->
+    <div class="col-md-3 mb-4">
+        <a href="{% url 'agent_mali:lots_receptionnes' %}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="stat-value">{{ stats.benefice_total_lots|default:0|floatformat:0|intcomma }} F</h3>
+                        <p class="stat-label">Bénéfice Total Lots</p>
+                        <div class="stat-change {% if stats.benefice_total_lots >= 0 %}positive{% else %}negative{% endif %}">
+                            <i class="bi bi-{% if stats.benefice_total_lots >= 0 %}trending-up{% else %}trending-down{% endif %}"></i>
+                            {% if stats.benefice_total_lots >= 0 %}Profitable{% else %}Déficitaire{% endif %}
+                        </div>
+                    </div>
+                    <i class="bi bi-graph-up-arrow stat-icon" style="color: #8b5cf6;"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Valeur Totale des Colis -->
+    <div class="col-md-3 mb-4">
+        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="stat-value">{{ stats.valeur_totale_colis|default:0|floatformat:0|intcomma }} F</h3>
+                        <p class="stat-label">Valeur Totale Colis</p>
+                        <div class="stat-change">
+                            <i class="bi bi-archive"></i>
+                            Stock actuel
+                        </div>
+                    </div>
+                    <i class="bi bi-archive-fill stat-icon" style="color: #3b82f6;"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Colis Perdus -->
+    <div class="col-md-3 mb-4">
+        <a href="{% url 'agent_mali:colis_a_livrer' %}?etat=perdu" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="stat-value">{{ stats.colis_perdus|default:0 }}</h3>
+                        <p class="stat-label">Colis Perdus</p>
+                        <div class="stat-change {% if stats.colis_perdus > 0 %}negative{% else %}positive{% endif %}">
+                            <i class="bi bi-{% if stats.colis_perdus > 0 %}exclamation-triangle{% else %}check-circle{% endif %}"></i>
+                            {% if stats.colis_perdus > 0 %}Attention{% else %}Aucune perte{% endif %}
+                        </div>
+                    </div>
+                    <i class="bi bi-x-circle stat-icon" style="color: #ef4444;"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- En Attente de Paiement -->
+    <div class="col-md-3 mb-4">
+        <a href="{% url 'agent_mali:colis_attente_paiement' %}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="stat-value">{{ stats.colis_attente_paiement|default:0 }}</h3>
+                        <p class="stat-label">Attente Paiement</p>
+                        <div class="stat-change {% if stats.colis_attente_paiement > 0 %}negative{% else %}positive{% endif %}">
+                            <i class="bi bi-{% if stats.colis_attente_paiement > 0 %}clock-history{% else %}check-circle{% endif %}"></i>
+                            {% if stats.colis_attente_paiement > 0 %}À encaisser{% else %}À jour{% endif %}
+                        </div>
+                    </div>
+                    <i class="bi bi-wallet2 stat-icon" style="color: #f59e0b;"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Statistiques financières -->
+<div class="row mb-4">
+    <!-- Revenus Aujourd'hui -->
+    <div class="col-md-4 mb-4">
+        <a href="{% url 'agent_mali:rapports' %}?periode=aujourdhui" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="stat-value">{{ stats.revenus_livraison_aujourd_hui|default:0|floatformat:0|intcomma }} F</h3>
+                        <p class="stat-label">Revenus Aujourd'hui</p>
+                        <div class="stat-change positive">
+                            <i class="bi bi-calendar-day"></i>
+                            {{ "now"|date:"d M Y" }}
+                        </div>
+                    </div>
+                    <i class="bi bi-cash-coin stat-icon" style="color: #10b981;"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Valeur Stock Magasin -->
+    <div class="col-md-4 mb-4">
+        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="stat-value">{{ stats.valeur_stock_magasin|default:0|floatformat:0|intcomma }} F</h3>
+                        <p class="stat-label">Stock Mali (Valeur)</p>
+                        <div class="stat-change">
+                            <i class="bi bi-archive"></i>
+                            {{ stats.colis_arrives|default:0|intcomma }} colis
+                        </div>
+                    </div>
+                    <i class="bi bi-archive-fill stat-icon" style="color: #3b82f6;"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Bénéfice Mensuel -->
+    <div class="col-md-4 mb-4">
+        <a href="{% url 'agent_mali:rapports' %}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="stat-value">{{ stats.benefice_mois|default:0|floatformat:0|intcomma }} F</h3>
+                        <p class="stat-label">Bénéfice/Perte Mensuel</p>
+                        <div class="stat-change {% if stats.benefice_mois >= 0 %}positive{% else %}negative{% endif %}">
+                            <i class="bi bi-{% if stats.benefice_mois >= 0 %}trending-up{% else %}trending-down{% endif %}"></i>
+                            {% if stats.benefice_mois >= 0 %}Profitable{% else %}Déficitaire{% endif %}
+                        </div>
+                    </div>
+                    <i class="bi bi-graph-{% if stats.benefice_mois >= 0 %}up{% else %}down{% endif %} stat-icon" style="color: {% if stats.benefice_mois >= 0 %}#10b981{% else %}#ef4444{% endif %};"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
 <!-- Graphique des revenus -->
 <div class="row mb-4">
     <div class="col-12">
