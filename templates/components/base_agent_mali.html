@@ -585,13 +585,7 @@
             </div>
 
             <div class="nav-section">
-                <div class="nav-section-title">Livraisons</div>
-                <div class="nav-item">
-                    <a href="{% url 'agent_mali:colis_a_livrer' %}" class="nav-link {% if 'colis_a_livrer' in request.resolver_match.url_name %}active{% endif %}">
-                        <i class="bi bi-box-seam"></i>
-                        <span>Colis à Livrer</span>
-                    </a>
-                </div>
+                <div class="nav-section-title">Paiements</div>
                 <div class="nav-item">
                     <a href="{% url 'agent_mali:colis_attente_paiement' %}" class="nav-link {% if 'colis_attente_paiement' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="bi bi-clock-history"></i>

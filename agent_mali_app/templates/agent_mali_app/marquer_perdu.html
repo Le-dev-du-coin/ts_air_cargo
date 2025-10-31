@@ -1,0 +1,94 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ title }} - Agent Mali{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Header -->
+            <div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #ef4444;">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-exclamation-triangle-fill" style="font-size: 3rem; color: #ef4444;"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-1">⚠️ Marquer le colis comme perdu</h4>
+                            <p class="text-muted mb-0">Cette action est irréversible. Veuillez confirmer.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations du colis -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Informations du Colis</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>N° Suivi:</strong> <span class="badge bg-secondary">{{ colis.numero_suivi }}</span></p>
+                            <p><strong>Client:</strong> {{ colis.client.user.get_full_name }}</p>
+                            <p><strong>Téléphone:</strong> {{ colis.client.user.telephone }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Poids:</strong> {{ colis.poids }} kg</p>
+                            <p><strong>Prix:</strong> {{ colis.prix_calcule|floatformat:0|intcomma }} F</p>
+                            <p><strong>Lot:</strong> {{ colis.lot.numero_lot }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire de confirmation -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Raison de la perte</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="raison" class="form-label">Raison de la perte *</label>
+                            <select class="form-select" id="raison" name="raison" required>
+                                <option value="">Sélectionnez une raison...</option>
+                                <option value="Colis endommagé irréparable">Colis endommagé irréparable</option>
+                                <option value="Colis égaré pendant le transport">Colis égaré pendant le transport</option>
+                                <option value="Colis volé">Colis volé</option>
+                                <option value="Colis détruit (douane/sécurité)">Colis détruit (douane/sécurité)</option>
+                                <option value="Adresse introuvable">Adresse introuvable</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes additionnelles</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="4" 
+                                      placeholder="Ajoutez des détails sur les circonstances de la perte..."></textarea>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Attention :</strong> Le client sera automatiquement notifié par WhatsApp de la perte de son colis.
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'agent_mali:details_lot' colis.lot.id %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-x-circle"></i> Confirmer - Marquer comme perdu
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

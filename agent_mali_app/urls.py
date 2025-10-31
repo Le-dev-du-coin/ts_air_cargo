@@ -16,9 +16,9 @@ urlpatterns = [
     path('lot/<int:lot_id>/', views.details_lot_view, name='details_lot'),
     path('lot/<int:lot_id>/exporter-pdf/', views.exporter_lot_pdf, name='exporter_lot_pdf'),
     path('recevoir-lot/<int:lot_id>/', views.recevoir_lot_view, name='recevoir_lot'),
+    path('lot/<int:lot_id>/enregistrer-frais-douane/', views.enregistrer_frais_douane_view, name='enregistrer_frais_douane'),
     
     # Gestion des livraisons
-    path('colis-a-livrer/', views.colis_a_livrer_view, name='colis_a_livrer'),
     path('marquer-livre/<int:colis_id>/', views.marquer_livre_view, name='marquer_livre'),
     path('marquer-perdu/<int:colis_id>/', views.marquer_perdu_view, name='marquer_perdu'),
     path('api/colis-details/<int:colis_id>/', views.colis_details_api, name='colis_details_api'),

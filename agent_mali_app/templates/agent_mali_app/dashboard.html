@@ -273,7 +273,7 @@
             <i class="bi bi-truck"></i>
             Réceptionner des lots
         </a>
-        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="action-btn action-btn-outline">
+        <a href="{% url 'agent_mali:lots_receptionnes' %}" class="action-btn action-btn-outline">
             <i class="bi bi-box-seam"></i>
             Gérer les livraisons
         </a>
@@ -303,18 +303,18 @@
         </a>
     </div>
 
-    <!-- Colis à livrer -->
+    <!-- Lots réceptionnés -->
     <div class="col-xl-3 col-md-6 mb-4">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-decoration-none">
+        <a href="{% url 'agent_mali:lots_receptionnes' %}" class="text-decoration-none">
             <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h3 class="stat-value">{{ stats.colis_a_livrer|default:0 }}</h3>
-                        <p class="stat-label">Colis à Livrer</p>
-                        {% if stats.colis_a_livrer_change %}
-                        <div class="stat-change {% if stats.colis_a_livrer_change > 0 %}positive{% else %}negative{% endif %}">
-                            <i class="bi {% if stats.colis_a_livrer_change > 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
-                            {% if stats.colis_a_livrer_change > 0 %}+{% endif %}{{ stats.colis_a_livrer_change|floatformat:0 }}%
+                        <h3 class="stat-value">{{ stats.lots_receptionnes|default:0 }}</h3>
+                        <p class="stat-label">Lots Réceptionnés</p>
+                        {% if stats.lots_receptionnes_change %}
+                        <div class="stat-change {% if stats.lots_receptionnes_change > 0 %}positive{% else %}negative{% endif %}">
+                            <i class="bi {% if stats.lots_receptionnes_change > 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                            {% if stats.lots_receptionnes_change > 0 %}+{% endif %}{{ stats.lots_receptionnes_change|floatformat:0 }}%
                         </div>
                         {% endif %}
                     </div>
@@ -390,7 +390,7 @@
 
     <!-- Valeur Totale des Colis -->
     <div class="col-md-3 mb-4">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-decoration-none">
+        <a href="{% url 'agent_mali:lots_receptionnes' %}" class="text-decoration-none">
             <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
@@ -409,7 +409,7 @@
 
     <!-- Colis Perdus -->
     <div class="col-md-3 mb-4">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}?etat=perdu" class="text-decoration-none">
+        <a href="{% url 'agent_mali:lots_receptionnes' %}" class="text-decoration-none">
             <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
@@ -469,7 +469,7 @@
 
     <!-- Valeur Stock Magasin -->
     <div class="col-md-4 mb-4">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="text-decoration-none">
+        <a href="{% url 'agent_mali:lots_receptionnes' %}" class="text-decoration-none">
             <div class="stat-card">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>

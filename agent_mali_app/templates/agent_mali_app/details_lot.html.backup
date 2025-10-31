@@ -1,0 +1,262 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load mali_filters %}
+
+{% block title %}{{ title }} - Agent Mali - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête avec bouton de retour et titre -->
+    <div class="d-sm-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'agent_mali:lots_livres' %}" class="btn btn-sm btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+            <h1 class="h3 mb-0 text-gray-800 d-inline-block ml-3">Détails du lot {{ lot.numero_lot }}</h1>
+        </div>
+        <div>
+            <span class="badge bg-{{ lot.get_statut_display|lower }}">
+                <i class="fas fa-{{ lot.get_icon }}"></i> {{ lot.get_statut_display }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Cartes de statistiques -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total des colis</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_colis }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Colis livrés</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ colis_livres }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Colis perdus</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ colis_perdus }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                En attente</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ colis_en_attente }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Détails du lot -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Informations du lot</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Numéro de lot :</strong> {{ lot.numero_lot }}</p>
+                    <p><strong>Type de lot :</strong> {{ lot.get_type_lot_display }}</p>
+                    <p><strong>Date d'expédition :</strong> {{ lot.date_expedition|date:"d/m/Y H:i"|default:"-" }}</p>
+                    <p><strong>Date d'arrivée :</strong> {{ lot.date_arrivee|date:"d/m/Y H:i"|default:"-" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Poids total :</strong> {{ lot.poids_total|default:"0.00" }} kg</p>
+                    <p><strong>Volume total :</strong> {{ lot.volume_total|default:"0.00" }} m³</p>
+                    <p><strong>Statut :</strong> 
+                        <span class="badge bg-{{ lot.get_statut_display|lower }}">
+                            <i class="fas fa-{{ lot.get_icon }}"></i> {{ lot.get_statut_display }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des colis -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Liste des colis</h6>
+            <div>
+                <span class="badge bg-primary">
+                    <i class="fas fa-box"></i> {{ total_colis }} colis
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Référence</th>
+                            <th>Client</th>
+                            <th>Poids (kg)</th>
+                            <th>Volume (m³)</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for colis in colis %}
+                        <tr>
+                            <td>{{ colis.reference }}</td>
+                            <td>{{ colis.client.user.get_full_name|default:colis.client.user.username }}</td>
+                            <td>{{ colis.poids|floatformat:2 }}</td>
+                            <td>{{ colis.volume|floatformat:3 }}</td>
+                            <td>
+                                <span class="badge bg-{{ colis.get_statut_display|lower }}">
+                                    <i class="fas fa-{{ colis.get_icon }}"></i> {{ colis.get_statut_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="#" class="btn btn-sm btn-info" title="Voir les détails"
+                                   data-bs-toggle="modal" data-bs-target="#colisModal{{ colis.id }}">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        
+                        <!-- Modal pour les détails du colis -->
+                        <div class="modal fade" id="colisModal{{ colis.id }}" tabindex="-1" role="dialog" 
+                             aria-labelledby="colisModalLabel{{ colis.id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="colisModalLabel{{ colis.id }}">
+                                            Détails du colis {{ colis.reference }}
+                                        </h5>
+                                        <button class="close" type="button" data-bs-dismiss="modal" aria-label="Close">
+                                            <span aria-hidden="true">×</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <p><strong>Référence :</strong> {{ colis.reference }}</p>
+                                                <p><strong>Client :</strong> {{ colis.client.user.get_full_name|default:colis.client.user.username }}</p>
+                                                <p><strong>Téléphone :</strong> {{ colis.client.telephone|default:"-" }}</p>
+                                                <p><strong>Poids :</strong> {{ colis.poids|floatformat:2 }} kg</p>
+                                                <p><strong>Volume :</strong> {{ colis.volume|floatformat:3 }} m³</p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <p><strong>Statut :</strong> 
+                                                    <span class="badge bg-{{ colis.get_statut_display|lower }}">
+                                                        <i class="fas fa-{{ colis.get_icon }}"></i> {{ colis.get_statut_display }}
+                                                    </span>
+                                                </p>
+                                                <p><strong>Date de création :</strong> {{ colis.date_creation|date:"d/m/Y H:i" }}</p>
+                                                {% if colis.date_livraison %}
+                                                <p><strong>Date de livraison :</strong> {{ colis.date_livraison|date:"d/m/Y H:i" }}</p>
+                                                {% endif %}
+                                                {% if colis.notes %}
+                                                <p><strong>Notes :</strong> {{ colis.notes }}</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Fermer</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">Aucun colis trouvé dans ce lot.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if colis.has_other_pages %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mt-4">
+                    {% if colis.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ colis.previous_page_number }}" aria-label="Précédent">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for i in colis.paginator.page_range %}
+                        {% if colis.number == i %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ i }} <span class="sr-only">(actuel)</span></span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if colis.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ colis.next_page_number }}" aria-label="Suivant">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

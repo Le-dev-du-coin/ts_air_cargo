@@ -1,262 +1,333 @@
 {% extends 'components/base_agent_mali.html' %}
 {% load static %}
-{% load mali_filters %}
+{% load humanize %}
 
-{% block title %}{{ title }} - Agent Mali - {{ block.super }}{% endblock %}
+{% block title %}{{ title }} - Agent Mali{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    
+    .lot-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    
+    .colis-table {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .colis-table thead {
+        background: #f8f9fa;
+    }
+    
+    .colis-table tbody tr {
+        transition: background 0.2s;
+    }
+    
+    .colis-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .action-btn-group .btn {
+        margin: 0 2px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- En-tête avec bouton de retour et titre -->
-    <div class="d-sm-flex justify-content-between align-items-center mb-4">
+<!-- Header du lot avec informations principales -->
+<div class="lot-header">
+    <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
-            <a href="{% url 'agent_mali:lots_livres' %}" class="btn btn-sm btn-secondary">
-                <i class="fas fa-arrow-left"></i> Retour à la liste
+            <a href="{% if lot.statut == 'arrive' %}{% url 'agent_mali:lots_receptionnes' %}{% elif lot.statut == 'livre' %}{% url 'agent_mali:lots_livres' %}{% else %}{% url 'agent_mali:lots_en_transit' %}{% endif %}" class="btn btn-light btn-sm mb-2">
+                <i class="bi bi-arrow-left"></i> Retour
             </a>
-            <h1 class="h3 mb-0 text-gray-800 d-inline-block ml-3">Détails du lot {{ lot.numero_lot }}</h1>
+            <h2 class="h3 mb-1 fw-bold">Lot {{ lot.numero_lot }}</h2>
+            <p class="mb-0 opacity-75">
+                <i class="bi bi-calendar3"></i> Expédié le {{ lot.date_expedition|date:"d/m/Y" }}
+                {% if lot.date_arrivee %}
+                | <i class="bi bi-check-circle"></i> Arrivé le {{ lot.date_arrivee|date:"d/m/Y" }}
+                {% endif %}
+            </p>
         </div>
-        <div>
-            <span class="badge bg-{{ lot.get_statut_display|lower }}">
-                <i class="fas fa-{{ lot.get_icon }}"></i> {{ lot.get_statut_display }}
-            </span>
-        </div>
-    </div>
-
-    <!-- Cartes de statistiques -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Total des colis</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_colis }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Colis livrés</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ colis_livres }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-warning shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Colis perdus</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ colis_perdus }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-info shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                En attente</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ colis_en_attente }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-clock fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Détails du lot -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Informations du lot</h6>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Numéro de lot :</strong> {{ lot.numero_lot }}</p>
-                    <p><strong>Type de lot :</strong> {{ lot.get_type_lot_display }}</p>
-                    <p><strong>Date d'expédition :</strong> {{ lot.date_expedition|date:"d/m/Y H:i"|default:"-" }}</p>
-                    <p><strong>Date d'arrivée :</strong> {{ lot.date_arrivee|date:"d/m/Y H:i"|default:"-" }}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>Poids total :</strong> {{ lot.poids_total|default:"0.00" }} kg</p>
-                    <p><strong>Volume total :</strong> {{ lot.volume_total|default:"0.00" }} m³</p>
-                    <p><strong>Statut :</strong> 
-                        <span class="badge bg-{{ lot.get_statut_display|lower }}">
-                            <i class="fas fa-{{ lot.get_icon }}"></i> {{ lot.get_statut_display }}
-                        </span>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Liste des colis -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Liste des colis</h6>
-            <div>
-                <span class="badge bg-primary">
-                    <i class="fas fa-box"></i> {{ total_colis }} colis
+        <div class="text-end">
+            {% if lot.statut == 'arrive' %}
+                <span class="badge bg-success" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                    <i class="bi bi-check-circle"></i> Réceptionné au Mali
                 </span>
+            {% elif lot.statut == 'livre' %}
+                <span class="badge" style="background: #8b5cf6; font-size: 1rem; padding: 0.5rem 1rem;">
+                    <i class="bi bi-check2-circle"></i> Livré
+                </span>
+            {% elif lot.statut == 'en_transit' or lot.statut == 'expedie' %}
+                <span class="badge bg-primary" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                    <i class="bi bi-truck"></i> En Transit
+                </span>
+            {% endif %}
+            <div class="mt-2">
+                <small class="opacity-75">Type: {{ lot.get_type_lot_display|upper }}</small>
             </div>
         </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered" width="100%" cellspacing="0">
-                    <thead>
-                        <tr>
-                            <th>Référence</th>
-                            <th>Client</th>
-                            <th>Poids (kg)</th>
-                            <th>Volume (m³)</th>
-                            <th>Statut</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for colis in colis %}
-                        <tr>
-                            <td>{{ colis.reference }}</td>
-                            <td>{{ colis.client.user.get_full_name|default:colis.client.user.username }}</td>
-                            <td>{{ colis.poids|floatformat:2 }}</td>
-                            <td>{{ colis.volume|floatformat:3 }}</td>
-                            <td>
-                                <span class="badge bg-{{ colis.get_statut_display|lower }}">
-                                    <i class="fas fa-{{ colis.get_icon }}"></i> {{ colis.get_statut_display }}
-                                </span>
-                            </td>
-                            <td>
-                                <a href="#" class="btn btn-sm btn-info" title="Voir les détails"
-                                   data-bs-toggle="modal" data-bs-target="#colisModal{{ colis.id }}">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        
-                        <!-- Modal pour les détails du colis -->
-                        <div class="modal fade" id="colisModal{{ colis.id }}" tabindex="-1" role="dialog" 
-                             aria-labelledby="colisModalLabel{{ colis.id }}" aria-hidden="true">
-                            <div class="modal-dialog modal-lg" role="document">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="colisModalLabel{{ colis.id }}">
-                                            Détails du colis {{ colis.reference }}
-                                        </h5>
-                                        <button class="close" type="button" data-bs-dismiss="modal" aria-label="Close">
-                                            <span aria-hidden="true">×</span>
-                                        </button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <p><strong>Référence :</strong> {{ colis.reference }}</p>
-                                                <p><strong>Client :</strong> {{ colis.client.user.get_full_name|default:colis.client.user.username }}</p>
-                                                <p><strong>Téléphone :</strong> {{ colis.client.telephone|default:"-" }}</p>
-                                                <p><strong>Poids :</strong> {{ colis.poids|floatformat:2 }} kg</p>
-                                                <p><strong>Volume :</strong> {{ colis.volume|floatformat:3 }} m³</p>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <p><strong>Statut :</strong> 
-                                                    <span class="badge bg-{{ colis.get_statut_display|lower }}">
-                                                        <i class="fas fa-{{ colis.get_icon }}"></i> {{ colis.get_statut_display }}
-                                                    </span>
-                                                </p>
-                                                <p><strong>Date de création :</strong> {{ colis.date_creation|date:"d/m/Y H:i" }}</p>
-                                                {% if colis.date_livraison %}
-                                                <p><strong>Date de livraison :</strong> {{ colis.date_livraison|date:"d/m/Y H:i" }}</p>
-                                                {% endif %}
-                                                {% if colis.notes %}
-                                                <p><strong>Notes :</strong> {{ colis.notes }}</p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Fermer</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center">Aucun colis trouvé dans ce lot.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    </div>
+</div>
+
+<!-- Statistiques du lot -->
+<div class="row g-3 mb-4">
+    <!-- Total Colis -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: #3b82f6;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Total Colis</p>
+                    <h3 class="mb-0 fw-bold">{{ total_colis }}</h3>
+                </div>
+                <i class="bi bi-box-seam" style="font-size: 2rem; color: #3b82f6;"></i>
             </div>
-            
-            <!-- Pagination -->
-            {% if colis.has_other_pages %}
-            <nav aria-label="Page navigation">
-                <ul class="pagination justify-content-center mt-4">
-                    {% if colis.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ colis.previous_page_number }}" aria-label="Précédent">
-                            <span aria-hidden="true">&laquo;</span>
-                        </a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled">
-                        <span class="page-link">&laquo;</span>
-                    </li>
-                    {% endif %}
-                    
-                    {% for i in colis.paginator.page_range %}
-                        {% if colis.number == i %}
-                        <li class="page-item active">
-                            <span class="page-link">{{ i }} <span class="sr-only">(actuel)</span></span>
-                        </li>
-                        {% else %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
-                        </li>
-                        {% endif %}
+        </div>
+    </div>
+    
+    <!-- Colis Arrivés -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: #10b981;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Arrivés</p>
+                    <h3 class="mb-0 fw-bold">{{ colis_arrives }}</h3>
+                    <small class="text-success">{{ taux_livraison|floatformat:0 }}% livré</small>
+                </div>
+                <i class="bi bi-check-circle" style="font-size: 2rem; color: #10b981;"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Colis Livrés -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: #8b5cf6;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Livrés</p>
+                    <h3 class="mb-0 fw-bold">{{ colis_livres }}</h3>
+                </div>
+                <i class="bi bi-check2-circle" style="font-size: 2rem; color: #8b5cf6;"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Colis Perdus -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: #ef4444;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Perdus</p>
+                    <h3 class="mb-0 fw-bold">{{ colis_perdus }}</h3>
+                </div>
+                <i class="bi bi-x-circle" style="font-size: 2rem; color: #ef4444;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques Financières -->
+<div class="row g-3 mb-4">
+    <!-- Valeur Totale -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: #f59e0b;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Valeur Colis</p>
+                    <h4 class="mb-0 fw-bold">{{ valeur_totale_colis|floatformat:0|intcomma }} F</h4>
+                </div>
+                <i class="bi bi-cash-stack" style="font-size: 2rem; color: #f59e0b;"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Prix Transport -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: #06b6d4;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Transport</p>
+                    <h4 class="mb-0 fw-bold">{{ prix_transport|floatformat:0|intcomma }} F</h4>
+                </div>
+                <i class="bi bi-truck" style="font-size: 2rem; color: #06b6d4;"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Frais Douane -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: #8b5cf6;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Frais Douane</p>
+                    <h4 class="mb-0 fw-bold">{{ frais_douane|floatformat:0|intcomma }} F</h4>
+                </div>
+                <i class="bi bi-shield-check" style="font-size: 2rem; color: #8b5cf6;"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bénéfice -->
+    <div class="col-md-3">
+        <div class="stat-card" style="border-left-color: {% if benefice >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted small mb-1">Bénéfice</p>
+                    <h4 class="mb-0 fw-bold {% if benefice >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ benefice|floatformat:0|intcomma }} F
+                    </h4>
+                    <small class="{% if benefice >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        Marge: {{ marge_beneficiaire|floatformat:1 }}%
+                    </small>
+                </div>
+                <i class="bi bi-graph-{% if benefice >= 0 %}up{% else %}down{% endif %}-arrow" style="font-size: 2rem; color: {% if benefice >= 0 %}#10b981{% else %}#ef4444{% endif %};"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des colis -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold">Liste des Colis ({{ total_colis }})</h5>
+        {% if lot.statut == 'arrive' and colis_arrives > 0 %}
+        <div>
+            <a href="{% url 'agent_mali:exporter_lot_pdf' lot.id %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-file-pdf"></i> Exporter PDF
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover colis-table mb-0">
+                <thead>
+                    <tr>
+                        <th>N° Suivi</th>
+                        <th>Client</th>
+                        <th>Poids</th>
+                        <th>Prix</th>
+                        <th class="text-center">Statut</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for colis_item in colis %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-secondary">{{ colis_item.numero_suivi }}</span>
+                        </td>
+                        <td>
+                            <strong>{{ colis_item.client.user.get_full_name }}</strong><br>
+                            <small class="text-muted">{{ colis_item.client.user.telephone }}</small>
+                        </td>
+                        <td>{{ colis_item.poids }} kg</td>
+                        <td><strong>{{ colis_item.prix_calcule|floatformat:0|intcomma }} F</strong></td>
+                        <td class="text-center">
+                            {% if colis_item.statut == 'arrive' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Arrivé</span>
+                            {% elif colis_item.statut == 'livre' %}
+                                <span class="badge" style="background: #8b5cf6;"><i class="bi bi-check2-circle"></i> Livré</span>
+                            {% elif colis_item.statut == 'perdu' %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Perdu</span>
+                            {% else %}
+                                <span class="badge bg-warning">{{ colis_item.get_statut_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="action-btn-group">
+                                {% if colis_item.statut == 'arrive' %}
+                                    <a href="{% url 'agent_mali:marquer_livre' colis_item.id %}" 
+                                       class="btn btn-sm btn-success" 
+                                       title="Marquer comme livré">
+                                        <i class="bi bi-check-circle"></i> Livrer
+                                    </a>
+                                    <a href="{% url 'agent_mali:marquer_perdu' colis_item.id %}" 
+                                       class="btn btn-sm btn-danger" 
+                                       title="Marquer comme perdu"
+                                       onclick="return confirm('Êtes-vous sûr de vouloir marquer ce colis comme perdu ?');">
+                                        <i class="bi bi-x-circle"></i> Perdu
+                                    </a>
+                                {% elif colis_item.statut == 'livre' %}
+                                    <span class="text-success"><i class="bi bi-check-circle-fill"></i> Livré</span>
+                                {% elif colis_item.statut == 'perdu' %}
+                                    <span class="text-danger"><i class="bi bi-x-circle-fill"></i> Perdu</span>
+                                {% else %}
+                                    <span class="text-muted">En attente</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                            <p class="text-muted mt-2">Aucun colis dans ce lot</p>
+                        </td>
+                    </tr>
                     {% endfor %}
-                    
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if colis.has_other_pages %}
+        <div class="card-footer bg-white">
+            <nav aria-label="Navigation des colis">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if colis.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ colis.previous_page_number }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ colis.number }} sur {{ colis.paginator.num_pages }}
+                        </span>
+                    </li>
+
                     {% if colis.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ colis.next_page_number }}" aria-label="Suivant">
-                            <span aria-hidden="true">&raquo;</span>
-                        </a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled">
-                        <span class="page-link">&raquo;</span>
-                    </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ colis.next_page_number }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ colis.paginator.num_pages }}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
                     {% endif %}
                 </ul>
             </nav>
-            {% endif %}
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

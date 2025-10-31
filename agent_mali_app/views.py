@@ -190,6 +190,7 @@ def dashboard_view(request):
     """
     # Statistiques des lots - inclure les lots expédiés comme en transit pour l'agent Mali
     lots_en_transit = Lot.objects.filter(statut__in=['expedie', 'en_transit']).count()
+    lots_receptionnes = Lot.objects.filter(statut='arrive').count()
     lots_arrives = Lot.objects.filter(statut='arrive').count()
     lots_expedies_total = Lot.objects.filter(statut='expedie').count()
     
@@ -292,12 +293,13 @@ def dashboard_view(request):
     ).aggregate(total=Sum('prix_calcule'))['total'] or 0
     
     # Calcul du bénéfice total des lots réceptionnés
-    lots_receptionnes = Lot.objects.filter(statut__in=['arrive', 'livre'])
-    benefice_total_lots = sum(float(lot.benefice or 0) for lot in lots_receptionnes if lot.benefice)
+    lots_receptionnes_queryset = Lot.objects.filter(statut__in=['arrive', 'livre'])
+    benefice_total_lots = sum(float(lot.benefice or 0) for lot in lots_receptionnes_queryset if lot.benefice)
     
     context = {
         'stats': {
             'lots_en_transit': lots_en_transit,
+            'lots_receptionnes': lots_receptionnes,
             'lots_arrives': lots_arrives,
             'lots_expedies_total': lots_expedies_total,
             'colis_en_transit': colis_en_transit,
@@ -529,10 +531,20 @@ Veuillez nous contacter pour discuter des démarches de compensation.
 📞 Contact: +223 XX XX XX XX
                     """.strip()
                     
+                    # Envoyer notification WhatsApp
                     NotificationService.send_notification(
                         user=colis.client.user,
                         message=message,
                         method='whatsapp',
+                        title="Colis Perdu",
+                        categorie='colis_perdu'
+                    )
+                    
+                    # Envoyer notification SMS
+                    NotificationService.send_notification(
+                        user=colis.client.user,
+                        message=message,
+                        method='sms',
                         title="Colis Perdu",
                         categorie='colis_perdu'
                     )
@@ -549,7 +561,7 @@ Veuillez nous contacter pour discuter des démarches de compensation.
         except Exception as e:
             messages.error(request, f"❌ Erreur lors du marquage comme perdu: {str(e)}")
     
-    return redirect('agent_mali:colis_a_livrer')
+    return redirect('agent_mali:lots_receptionnes')
 
 @agent_mali_required
 @require_http_methods(["GET"])
@@ -771,11 +783,17 @@ def lots_livres_view(request):
     # Calcul du bénéfice total des lots livrés
     benefice_total = sum(float(lot.benefice or 0) for lot in lots if lot.benefice)
     
-    # Calcul des revenus de livraison
+    # Calcul des revenus de livraison (depuis les livraisons, pas les colis)
     revenus_livraison = 0
     for lot in lots:
-        for colis in lot.colis.filter(statut='livre'):
-            revenus_livraison += float(colis.montant_livraison or 0)
+        livraisons = Livraison.objects.filter(
+            colis__lot=lot,
+            colis__statut='livre',
+            statut='livree'
+        )
+        for livraison in livraisons:
+            if livraison.montant_collecte:
+                revenus_livraison += float(livraison.montant_collecte)
     
     context = {
         'lots': lots_page,
@@ -794,11 +812,51 @@ def lots_livres_view(request):
     return render(request, 'agent_mali_app/lots_livres.html', context)
 
 @agent_mali_required
+def enregistrer_frais_douane_view(request, lot_id):
+    """
+    Enregistrer les frais de douane pour un lot - Étape obligatoire avant réception
+    """
+    lot = get_object_or_404(Lot, id=lot_id, statut__in=['expedie', 'en_transit'])
+    
+    if request.method == 'POST':
+        try:
+            frais_dedouanement = request.POST.get('frais_dedouanement', '0')
+            try:
+                frais_dedouanement = float(frais_dedouanement) if frais_dedouanement else 0.0
+                if frais_dedouanement < 0:
+                    frais_dedouanement = 0.0
+            except (ValueError, TypeError):
+                frais_dedouanement = 0.0
+            
+            # Validation : Les frais de douane sont obligatoires
+            if frais_dedouanement <= 0:
+                messages.error(request, "⚠️ Les frais de douane sont obligatoires. Veuillez saisir un montant supérieur à 0.")
+                return redirect('agent_mali:recevoir_lot', lot_id=lot.id)
+            
+            # Enregistrer les frais de douane dans le lot
+            lot.frais_douane = frais_dedouanement
+            lot.save(update_fields=['frais_douane'])
+            
+            messages.success(
+                request,
+                f"✅ Frais de douane enregistrés : {frais_dedouanement:,.0f} FCFA. Vous pouvez maintenant procéder à la réception des colis."
+            )
+            
+            return redirect('agent_mali:recevoir_lot', lot_id=lot.id)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de l'enregistrement : {str(e)}")
+            return redirect('agent_mali:recevoir_lot', lot_id=lot.id)
+    
+    # Si GET, rediriger vers la page de réception
+    return redirect('agent_mali:recevoir_lot', lot_id=lot.id)
+
+@agent_mali_required
 def recevoir_lot_view(request, lot_id):
     """
     Réceptionner un lot au Mali avec gestion de la réception partielle
     """
-    lot = get_object_or_404(Lot, id=lot_id, statut__in=['expedie', 'en_transit'])
+    lot = get_object_or_404(Lot, id=lot_id, statut__in=['expedie', 'en_transit', 'arrive'])
     
     # Calculer la valeur totale des colis
     total_parcel_value = sum(colis.get_prix_effectif() for colis in lot.colis.all())
@@ -808,7 +866,7 @@ def recevoir_lot_view(request, lot_id):
             commentaire = request.POST.get('commentaire', '')
             notifier_clients = request.POST.get('notifier_clients') == 'on'
             
-            # Récupérer les frais de dédouanement - OBLIGATOIRE
+            # Récupérer les frais de dédouanement depuis le POST ou utiliser ceux déjà enregistrés
             frais_dedouanement = request.POST.get('frais_dedouanement', '0')
             try:
                 frais_dedouanement = float(frais_dedouanement) if frais_dedouanement else 0.0
@@ -816,6 +874,10 @@ def recevoir_lot_view(request, lot_id):
                     frais_dedouanement = 0.0
             except (ValueError, TypeError):
                 frais_dedouanement = 0.0
+            
+            # Si les frais ne sont pas dans le POST, utiliser ceux du lot
+            if frais_dedouanement <= 0:
+                frais_dedouanement = float(lot.frais_douane or 0.0)
             
             # Validation : Les frais de douane sont obligatoires
             if frais_dedouanement <= 0:
@@ -971,45 +1033,7 @@ def recevoir_lot_view(request, lot_id):
         'is_first_reception': is_first_reception,
         'title': f'Réceptionner le lot {lot.numero_lot}',
     }
-    return render(request, 'agent_mali_app/recevoir_lot.html', context)
-
-@agent_mali_required
-def colis_a_livrer_view(request):
-    """
-    Liste des colis arrivés au Mali et prêts à être livrés
-    """
-    colis = Colis.objects.filter(
-        statut='arrive'
-    ).select_related('client__user', 'lot').order_by('-lot__date_arrivee')
-    
-    # Filtrage par recherche
-    search_query = request.GET.get('search', '')
-    if search_query:
-        colis = colis.filter(
-            Q(numero_suivi__icontains=search_query) |
-            Q(client__user__first_name__icontains=search_query) |
-            Q(client__user__last_name__icontains=search_query) |
-            Q(client__user__telephone__icontains=search_query)
-        )
-    
-    # Calcul de la valeur totale
-    valeur_totale = sum(float(c.prix_calcule) for c in colis)
-    
-    # Calcul du poids total
-    poids_total = sum(float(c.poids) for c in colis)
-    
-    # Calcul des clients uniques
-    clients_uniques = colis.values_list('client__id', flat=True).distinct().count()
-    
-    context = {
-        'colis': colis,
-        'search_query': search_query,
-        'valeur_totale': valeur_totale,
-        'poids_total': poids_total,
-        'clients_uniques': clients_uniques,
-        'title': 'Colis à Livrer',
-    }
-    return render(request, 'agent_mali_app/colis_a_livrer.html', context)
+    return render(request, 'agent_mali_app/recevoir_lot_new.html', context)
 
 @agent_mali_required
 def marquer_livre_view(request, colis_id):
@@ -1095,6 +1119,9 @@ def marquer_livre_view(request, colis_id):
                     lot.statut = 'livre'
                     lot.save()
                     messages.info(request, f"📦 Le lot {lot.numero_lot} est maintenant complètement livré !")
+                
+                # Recalculer le bénéfice du lot après livraison
+                lot.recalculer_benefice()
             
             # Mettre à jour le statut de paiement si le jeton couvre le montant total
             if jeton_cede and jeton_cede >= colis.get_prix_effectif():
@@ -1139,10 +1166,20 @@ Votre colis {colis.numero_suivi} a été livré avec succès.
 Merci d'avoir choisi TS Air Cargo !
                     """.strip()
                 
+                # Envoyer notification WhatsApp
                 NotificationService.send_notification(
                     user=colis.client.user,
                     message=message,
                     method='whatsapp',
+                    title="Colis Livré",
+                    categorie='colis_livre'
+                )
+                
+                # Envoyer notification SMS
+                NotificationService.send_notification(
+                    user=colis.client.user,
+                    message=message,
+                    method='sms',
                     title="Colis Livré",
                     categorie='colis_livre'
                 )
@@ -1151,7 +1188,8 @@ Merci d'avoir choisi TS Air Cargo !
                 pass
             
             messages.success(request, f"✅ Colis {colis.numero_suivi} marqué comme livré avec succès !")
-            return redirect('agent_mali:colis_a_livrer')
+            # Rediriger vers la page du lot pour continuer la livraison des autres colis
+            return redirect('agent_mali:details_lot', lot_id=lot.id)
             
         except Exception as e:
             messages.error(request, f"❌ Erreur lors de la livraison: {str(e)}")
@@ -1161,6 +1199,94 @@ Merci d'avoir choisi TS Air Cargo !
         'title': f'Livrer le colis {colis.numero_suivi}',
     }
     return render(request, 'agent_mali_app/marquer_livre.html', context)
+
+@agent_mali_required
+def marquer_perdu_view(request, colis_id):
+    """
+    Marquer un colis comme perdu
+    """
+    colis = get_object_or_404(Colis, id=colis_id, statut='arrive')
+    
+    if request.method == 'POST':
+        try:
+            raison = request.POST.get('raison', 'Non spécifiée')
+            notes = request.POST.get('notes', '')
+            
+            # Mettre à jour le statut du colis
+            colis.statut = 'perdu'
+            colis.save()
+            
+            # Créer une note dans le système (si vous avez un modèle Note)
+            # Sinon, on peut juste logger l'information
+            
+            # Vérifier si tous les colis du lot sont maintenant traités (livrés ou perdus)
+            lot = colis.lot
+            if lot and lot.statut == 'arrive':
+                total_colis = lot.colis.count()
+                colis_traites = lot.colis.filter(statut__in=['livre', 'perdu']).count()
+                
+                # Si tous les colis sont traités, passer le lot au statut "livre"
+                if colis_traites == total_colis:
+                    lot.statut = 'livre'
+                    lot.save()
+                    messages.info(request, f"📦 Le lot {lot.numero_lot} est maintenant complètement traité !")
+            
+            # Envoyer notification au client
+            try:
+                from django.conf import settings
+                
+                message = f"""
+⚠️ Information importante concernant votre colis
+
+Bonjour {colis.client.user.get_full_name()},
+
+Nous sommes désolés de vous informer que votre colis {colis.numero_suivi} a été marqué comme perdu.
+
+Raison: {raison}
+
+Notre équipe va enquêter sur cette situation. Nous vous contacterons très prochainement pour trouver une solution.
+
+Équipe TS Air Cargo
+                """.strip()
+                
+                # Envoyer notification WhatsApp
+                NotificationService.send_notification(
+                    user=colis.client.user,
+                    message=message,
+                    method='whatsapp',
+                    title="Colis Perdu",
+                    categorie='colis_perdu'
+                )
+                
+                # Envoyer notification SMS
+                NotificationService.send_notification(
+                    user=colis.client.user,
+                    message=message,
+                    method='sms',
+                    title="Colis Perdu",
+                    categorie='colis_perdu'
+                )
+            except Exception as notif_error:
+                pass
+            
+            messages.warning(request, f"⚠️ Colis {colis.numero_suivi} marqué comme perdu. Raison: {raison}")
+            
+            # Rediriger vers la page de détails du lot
+            if lot:
+                return redirect('agent_mali:details_lot', lot_id=lot.id)
+            else:
+                return redirect('agent_mali:lots_receptionnes')
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur: {str(e)}")
+            return redirect('agent_mali:details_lot', lot_id=colis.lot.id if colis.lot else None)
+    
+    # Si GET, afficher un formulaire de confirmation
+    context = {
+        'colis': colis,
+        'title': f'Marquer le colis {colis.numero_suivi} comme perdu',
+    }
+    return render(request, 'agent_mali_app/marquer_perdu.html', context)
 
 @agent_mali_required
 def depenses_view(request):
@@ -1255,7 +1381,7 @@ def appliquer_ajustement_view(request, colis_id):
     # Vérifier que le colis peut être ajusté
     if colis.statut not in ['arrive', 'livre']:
         messages.error(request, f"❌ Impossible d'ajuster le prix d'un colis au statut '{colis.get_statut_display()}'")
-        return redirect('agent_mali:colis_a_livrer')
+        return redirect('agent_mali:lots_receptionnes')
     
     if request.method == 'POST':
         try:
@@ -1373,7 +1499,7 @@ def annuler_ajustement_view(request, adjustment_id):
         except Exception as e:
             messages.error(request, f"❌ Erreur lors de l'annulation: {str(e)}")
     
-    return redirect('agent_mali:colis_a_livrer')
+    return redirect('agent_mali:lots_receptionnes')
 
 @agent_mali_required
 def ajustements_rapport_view(request):

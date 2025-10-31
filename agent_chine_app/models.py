@@ -139,7 +139,8 @@ class Lot(models.Model):
         if self.prix_transport is not None:
             total_colis = sum(float(colis.get_prix_effectif()) for colis in self.colis.all())
             frais_douane = float(self.frais_douane) if self.frais_douane is not None else 0.0
-            self.benefice = (float(self.prix_transport) + frais_douane) - total_colis
+            # Bénéfice = Revenus (prix colis) - Coûts (transport + douane)
+            self.benefice = total_colis - (float(self.prix_transport) + frais_douane)
         else:
             self.benefice = None
             
@@ -153,7 +154,8 @@ class Lot(models.Model):
         if self.prix_transport is not None:
             total_colis = sum(float(colis.get_prix_effectif()) for colis in self.colis.all())
             frais_douane = float(self.frais_douane) if self.frais_douane is not None else 0.0
-            self.benefice = (float(self.prix_transport) + frais_douane) - total_colis
+            # Bénéfice = Revenus (prix colis) - Coûts (transport + douane)
+            self.benefice = total_colis - (float(self.prix_transport) + frais_douane)
             self.save(update_fields=['benefice'])
             return True
         return False

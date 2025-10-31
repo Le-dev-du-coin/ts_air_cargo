@@ -1,0 +1,335 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load mali_filters %}
+
+{% block title %}Réceptionner Lot {{ lot.numero_lot }} - TS Air Cargo Mali{% endblock %}
+
+{% block content %}
+<!-- Header avec navigation -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1">Réceptionner le Lot {{ lot.numero_lot }}</h2>
+        <p class="text-muted mb-0">Confirmer la réception et notifier les clients</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:lots_en_transit' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- Étape 1 : Saisie des frais de douane (si pas encore saisis) -->
+{% if not lot.frais_douane or lot.frais_douane <= 0 %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow border-warning">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-currency-exchange me-2"></i>
+                    Étape 1/2 : Frais de dédouanement
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Information importante :</strong>
+                    <p class="mb-0 mt-2">Avant de commencer la réception des colis, vous devez d'abord saisir les frais de dédouanement du lot. <strong>Ces frais ne seront demandés qu'une seule fois.</strong></p>
+                </div>
+                
+                <form method="post" action="{% url 'agent_mali:enregistrer_frais_douane' lot.id %}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="frais_dedouanement" class="form-label fw-bold">
+                            <i class="bi bi-cash-stack me-1"></i>
+                            Montant des frais de douane <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group input-group-lg">
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="frais_dedouanement" 
+                                   name="frais_dedouanement"
+                                   min="0" 
+                                   step="1"
+                                   required
+                                   placeholder="Ex: 50000"
+                                   autofocus>
+                            <span class="input-group-text bg-success text-white fw-bold">FCFA</span>
+                        </div>
+                        <small class="form-text text-muted mt-2 d-block">
+                            <i class="bi bi-calculator"></i> Ces frais seront utilisés pour calculer le bénéfice net du lot
+                        </small>
+                    </div>
+                    
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="bi bi-box-seam me-1"></i> Informations du lot</h6>
+                            <div class="row small">
+                                <div class="col-6 mb-2">
+                                    <strong>Numéro :</strong> {{ lot.numero_lot }}
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <strong>Colis :</strong> {{ lot.colis.count }}
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <strong>Prix transport :</strong> {{ lot.prix_transport|floatformat:0 }} FCFA
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <strong>Valeur colis :</strong> {{ total_parcel_value|floatformat:0 }} FCFA
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-warning btn-lg">
+                            <i class="bi bi-arrow-right-circle me-2"></i>
+                            Enregistrer et passer à la réception
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Étape 2 : Réception des colis (frais déjà saisis) -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-box-seam me-2"></i>
+                    Lot {{ lot.numero_lot }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless table-sm">
+                            <tr>
+                                <td><strong>Numéro de lot:</strong></td>
+                                <td>{{ lot.numero_lot }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Statut actuel:</strong></td>
+                                <td>
+                                    {% if lot.statut == 'arrive' %}
+                                        <span class="badge bg-success">{{ lot.get_statut_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">{{ lot.get_statut_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date expédition:</strong></td>
+                                <td>{{ lot.date_expedition|date:"d/m/Y à H:i" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless table-sm">
+                            <tr>
+                                <td><strong>Nombre de colis:</strong></td>
+                                <td><span class="badge bg-info">{{ lot.colis.count }}</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Prix transport:</strong></td>
+                                <td class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} FCFA</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Frais de douane:</strong></td>
+                                <td class="fw-bold text-primary">
+                                    <i class="bi bi-check-circle text-success"></i>
+                                    {{ lot.frais_douane|floatformat:0 }} FCFA
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow border-success">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-check2-circle me-2"></i>
+                    Étape 2/2 : Réception
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if lot.statut != 'arrive' %}
+                    <div class="alert alert-success mb-3">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>Frais enregistrés</strong>
+                        <p class="mb-0 small">{{ lot.frais_douane|floatformat:0 }} FCFA</p>
+                    </div>
+                    
+                    <p class="small text-muted mb-3">
+                        Sélectionnez les colis à réceptionner puis cliquez sur le bouton ci-dessous.
+                    </p>
+                    
+                    <div class="d-grid">
+                        <button class="btn btn-success" onclick="showReceptionModal()">
+                            <i class="bi bi-download"></i> Réceptionner maintenant
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Réception terminée</strong>
+                        <p class="mb-0 small">{{ lot.reception_mali.nombre_colis_recus }}/{{ lot.colis.count }} colis</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des colis -->
+<div class="card shadow">
+    <div class="card-header">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="bi bi-boxes me-2"></i>
+            Colis dans ce lot ({{ lot.colis.count }})
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th width="50">
+                            <input type="checkbox" id="selectAll" onclick="toggleAllColis()">
+                        </th>
+                        <th>Code Colis</th>
+                        <th>Client</th>
+                        <th>Téléphone</th>
+                        <th>Poids</th>
+                        <th>Prix</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for colis in lot.colis.all %}
+                    <tr class="{% if colis.statut == 'arrive' or colis.statut == 'livre' %}table-success{% endif %}">
+                        <td>
+                            {% if colis.statut != 'arrive' and colis.statut != 'livre' %}
+                                <input type="checkbox" class="colis-checkbox" value="{{ colis.id }}" checked>
+                            {% else %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ colis.numero_suivi }}</div>
+                            <small class="text-muted">{{ colis.description|truncatechars:30 }}</small>
+                        </td>
+                        <td>{{ colis.client.user.get_full_name }}</td>
+                        <td>{{ colis.client.user.telephone }}</td>
+                        <td><span class="badge bg-secondary">{{ colis.poids }} kg</span></td>
+                        <td class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</td>
+                        <td>
+                            {% if colis.statut == 'arrive' %}
+                                <span class="badge bg-success">Arrivé</span>
+                            {% elif colis.statut == 'livre' %}
+                                <span class="badge bg-primary">Livré</span>
+                            {% else %}
+                                <span class="badge bg-warning">En transit</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal de confirmation -->
+<div class="modal fade" id="receptionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-download me-2"></i>
+                    Confirmer la réception
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="frais_dedouanement" value="{{ lot.frais_douane }}">
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Colis sélectionnés :</strong> <span id="nbColisSelected">0</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-chat-left-text me-1"></i>
+                            Commentaire (optionnel)
+                        </label>
+                        <textarea class="form-control" name="commentaire" rows="2" placeholder="Notes sur la réception..."></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="notifier_clients" id="notifier_clients" checked>
+                        <label class="form-check-label" for="notifier_clients">
+                            <i class="bi bi-bell"></i> Notifier les clients par WhatsApp
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Confirmer la réception
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleAllColis() {
+        const checkboxes = document.querySelectorAll('.colis-checkbox');
+        const selectAll = document.getElementById('selectAll');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    }
+    
+    function showReceptionModal() {
+        const checkedBoxes = document.querySelectorAll('.colis-checkbox:checked');
+        
+        if (checkedBoxes.length === 0) {
+            alert('⚠️ Veuillez sélectionner au moins un colis à réceptionner.');
+            return;
+        }
+        
+        // Ajouter les IDs des colis au formulaire
+        const form = document.querySelector('#receptionModal form');
+        const existingInputs = form.querySelectorAll('input[name="colis_recus"]');
+        existingInputs.forEach(input => input.remove());
+        
+        checkedBoxes.forEach(checkbox => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'colis_recus';
+            input.value = checkbox.value;
+            form.appendChild(input);
+        });
+        
+        document.getElementById('nbColisSelected').textContent = checkedBoxes.length;
+        
+        const modal = new bootstrap.Modal(document.getElementById('receptionModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}
