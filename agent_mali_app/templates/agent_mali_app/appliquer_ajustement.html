@@ -47,12 +47,12 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'agent_mali:dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'agent_mali:colis_a_livrer' %}">Colis à Livrer</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'agent_mali:lots_receptionnes' %}">Lots Réceptionnés</a></li>
                     <li class="breadcrumb-item active">Ajuster Prix</li>
                 </ol>
             </nav>
         </div>
-        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-secondary">
+        <a href="{% url 'agent_mali:lots_receptionnes' %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Retour
         </a>
     </div>
@@ -177,7 +177,7 @@
 
                 <!-- Boutons -->
                 <div class="d-flex justify-content-between">
-                    <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-secondary">
+                    <a href="{% url 'agent_mali:lots_receptionnes' %}" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Annuler
                     </a>
                     <button type="submit" class="btn btn-success btn-lg">

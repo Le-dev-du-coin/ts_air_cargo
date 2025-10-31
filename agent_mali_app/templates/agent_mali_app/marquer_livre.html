@@ -11,8 +11,8 @@
         <p class="text-muted mb-0">Confirmer la livraison du colis {{ colis.numero_suivi }}</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{% url 'agent_mali:colis_a_livrer' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Retour
+        <a href="{% url 'agent_mali:details_lot' colis.lot.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour au lot
         </a>
     </div>
 </div>
