@@ -260,51 +260,18 @@
                         </div>
                     </div>
 
-                    <!-- Liste des colis du lot -->
-                    <div class="mt-3">
-                        <h6 class="mb-3">Colis du lot ({{ lot.colis.count }})</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>N° Suivi</th>
-                                        <th>Client</th>
-                                        <th>Poids</th>
-                                        <th>Prix</th>
-                                        <th>Statut</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for colis in lot.colis.all %}
-                                    <tr>
-                                        <td><span class="badge bg-secondary">{{ colis.numero_suivi }}</span></td>
-                                        <td>{{ colis.client.user.get_full_name }}</td>
-                                        <td>{{ colis.poids }} kg</td>
-                                        <td>{{ colis.prix_calcule|floatformat:0|intcomma }} F</td>
-                                        <td>
-                                            {% if colis.statut == 'arrive' %}
-                                                <span class="badge bg-success">Arrivé</span>
-                                            {% elif colis.statut == 'livre' %}
-                                                <span class="badge bg-primary">Livré</span>
-                                            {% else %}
-                                                <span class="badge bg-warning">{{ colis.get_statut_display }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if colis.statut == 'arrive' %}
-                                                <a href="{% url 'agent_mali:marquer_livre' colis.id %}" 
-                                                   class="btn btn-sm btn-success">
-                                                    <i class="bi bi-check-circle"></i> Livrer
-                                                </a>
-                                            {% elif colis.statut == 'livre' %}
-                                                <span class="text-success"><i class="bi bi-check-circle-fill"></i> Livré</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                    <!-- Résumé des colis -->
+                    <div class="alert alert-success border-0 mb-0">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <span>
+                                    Ce lot contient <strong>{{ lot.colis.count }} colis</strong> réceptionnés et prêts à être livrés
+                                </span>
+                            </div>
+                            <a href="{% url 'agent_mali:details_lot' lot.id %}" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-list-ul"></i> Voir tous les colis
+                            </a>
                         </div>
                     </div>
 
