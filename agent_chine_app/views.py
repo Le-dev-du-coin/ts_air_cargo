@@ -882,8 +882,14 @@ def colis_create_view(request, lot_id):
     
     lot = get_object_or_404(Lot, id=lot_id)
     
+    # Empêcher l'ajout de colis à un lot fermé, expédié ou livré
     if lot.statut != 'ouvert':
-        messages.error(request, "Impossible d'ajouter des colis à un lot fermé.")
+        if lot.statut == 'expedie':
+            messages.error(request, "❌ Impossible d'ajouter des colis à un lot expédié. Le lot est actuellement en transit.")
+        elif lot.statut == 'livre':
+            messages.error(request, "❌ Impossible d'ajouter des colis à un lot livré. Ce lot est clôturé.")
+        else:
+            messages.error(request, f"❌ Impossible d'ajouter des colis à ce lot (statut: {lot.get_statut_display()}). Seuls les lots ouverts peuvent recevoir de nouveaux colis.")
         return redirect('agent_chine:lot_detail', lot_id=lot_id)
     
     if request.method == 'POST':
@@ -1002,6 +1008,14 @@ def colis_edit_view(request, colis_id):
     
     colis = get_object_or_404(Colis, id=colis_id)
     
+    # Empêcher la modification d'un colis dans un lot expédié ou livré
+    if colis.lot.statut in ['expedie', 'livre']:
+        if colis.lot.statut == 'expedie':
+            messages.error(request, f"❌ Impossible de modifier le colis {colis.numero_suivi}. Le lot {colis.lot.numero_lot} est expédié et en transit. Contactez l'équipe Mali pour toute modification.")
+        else:  # livre
+            messages.error(request, f"❌ Impossible de modifier le colis {colis.numero_suivi}. Le lot {colis.lot.numero_lot} est livré et clôturé.")
+        return redirect('agent_chine:colis_detail', colis_id=colis.id)
+    
     if request.method == 'POST':
         try:
             # Récupérer les données du formulaire
@@ -1098,8 +1112,19 @@ def colis_delete_view(request, colis_id):
     """
     colis = get_object_or_404(Colis, id=colis_id)
     lot_id = colis.lot.id
+    
+    # Empêcher la suppression d'un colis dans un lot fermé, expédié ou livré
+    if colis.lot.statut != 'ouvert':
+        if colis.lot.statut == 'ferme':
+            messages.error(request, f"❌ Impossible de supprimer le colis {colis.numero_suivi}. Le lot {colis.lot.numero_lot} est fermé. Veuillez réouvrir le lot ou contacter un administrateur.")
+        elif colis.lot.statut == 'expedie':
+            messages.error(request, f"❌ Impossible de supprimer le colis {colis.numero_suivi}. Le lot {colis.lot.numero_lot} est expédié et en transit.")
+        else:  # livre
+            messages.error(request, f"❌ Impossible de supprimer le colis {colis.numero_suivi}. Le lot {colis.lot.numero_lot} est livré et clôturé.")
+        return redirect('agent_chine:colis_detail', colis_id=colis.id)
+    
     colis.delete()
-    messages.success(request, "Colis supprimé avec succès.")
+    messages.success(request, f"✅ Colis {colis.numero_suivi} supprimé avec succès.")
     return redirect('agent_chine:lot_detail', lot_id=lot_id)
 
 # === API ===
