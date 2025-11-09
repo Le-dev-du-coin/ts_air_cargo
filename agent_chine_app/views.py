@@ -476,6 +476,7 @@ def client_edit_view(request, client_id):
         'client': client,
         'title': 'Modifier Client',
         'submit_text': 'Mettre à jour',
+        'countries': Client._meta.get_field('pays').choices,
     }
     return render(request, 'agent_chine_app/client_form.html', context)
 
@@ -877,7 +878,7 @@ def colis_create_view(request, lot_id):
                 'largeur': largeur or 0,
                 'hauteur': hauteur or 0,
                 'poids': poids or 0,
-                'prix_transport_manuel': calculate_manual_price_total(prix_transport_manuel, poids) if prix_transport_manuel and prix_transport_manuel.strip() else None,
+                'prix_transport_manuel': float(prix_transport_manuel) if prix_transport_manuel and prix_transport_manuel.strip() else None,
                 'mode_paiement': mode_paiement or 'non_paye',
                 'statut': statut,
                 'description': description
@@ -988,7 +989,7 @@ def colis_edit_view(request, colis_id):
                 'largeur': largeur or colis.largeur,
                 'hauteur': hauteur or colis.hauteur,
                 'poids': poids or colis.poids,
-                'prix_transport_manuel': calculate_manual_price_total(prix_transport_manuel, poids or colis.poids) if prix_transport_manuel and prix_transport_manuel.strip() else None,
+                'prix_transport_manuel': float(prix_transport_manuel) if prix_transport_manuel and prix_transport_manuel.strip() else None,
                 'mode_paiement': mode_paiement or colis.mode_paiement,
                 'statut': statut or colis.statut,
                 'description': description
@@ -1239,27 +1240,7 @@ def calculate_default_price(poids, volume_m3, type_transport):
         return poids * tarifs_defaut.get(type_transport, 10000)
 
 
-def calculate_manual_price_total(prix_par_kilo_str, poids_str):
-    """
-    Calcule le prix total à partir du prix par kilo et du poids
-    
-    Args:
-        prix_par_kilo_str (str): Prix par kilo saisi dans le formulaire
-        poids_str (str): Poids du colis
-        
-    Returns:
-        float: Prix total (prix par kilo * poids)
-    """
-    try:
-        prix_par_kilo = float(prix_par_kilo_str or 0)
-        poids = float(poids_str or 0)
-        
-        if prix_par_kilo <= 0 or poids <= 0:
-            return None
-            
-        return prix_par_kilo * poids
-    except (ValueError, TypeError):
-        return None
+# Fonction calculate_manual_price_total supprimée - Prix manuel maintenant saisi directement comme TOTAL
 
 # === VUES GESTION TÂCHES ASYNCHRONES ===
 
