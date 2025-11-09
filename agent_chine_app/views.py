@@ -39,15 +39,45 @@ def agent_chine_required(view_func):
 def dashboard_view(request):
     """
     Tableau de bord pour Agent Chine avec statistiques dynamiques et indicateurs de performance
+    Utilise le cache Django pour optimiser les performances (timeout: 5 min)
     """
     from datetime import datetime, timedelta
     from django.db.models import Sum, Avg, Count, F, Q
     from django.db.models.functions import TruncMonth
+    from django.core.cache import cache
     
-    # Statistiques générales
-    total_clients = Client.objects.count()
-    total_lots = Lot.objects.count()
-    total_colis = Colis.objects.count()
+    # Clé de cache unique par utilisateur
+    cache_key = f'dashboard_stats_{request.user.id}'
+    
+    # Essayer de récupérer les stats du cache
+    cached_stats = cache.get(cache_key)
+    
+    if cached_stats:
+        # Utiliser les stats en cache
+        total_clients = cached_stats['total_clients']
+        total_lots = cached_stats['total_lots']
+        total_colis = cached_stats['total_colis']
+        lots_ouverts = cached_stats['lots_ouverts']
+        lots_fermes = cached_stats['lots_fermes']
+        lots_expedies = cached_stats['lots_expedies']
+        colis_recus = cached_stats['colis_recus']
+        colis_en_transit = cached_stats['colis_en_transit']
+        colis_en_attente = cached_stats['colis_en_attente']
+        revenus_mois = cached_stats['revenus_mois']
+        revenus_mois_precedent = cached_stats['revenus_mois_precedent']
+        evolution_revenus = cached_stats['evolution_revenus']
+        total_revenus = cached_stats['total_revenus']
+        revenus_par_mois = cached_stats['revenus_par_mois']
+        croissance_clients = cached_stats['croissance_clients']
+        taux_remplissage = cached_stats['taux_remplissage']
+        taux_conversion = cached_stats['taux_conversion']
+        temps_traitement = cached_stats['temps_traitement']
+    else:
+        # Calculer les statistiques
+        # Statistiques générales
+        total_clients = Client.objects.count()
+        total_lots = Lot.objects.count()
+        total_colis = Colis.objects.count()
     
     # Lots par statut
     lots_ouverts = Lot.objects.filter(statut='ouvert').count()
@@ -199,6 +229,29 @@ def dashboard_view(request):
         taux_remplissage = 0
         taux_conversion = 0
         temps_traitement = 0
+        
+        # Sauvegarder les statistiques en cache (5 minutes)
+        cache_data = {
+            'total_clients': total_clients,
+            'total_lots': total_lots,
+            'total_colis': total_colis,
+            'lots_ouverts': lots_ouverts,
+            'lots_fermes': lots_fermes,
+            'lots_expedies': lots_expedies,
+            'colis_recus': colis_recus,
+            'colis_en_transit': colis_en_transit,
+            'colis_en_attente': colis_en_attente,
+            'revenus_mois': revenus_mois,
+            'revenus_mois_precedent': revenus_mois_precedent,
+            'evolution_revenus': evolution_revenus,
+            'total_revenus': total_revenus,
+            'revenus_par_mois': revenus_par_mois,
+            'croissance_clients': croissance_clients,
+            'taux_remplissage': taux_remplissage,
+            'taux_conversion': taux_conversion,
+            'temps_traitement': temps_traitement,
+        }
+        cache.set(cache_key, cache_data, 300)  # 300 secondes = 5 minutes
     
     context = {
         'stats': {

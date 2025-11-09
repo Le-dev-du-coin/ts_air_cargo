@@ -53,11 +53,17 @@
     </div>
 </div>
 
-<!-- Bouton Nouveau Client -->
-<div class="d-flex justify-content-end mb-3">
+<!-- Boutons d'action -->
+<div class="d-flex justify-content-end gap-2 mb-3">
+    <a href="{% url 'agent_chine:export_clients_csv' %}" class="btn btn-success" data-bs-toggle="tooltip" title="Exporter tous les clients en CSV">
+        <i class="bi bi-download me-1"></i>
+        <span class="d-none d-sm-inline">Exporter CSV</span>
+        <span class="d-sm-none">CSV</span>
+    </a>
     <a href="{% url 'agent_chine:client_create' %}" class="btn btn-primary">
         <i class="bi bi-person-plus me-1"></i>
         <span class="d-none d-sm-inline">Nouveau Client</span>
+        <span class="d-sm-none">Nouveau</span>
     </a>
 </div>
 
