@@ -293,11 +293,13 @@
                             </div>
                         </div>
 
-                        <!-- Message d'information sur la création du compte -->
+                        <!-- Message d'information sur la création du compte (uniquement en mode création) -->
+                        {% if not client %}
                         <div class="alert alert-info mb-4">
                             <i class="bi bi-info-circle me-2"></i>
                             Un mot de passe fort sera généré automatiquement et envoyé au client par WhatsApp lors de la création du compte.
                         </div>
+                        {% endif %}
                         
                         <!-- Boutons d'action -->
                         <div class="form-actions">
@@ -427,28 +429,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-
-// Fonction pour formater le numéro de téléphone
-function formatPhoneNumber(input) {
-    // Ne formater que si l'utilisateur est en train de taper
-    if (document.activeElement !== input) return;
-    
-    let value = input.value.replace(/\D/g, '');
-    
-    // Si le numéro commence par 223 et a plus de 3 chiffres, ajouter le +
-    if (value.startsWith('223') && value.length > 3) {
-        value = '+' + value;
-    }
-    
-    // Formater: +223 XX XX XX XX
-    if (value.startsWith('+223') && value.length > 4) {
-        const formatted = value.replace(/(\+223)(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
-        input.value = formatted;
-    } else if (value.length > 0) {
-        // Pour les numéros courts, ne pas ajouter de formatage
-        input.value = value;
-    }
-}
-
 </script>
 {% endblock %}
