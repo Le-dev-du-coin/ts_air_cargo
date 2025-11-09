@@ -166,3 +166,18 @@ def stat_card(title, value, icon, color='primary', subtitle=None):
         'color': color,
         'subtitle': subtitle
     }
+
+@register.filter
+def format_currency(value):
+    """
+    Formate un montant avec séparateur de milliers
+    Usage: {{ montant|format_currency }}
+    Retourne: 1 000 000 pour 1000000
+    """
+    try:
+        # Convertir en float puis en int pour enlever les décimales
+        value = int(float(value))
+        # Formater avec séparateur d'espace pour les milliers
+        return "{:,}".format(value).replace(',', ' ')
+    except (ValueError, TypeError):
+        return '0'

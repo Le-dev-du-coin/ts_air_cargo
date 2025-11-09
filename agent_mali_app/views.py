@@ -12,6 +12,7 @@ from django.conf import settings
 import os
 import json
 import datetime
+from datetime import date, timedelta
 # NOTE: xhtml2pdf disabled due to cryptography incompatibility with Python 3.13
 # TODO: Re-enable when compatible version is available or migrate to weasyprint
 # from xhtml2pdf import pisa

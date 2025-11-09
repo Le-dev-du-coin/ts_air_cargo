@@ -12,6 +12,12 @@
         <p class="text-muted mb-0">Confirmer la réception et notifier les clients</p>
     </div>
     <div class="d-flex gap-2">
+        <a href="{% url 'agent_mali:export_colis_pdf' lot.id %}" class="btn btn-danger" title="Exporter en PDF">
+            <i class="bi bi-file-pdf"></i> PDF
+        </a>
+        <a href="{% url 'agent_mali:export_colis_excel' lot.id %}" class="btn btn-success" title="Exporter en Excel">
+            <i class="bi bi-file-excel"></i> Excel
+        </a>
         <a href="{% url 'agent_mali:lots_en_transit' %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Retour
         </a>
@@ -71,10 +77,13 @@
                                     <strong>Colis :</strong> {{ lot.colis.count }}
                                 </div>
                                 <div class="col-6 mb-2">
-                                    <strong>Prix transport :</strong> {{ lot.prix_transport|floatformat:0 }} FCFA
+                                    <strong>Poids total :</strong> {{ total_poids|floatformat:2 }} kg
                                 </div>
                                 <div class="col-6 mb-2">
-                                    <strong>Valeur colis :</strong> {{ total_parcel_value|floatformat:0 }} FCFA
+                                    <strong>Prix transport :</strong> {{ lot.prix_transport|format_currency }} FCFA
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <strong>Valeur colis :</strong> {{ total_parcel_value|format_currency }} FCFA
                                 </div>
                             </div>
                         </div>
@@ -134,14 +143,18 @@
                                 <td><span class="badge bg-info">{{ lot.colis.count }}</span></td>
                             </tr>
                             <tr>
+                                <td><strong>Poids total:</strong></td>
+                                <td class="fw-bold">{{ total_poids|floatformat:2 }} kg</td>
+                            </tr>
+                            <tr>
                                 <td><strong>Prix transport:</strong></td>
-                                <td class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} FCFA</td>
+                                <td class="text-success fw-bold">{{ lot.prix_transport|format_currency }} FCFA</td>
                             </tr>
                             <tr>
                                 <td><strong>Frais de douane:</strong></td>
                                 <td class="fw-bold text-primary">
                                     <i class="bi bi-check-circle text-success"></i>
-                                    {{ lot.frais_douane|floatformat:0 }} FCFA
+                                    {{ lot.frais_douane|format_currency }} FCFA
                                 </td>
                             </tr>
                         </table>
@@ -164,7 +177,7 @@
                     <div class="alert alert-success mb-3">
                         <i class="bi bi-check-circle me-2"></i>
                         <strong>Frais enregistrés</strong>
-                        <p class="mb-0 small">{{ lot.frais_douane|floatformat:0 }} FCFA</p>
+                        <p class="mb-0 small">{{ lot.frais_douane|format_currency }} FCFA</p>
                     </div>
                     
                     <p class="small text-muted mb-3">
@@ -229,7 +242,7 @@
                         <td>{{ colis.client.user.get_full_name }}</td>
                         <td>{{ colis.client.user.telephone }}</td>
                         <td><span class="badge bg-secondary">{{ colis.poids }} kg</span></td>
-                        <td class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</td>
+                        <td class="text-success fw-bold">{{ colis.prix_calcule|format_currency }} FCFA</td>
                         <td>
                             {% if colis.statut == 'arrive' %}
                                 <span class="badge bg-success">Arrivé</span>
