@@ -15,6 +15,7 @@ urlpatterns = [
     path('clients/create/', views.client_create_view, name='client_create'),
     path('clients/<int:client_id>/', views.client_detail_view, name='client_detail'),
     path('clients/<int:client_id>/edit/', views.client_edit_view, name='client_edit'),
+    path('clients/export-csv/', views.export_clients_csv, name='export_clients_csv'),
     path('clients/<int:client_id>/reset-password/', views.client_reset_password_view, name='client_reset_password'),  # POST only
     path('clients/<int:client_id>/reset-password-sms/', views_password_reset_sms.client_reset_password_sms_view, name='client_reset_password_sms'),  # POST only - SMS uniquement
     path('clients/<int:client_id>/send-sms/', views_send_sms.send_custom_sms_view, name='send_custom_sms'),  # GET + POST - Envoyer SMS personnalisé
@@ -33,6 +34,7 @@ urlpatterns = [
     path('colis/<int:colis_id>/', views.colis_detail_view, name='colis_detail'),
     path('colis/<int:colis_id>/edit/', views.colis_edit_view, name='colis_edit'),
     path('colis/<int:colis_id>/delete/', views.colis_delete_view, name='colis_delete'),
+    path('colis/export-csv/', views.export_colis_csv, name='export_colis_csv'),
     
     # API pour calcul de prix automatique
     path('api/calculate-price/', views.calculate_price_api, name='calculate_price_api'),

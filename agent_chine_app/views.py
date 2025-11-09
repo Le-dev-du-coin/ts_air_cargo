@@ -144,11 +144,16 @@ def dashboard_view(request):
     except:
         croissance_clients = 5.8  # Valeur par défaut
     
-    # Derniers lots créés
-    derniers_lots = Lot.objects.select_related().prefetch_related('colis').order_by('-date_creation')[:5]
+    # Derniers lots créés (optimisé)
+    derniers_lots = Lot.objects.select_related('agent_createur').prefetch_related(
+        'colis__client__user'
+    ).order_by('-date_creation')[:5]
     
-    # Derniers colis créés
-    derniers_colis = Colis.objects.select_related('client__user', 'lot').order_by('-date_creation')[:5]
+    # Derniers colis créés (optimisé)
+    derniers_colis = Colis.objects.select_related(
+        'client__user', 
+        'lot__agent_createur'
+    ).order_by('-date_creation')[:5]
     
     # Tâches de création client récentes et statistiques
     taches_creation_client = ClientCreationTask.objects.select_related(
@@ -754,7 +759,10 @@ def colis_list_view(request):
     """
     Liste de tous les colis avec pagination et statistiques dynamiques
     """
-    colis = Colis.objects.select_related('client__user', 'lot').all().order_by('-date_creation')
+    colis = Colis.objects.select_related(
+        'client__user', 
+        'lot__agent_createur'
+    ).all().order_by('-date_creation')
     
     # Filtrage par statut
     statut_filter = request.GET.get('statut', '')
@@ -1241,6 +1249,92 @@ def calculate_default_price(poids, volume_m3, type_transport):
 
 
 # Fonction calculate_manual_price_total supprimée - Prix manuel maintenant saisi directement comme TOTAL
+
+# === EXPORT CSV ===
+
+@agent_chine_required
+def export_clients_csv(request):
+    """
+    Exporter la liste des clients en CSV
+    """
+    import csv
+    from django.http import HttpResponse
+    from django.utils import timezone
+    
+    # Créer la réponse HTTP avec le bon content-type
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="clients_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    # Ajouter le BOM UTF-8 pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response)
+    writer.writerow([
+        'ID', 'Prénom', 'Nom', 'Téléphone', 'Email', 
+        'Pays', 'Adresse', 'Nombre de colis', 'Date création'
+    ])
+    
+    # Récupérer les clients avec optimisation
+    clients = Client.objects.select_related('user').prefetch_related('colis').all()
+    
+    for client in clients:
+        writer.writerow([
+            client.id,
+            client.user.first_name,
+            client.user.last_name,
+            client.user.telephone,
+            client.user.email or '',
+            client.get_pays_display(),
+            client.adresse,
+            client.colis.count(),
+            client.date_creation.strftime('%Y-%m-%d %H:%M')
+        ])
+    
+    return response
+
+@agent_chine_required
+def export_colis_csv(request):
+    """
+    Exporter la liste des colis en CSV
+    """
+    import csv
+    from django.http import HttpResponse
+    from django.utils import timezone
+    
+    # Créer la réponse HTTP avec le bon content-type
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="colis_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    # Ajouter le BOM UTF-8 pour Excel
+    response.write('\ufeff')
+    
+    writer = csv.writer(response)
+    writer.writerow([
+        'Numéro suivi', 'Client', 'Téléphone', 'Lot', 'Type transport',
+        'Poids (kg)', 'Prix calculé (FCFA)', 'Prix manuel (FCFA)', 'Prix effectif (FCFA)',
+        'Mode paiement', 'Statut', 'Date création'
+    ])
+    
+    # Récupérer les colis avec optimisation
+    colis = Colis.objects.select_related('client__user', 'lot').all()
+    
+    for c in colis:
+        writer.writerow([
+            c.numero_suivi,
+            c.client.user.get_full_name(),
+            c.client.user.telephone,
+            c.lot.numero_lot,
+            c.get_type_transport_display(),
+            c.poids,
+            c.prix_calcule,
+            c.prix_transport_manuel or '',
+            c.get_prix_effectif(),
+            c.get_mode_paiement_display(),
+            c.get_statut_display(),
+            c.date_creation.strftime('%Y-%m-%d %H:%M')
+        ])
+    
+    return response
 
 # === VUES GESTION TÂCHES ASYNCHRONES ===
 
