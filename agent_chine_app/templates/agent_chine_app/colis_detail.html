@@ -1,5 +1,6 @@
 {% extends 'components/base_agent.html' %}
 {% load static %}
+{% load agent_chine_filters %}
 
 {% block title %}Colis {{ colis.numero_suivi }} - TS Air Cargo{% endblock %}
 {% block page_title %}Détails du Colis{% endblock %}
@@ -70,7 +71,7 @@
         <div class="stat-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h3 class="stat-value">{{ colis.prix_calcule|floatformat:0 }}</h3>
+                    <h3 class="stat-value">{{ colis.get_prix_effectif|cfa }}</h3>
                     <p class="stat-label">Prix (FCFA)</p>
                     <div class="stat-change {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}positive{% endif %}">
                         <i class="bi bi-credit-card"></i>

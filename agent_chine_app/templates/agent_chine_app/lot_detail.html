@@ -1,5 +1,6 @@
 {% extends 'components/base_agent.html' %}
 {% load static %}
+{% load agent_chine_filters %}
 
 {% block title %}Lot {{ lot.numero_lot }} - TS Air Cargo{% endblock %}
 {% block page_title %}Détails du Lot{% endblock %}
@@ -272,7 +273,7 @@
                                     <span class="fw-bold">{{ colis.poids }}kg</span>
                                 </td>
                                 <td>
-                                    <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                                    <span class="text-success fw-bold">{{ colis.get_prix_effectif|cfa_with_currency }}</span>
                                 </td>
                                 <td>
                                     <span class="status-badge status-{{ colis.statut }}">
@@ -346,7 +347,7 @@
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                        <span class="text-success fw-bold">{{ colis.get_prix_effectif|cfa_with_currency }}</span>
                         <div class="d-flex gap-1">
                             <a href="{% url 'agent_chine:colis_detail' colis.id %}" class="btn btn-sm btn-primary">
                                 <i class="bi bi-eye"></i>

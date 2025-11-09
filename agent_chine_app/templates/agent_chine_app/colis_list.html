@@ -1,5 +1,6 @@
 {% extends 'components/base_agent.html' %}
 {% load static %}
+{% load agent_chine_filters %}
 
 {% block title %}Liste des Colis - TS Air Cargo{% endblock %}
 {% block page_title %}Gestion des Colis{% endblock %}
@@ -185,7 +186,7 @@
                                 </td>
                                 <td>
                                     <div>
-                                        <span class="text-success fw-bold">{{ colis.prix_effectif|floatformat:0 }} FCFA</span>
+                                        <span class="text-success fw-bold">{{ colis.prix_effectif|cfa_with_currency }}</span>
                                         {% if colis.prix_transport_manuel %}
                                             <br><small class="text-primary"><i class="bi bi-pencil-square"></i> Manuel</small>
                                         {% else %}
@@ -272,7 +273,7 @@
                     
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
-                            <span class="text-success fw-bold">{{ colis.prix_effectif|floatformat:0 }} FCFA</span>
+                            <span class="text-success fw-bold">{{ colis.prix_effectif|cfa_with_currency }}</span>
                             {% if colis.prix_transport_manuel %}
                                 <small class="text-primary d-block"><i class="bi bi-pencil-square"></i> Prix manuel</small>
                             {% else %}

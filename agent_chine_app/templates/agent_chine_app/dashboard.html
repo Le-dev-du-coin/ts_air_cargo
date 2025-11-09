@@ -1,6 +1,7 @@
 {% extends 'components/base_agent.html' %}
 {% load static %}
 {% load humanize %}
+{% load agent_chine_filters %}
 
 {% block title %}Tableau de Bord Agent Chine - TS Air Cargo{% endblock %}
 
@@ -356,7 +357,7 @@
         <div class="stat-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h3 class="stat-value">{{ stats.revenus_mois|floatformat:0|intcomma }} CFA</h3>
+                    <h3 class="stat-value">{{ stats.revenus_mois|cfa_with_currency }}</h3>
                     <p class="stat-label">Revenus du Mois</p>
                     <div class="stat-change {% if stats.evolution_revenus >= 0 %}positive{% else %}negative{% endif %}">
                         <i class="bi {% if stats.evolution_revenus >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
@@ -366,7 +367,7 @@
                 <i class="bi bi-cash-stack stat-icon" style="color: #10b981;"></i>
             </div>
             <div class="mt-3">
-                <small class="text-muted">Total: {{ stats.total_revenus|default:0|floatformat:0|intcomma }} CFA</small>
+                <small class="text-muted">Total: {{ stats.total_revenus|cfa_with_currency }}</small>
             </div>
         </div>
     </div>

@@ -636,7 +636,9 @@ def notify_colis_created(colis_id, initiated_by_id=None):
         if colis.image:
             photo_message = "\n\n📷 Une photo de votre colis a été prise.\n💻 Connectez-vous à votre compte client pour la consulter."
         
-        # Préparer le message
+        # Préparer le message avec le prix effectif (respecte le prix manuel)
+        prix_effectif = colis.get_prix_effectif()
+        
         if getattr(settings, 'DEBUG', True):
             message = f"""✅ [MODE DEV] Nouveau colis enregistré !
 
@@ -647,7 +649,7 @@ def notify_colis_created(colis_id, initiated_by_id=None):
 🚚 Type: {colis.get_type_transport_display()}
 📦 Lot: {colis.lot.numero_lot}
 📍 Statut: {colis.get_statut_display()}
-💰 Prix: {format_cfa(colis.prix_calcule)} FCFA
+💰 Prix: {format_cfa(prix_effectif)} FCFA
 
 {details_transport}{photo_message}
 
@@ -656,7 +658,7 @@ def notify_colis_created(colis_id, initiated_by_id=None):
 Merci de votre confiance !
 Équipe TS Air Cargo 🚀"""
         else:
-            message = f"""✅ Votre colis {colis.numero_suivi} a été enregistré dans le lot {colis.lot.numero_lot}. Type: {colis.get_type_transport_display()}. Prix: {format_cfa(colis.prix_calcule)} FCFA. {details_transport}{photo_message}
+            message = f"""✅ Votre colis {colis.numero_suivi} a été enregistré dans le lot {colis.lot.numero_lot}. Type: {colis.get_type_transport_display()}. Prix: {format_cfa(prix_effectif)} FCFA. {details_transport}{photo_message}
 
 🌐 Accédez à votre espace: https://ts-aircargo.com"""
         

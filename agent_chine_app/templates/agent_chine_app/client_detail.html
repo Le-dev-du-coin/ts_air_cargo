@@ -1,5 +1,6 @@
 {% extends 'components/base_agent.html' %}
 {% load static %}
+{% load agent_chine_filters %}
 
 {% block title %}{{ client.user.get_full_name }} - TS Air Cargo{% endblock %}
 
@@ -262,7 +263,7 @@
                                     <span class="fw-bold">{{ colis.poids }}kg</span>
                                 </td>
                                 <td>
-                                    <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                                    <span class="text-success fw-bold">{{ colis.get_prix_effectif|cfa_with_currency }}</span>
                                 </td>
                                 <td>
                                     <span class="badge status-{{ colis.statut }}">
@@ -331,7 +332,7 @@
                     
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <span class="text-success fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</span>
+                            <span class="text-success fw-bold">{{ colis.get_prix_effectif|cfa_with_currency }}</span>
                             <span class="badge {% if colis.mode_paiement == 'paye_chine' or colis.mode_paiement == 'paye_mali' %}bg-success{% else %}bg-warning{% endif %} ms-2">
                                 {{ colis.get_mode_paiement_display }}
                             </span>
