@@ -21,10 +21,12 @@ import pandas as pd
 from django.db.models import F, Value, CharField
 from django.db.models.functions import Concat
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
+from reportlab.lib.units import inch, cm
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from io import BytesIO
 
 from .models import Depense, ReceptionLot, Livraison, PriceAdjustment
 from agent_chine_app.models import Lot, Colis, Client
@@ -669,10 +671,10 @@ def lots_receptionnes_view(request):
     Liste des lots réceptionnés au Mali (statut: arrive)
     Les colis sont groupés par lot pour une meilleure organisation
     """
-    # Base queryset
+    # Base queryset - inclure lots partiellement réceptionnés
     lots = Lot.objects.filter(
-        statut='arrive'
-    ).select_related('agent_createur').prefetch_related('colis__client__user')
+        Q(statut='arrive') | Q(colis__statut='arrive')
+    ).distinct().select_related('agent_createur').prefetch_related('colis__client__user')
     
     # Filtres
     search_query = request.GET.get('search', '')
@@ -784,17 +786,14 @@ def lots_livres_view(request):
     # Calcul du bénéfice total des lots livrés
     benefice_total = sum(float(lot.benefice or 0) for lot in lots if lot.benefice)
     
-    # Calcul des revenus de livraison (depuis les livraisons, pas les colis)
-    revenus_livraison = 0
-    for lot in lots:
-        livraisons = Livraison.objects.filter(
-            colis__lot=lot,
-            colis__statut='livre',
-            statut='livree'
-        )
-        for livraison in livraisons:
-            if livraison.montant_collecte:
-                revenus_livraison += float(livraison.montant_collecte)
+    # Calcul des revenus de livraison (depuis les livraisons, pas les colis) - sur TOUS les lots
+    revenus_livraison = Livraison.objects.filter(
+        colis__lot__in=lots,
+        colis__statut='livre',
+        statut='livree',
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    revenus_livraison = float(revenus_livraison)
     
     context = {
         'lots': lots_page,
@@ -1113,13 +1112,13 @@ def marquer_livre_view(request, colis_id):
             if lot and lot.statut == 'arrive':
                 # Compter les colis livrés vs total
                 total_colis = lot.colis.count()
-                colis_livres = lot.colis.filter(statut='livre').count()
+                colis_traites = lot.colis.filter(statut__in=['livre', 'perdu']).count()
                 
-                # Si tous les colis sont livrés, passer le lot au statut "livre"
-                if colis_livres == total_colis:
+                # Si tous les colis sont traités (livrés ou perdus), passer le lot au statut "livre"
+                if colis_traites == total_colis:
                     lot.statut = 'livre'
                     lot.save()
-                    messages.info(request, f"📦 Le lot {lot.numero_lot} est maintenant complètement livré !")
+                    messages.info(request, f"📦 Le lot {lot.numero_lot} est maintenant complètement traité !")
                 
                 # Recalculer le bénéfice du lot après livraison
                 lot.recalculer_benefice()
@@ -1751,6 +1750,359 @@ def rapports_view(request):
         'title': 'Rapports et Analyses',
     }
     return render(request, 'agent_mali_app/rapports.html', context)
+
+@agent_mali_required
+def rapport_journalier_view(request):
+    """
+    Rapport Journalier complet avec statistiques, listes et graphiques
+    """
+    # Récupérer la date depuis les paramètres GET (par défaut aujourd'hui)
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            date_rapport = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            date_rapport = date.today()
+    else:
+        date_rapport = date.today()
+    
+    # ==== COLIS RÉCEPTIONNÉS ====
+    colis_receptionnes = Colis.objects.filter(
+        statut='arrive',
+        lot__date_arrivee__date=date_rapport
+    ).select_related('client__user', 'lot').order_by('-lot__date_arrivee')
+    
+    nb_colis_receptionnes = colis_receptionnes.count()
+    valeur_colis_receptionnes = sum(float(c.prix_calcule or 0) for c in colis_receptionnes)
+    
+    # ==== COLIS LIVRÉS ====
+    livraisons_jour = Livraison.objects.filter(
+        date_livraison_effective__date=date_rapport,
+        statut='livree'
+    ).select_related('colis__client__user', 'colis__lot', 'agent_livreur').order_by('-date_livraison_effective')
+    
+    nb_colis_livres = livraisons_jour.count()
+    
+    # ==== REVENUS ====
+    revenus_jour = livraisons_jour.filter(
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    revenus_jour = float(revenus_jour)
+    
+    # ==== DÉPENSES ====
+    depenses_jour = Depense.objects.filter(
+        date_depense=date_rapport
+    ).select_related('agent').order_by('-date_creation')
+    
+    total_depenses = depenses_jour.aggregate(total=Sum('montant'))['total'] or 0
+    total_depenses = float(total_depenses)
+    
+    # Répartition des dépenses par type
+    depenses_par_type = depenses_jour.values('type_depense').annotate(
+        total=Sum('montant')
+    ).order_by('-total')
+    
+    # ==== BÉNÉFICE NET ====
+    benefice_net = revenus_jour - total_depenses
+    
+    # ==== LOTS EN COURS ====
+    lots_en_cours = Lot.objects.filter(
+        statut__in=['en_transit', 'expedie', 'arrive']
+    ).count()
+    
+    lots_partiels = Lot.objects.filter(
+        statut='en_transit',
+        colis__statut='arrive'
+    ).distinct().count()
+    
+    # ==== STATISTIQUES DES 7 DERNIERS JOURS (pour graphiques) ====
+    stats_7_jours = []
+    for i in range(6, -1, -1):  # De J-6 à aujourd'hui
+        jour = date_rapport - timedelta(days=i)
+        
+        # Livraisons du jour
+        livraisons = Livraison.objects.filter(
+            date_livraison_effective__date=jour,
+            statut='livree'
+        )
+        
+        # Dépenses du jour
+        depenses = Depense.objects.filter(
+            date_depense=jour
+        )
+        
+        # Revenus du jour
+        revenus = livraisons.filter(
+            montant_collecte__isnull=False
+        ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+        
+        # Total dépenses
+        depenses_total = depenses.aggregate(total=Sum('montant'))['total'] or 0
+        
+        stats_7_jours.append({
+            'date': jour.strftime('%d/%m'),
+            'date_full': jour.strftime('%Y-%m-%d'),
+            'livraisons': livraisons.count(),
+            'revenus': float(revenus),
+            'depenses': float(depenses_total),
+            'benefice': float(revenus) - float(depenses_total)
+        })
+    
+    # ==== TAUX DE PERFORMANCE ====
+    # Colis en attente de livraison
+    colis_en_attente = Colis.objects.filter(statut='arrive').count()
+    
+    # Taux de livraison (livrés / (livrés + en attente))
+    total_colis_actifs = nb_colis_livres + colis_en_attente
+    taux_livraison = (nb_colis_livres / total_colis_actifs * 100) if total_colis_actifs > 0 else 0
+    
+    context = {
+        'date_rapport': date_rapport,
+        'date_rapport_str': date_rapport.strftime('%d/%m/%Y'),
+        
+        # Statistiques principales
+        'nb_colis_receptionnes': nb_colis_receptionnes,
+        'valeur_colis_receptionnes': valeur_colis_receptionnes,
+        'nb_colis_livres': nb_colis_livres,
+        'revenus_jour': revenus_jour,
+        'total_depenses': total_depenses,
+        'benefice_net': benefice_net,
+        'lots_en_cours': lots_en_cours,
+        'lots_partiels': lots_partiels,
+        'colis_en_attente': colis_en_attente,
+        'taux_livraison': taux_livraison,
+        
+        # Listes détaillées
+        'colis_receptionnes': colis_receptionnes[:10],  # Limité à 10 pour l'affichage
+        'livraisons_jour': livraisons_jour[:10],
+        'depenses_jour': depenses_jour[:10],
+        
+        # Données pour graphiques
+        'stats_7_jours': stats_7_jours,
+        'depenses_par_type': list(depenses_par_type),
+        
+        'title': f'Rapport Journalier - {date_rapport.strftime("%d/%m/%Y")}',
+    }
+    
+    return render(request, 'agent_mali_app/rapport_journalier.html', context)
+
+@agent_mali_required
+def generer_pdf_rapport_journalier(request):
+    """
+    Génère un PDF professionnel du rapport journalier
+    """
+    # Récupérer la date
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            date_rapport = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            date_rapport = date.today()
+    else:
+        date_rapport = date.today()
+    
+    # === RÉCUPÉRATION DES DONNÉES (même code que rapport_journalier_view) ===
+    colis_receptionnes = Colis.objects.filter(
+        statut='arrive',
+        lot__date_arrivee__date=date_rapport
+    ).select_related('client__user', 'lot')
+    
+    nb_colis_receptionnes = colis_receptionnes.count()
+    valeur_colis_receptionnes = sum(float(c.prix_calcule or 0) for c in colis_receptionnes)
+    
+    livraisons_jour = Livraison.objects.filter(
+        date_livraison_effective__date=date_rapport,
+        statut='livree'
+    ).select_related('colis__client__user', 'agent_livreur')
+    
+    nb_colis_livres = livraisons_jour.count()
+    
+    revenus_jour = livraisons_jour.filter(
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    revenus_jour = float(revenus_jour)
+    
+    depenses_jour = Depense.objects.filter(date_depense=date_rapport).select_related('agent')
+    total_depenses = depenses_jour.aggregate(total=Sum('montant'))['total'] or 0
+    total_depenses = float(total_depenses)
+    
+    depenses_par_type = depenses_jour.values('type_depense').annotate(
+        total=Sum('montant')
+    ).order_by('-total')
+    
+    benefice_net = revenus_jour - total_depenses
+    
+    colis_en_attente = Colis.objects.filter(statut='arrive').count()
+    lots_en_cours = Lot.objects.filter(statut__in=['en_transit', 'expedie', 'arrive']).count()
+    
+    # === GÉNÉRATION DU PDF ===
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    elements = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#22c55e'),
+        spaceAfter=30,
+        alignment=TA_CENTER
+    )
+    
+    # En-tête
+    elements.append(Paragraph("TS AIR CARGO MALI", title_style))
+    elements.append(Paragraph(f"RAPPORT JOURNALIER D'ACTIVITÉ", styles['Heading2']))
+    elements.append(Paragraph(f"Date: {date_rapport.strftime('%d/%m/%Y')}", styles['Normal']))
+    elements.append(Paragraph(f"Agent: {request.user.get_full_name()}", styles['Normal']))
+    elements.append(Paragraph(f"Généré le: {timezone.now().strftime('%d/%m/%Y à %H:%M')}", styles['Normal']))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Section 1: Statistiques
+    elements.append(Paragraph("I. STATISTIQUES GLOBALES", styles['Heading3']))
+    stats_data = [
+        ['Indicateur', 'Valeur'],
+        ['Colis réceptionnés', f"{nb_colis_receptionnes}"],
+        ['Valeur totale reçue', f"{valeur_colis_receptionnes:,.0f} FCFA"],
+        ['Colis livrés', f"{nb_colis_livres}"],
+        ['Colis en attente', f"{colis_en_attente}"],
+        ['Lots en cours', f"{lots_en_cours}"],
+    ]
+    
+    stats_table = Table(stats_data, colWidths=[10*cm, 6*cm])
+    stats_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#22c55e')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('BACKGROUND', (0,1), (-1,-1), colors.beige),
+        ('GRID', (0,0), (-1,-1), 1, colors.black)
+    ]))
+    elements.append(stats_table)
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Section 2: Bilan financier
+    elements.append(Paragraph("II. BILAN FINANCIER", styles['Heading3']))
+    finance_data = [
+        ['REVENUS (Ventes du jour)', f"{revenus_jour:,.0f} FCFA"],
+        ['DÉPENSES totales', f"{total_depenses:,.0f} FCFA"],
+        ['BÉNÉFICE NET', f"{benefice_net:,.0f} FCFA"],
+    ]
+    
+    finance_table = Table(finance_data, colWidths=[10*cm, 6*cm])
+    benefice_color = colors.green if benefice_net >= 0 else colors.red
+    finance_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,1), colors.HexColor('#f3f4f6')),
+        ('BACKGROUND', (0,2), (0,2), colors.HexColor('#f3f4f6')),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('FONTNAME', (0,2), (-1,2), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0,2), (-1,2), benefice_color),
+        ('FONTSIZE', (0,2), (-1,2), 14),
+        ('GRID', (0,0), (-1,-1), 1, colors.black)
+    ]))
+    elements.append(finance_table)
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Section 3: Dépenses par type
+    if depenses_par_type:
+        elements.append(Paragraph("III. DÉTAIL DES DÉPENSES", styles['Heading3']))
+        depenses_data = [['Type de dépense', 'Montant (FCFA)', 'Pourcentage']]
+        
+        for dep in depenses_par_type:
+            type_display = dict(Depense.TYPE_DEPENSE_CHOICES).get(dep['type_depense'], dep['type_depense'])
+            montant = float(dep['total'])
+            pourcentage = (montant / total_depenses * 100) if total_depenses > 0 else 0
+            depenses_data.append([
+                type_display,
+                f"{montant:,.0f}",
+                f"{pourcentage:.1f}%"
+            ])
+        
+        depenses_data.append(['TOTAL', f"{total_depenses:,.0f}", '100.0%'])
+        
+        depenses_table = Table(depenses_data, colWidths=[8*cm, 5*cm, 3*cm])
+        depenses_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#fee2e2')),
+            ('GRID', (0,0), (-1,-1), 1, colors.black)
+        ]))
+        elements.append(depenses_table)
+        elements.append(Spacer(1, 0.5*cm))
+    
+    # Section 4: Colis réceptionnés
+    if nb_colis_receptionnes > 0:
+        elements.append(Paragraph("IV. COLIS RÉCEPTIONNÉS", styles['Heading3']))
+        recept_data = [['N° Suivi', 'Client', 'Valeur (FCFA)']]
+        
+        for colis in colis_receptionnes[:20]:  # Limiter à 20
+            recept_data.append([
+                colis.numero_suivi,
+                colis.client.user.get_full_name()[:30],
+                f"{colis.prix_calcule:,.0f}"
+            ])
+        
+        recept_table = Table(recept_data, colWidths=[4*cm, 8*cm, 4*cm])
+        recept_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3b82f6')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (2,0), (2,-1), 'RIGHT'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('FONTSIZE', (0,1), (-1,-1), 9)
+        ]))
+        elements.append(recept_table)
+        
+        if nb_colis_receptionnes > 20:
+            elements.append(Paragraph(f"... et {nb_colis_receptionnes - 20} autres colis", styles['Normal']))
+        elements.append(Spacer(1, 0.5*cm))
+    
+    # Section 5: Colis livrés
+    if nb_colis_livres > 0:
+        elements.append(Paragraph("V. COLIS LIVRÉS", styles['Heading3']))
+        livr_data = [['N° Suivi', 'Destinataire', 'Montant (FCFA)']]
+        
+        for livraison in livraisons_jour[:20]:
+            livr_data.append([
+                livraison.colis.numero_suivi,
+                livraison.nom_destinataire[:30],
+                f"{livraison.montant_collecte or 0:,.0f}"
+            ])
+        
+        livr_table = Table(livr_data, colWidths=[4*cm, 8*cm, 4*cm])
+        livr_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10b981')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (2,0), (2,-1), 'RIGHT'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('FONTSIZE', (0,1), (-1,-1), 9)
+        ]))
+        elements.append(livr_table)
+        
+        if nb_colis_livres > 20:
+            elements.append(Paragraph(f"... et {nb_colis_livres - 20} autres livraisons", styles['Normal']))
+    
+    # Pied de page
+    elements.append(Spacer(1, 1*cm))
+    elements.append(Paragraph("_" * 80, styles['Normal']))
+    elements.append(Paragraph("TS Air Cargo Mali - Document Confidentiel", 
+                             ParagraphStyle('Footer', parent=styles['Normal'], alignment=TA_CENTER)))
+    
+    # Construire le PDF
+    doc.build(elements)
+    buffer.seek(0)
+    
+    # Retourner la réponse
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="rapport_journalier_{date_rapport.strftime("%Y%m%d")}.pdf"'
+    
+    return response
 
 @agent_mali_required
 @require_http_methods(["POST"])

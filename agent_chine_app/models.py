@@ -201,6 +201,12 @@ class Colis(models.Model):
         ('bateau', 'Bateau'),
     ]
     
+    TYPE_COLIS_CHOICES = [
+        ('standard', 'Standard (au kilo)'),
+        ('telephone', 'Téléphone (à la pièce)'),
+        ('electronique', 'Électronique (à la pièce)'),
+    ]
+    
     numero_suivi = models.CharField(
         max_length=20,
         unique=True,
@@ -226,6 +232,20 @@ class Colis(models.Model):
         choices=TRANSPORT_CHOICES,
         default='cargo',
         help_text="Type de transport: Cargo/Express (par poids) ou Bateau (par dimensions)"
+    )
+    
+    # Type de colis (pour tarification)
+    type_colis = models.CharField(
+        max_length=20,
+        choices=TYPE_COLIS_CHOICES,
+        default='standard',
+        help_text="Type de tarification : Standard (au kilo) ou à la pièce"
+    )
+    
+    # Quantité de pièces (pour téléphones/électronique)
+    quantite_pieces = models.PositiveIntegerField(
+        default=1,
+        help_text="Nombre de pièces (pour téléphones/électronique)"
     )
     
     # Image du colis
@@ -339,54 +359,80 @@ class Colis(models.Model):
     def calculer_prix_automatique(self):
         """
         Calculer le prix automatiquement selon les tarifs configurés
-        Le calcul dépend du type de transport:
-        - Cargo/Express: basé sur le poids
-        - Bateau: basé sur les dimensions (volume)
-        
-        Cette méthode calcule TOUJOURS le prix automatique, 
-        indépendamment du prix manuel.
+        Support : Poids (Cargo/Express), Volume (Bateau), Pièce (Téléphone/Électronique)
         """
         try:
             from reporting_app.models import ShippingPrice
             
-            # Récupérer les tarifs actifs
-            tarifs = ShippingPrice.objects.filter(
-                actif=True,
-                pays_destination__in=[self.client.pays, 'ALL']
-            )
-            
-            prix_max = 0
             volume_m3 = self.volume_m3()
             
-            for tarif in tarifs:
-                if self.type_transport in ['cargo', 'express']:
-                    # Pour Cargo et Express, utiliser le poids principalement
-                    prix_calcule = tarif.calculer_prix(float(self.poids), volume_m3)
-                else:  # bateau
-                    # Pour Bateau, utiliser principalement le volume
-                    prix_calcule = tarif.calculer_prix(float(self.poids), volume_m3)
-                    # Majorer pour le transport par bateau (généralement moins cher mais plus lent)
-                    prix_calcule *= 0.8
-                    
-                if prix_calcule > prix_max:
-                    prix_max = prix_calcule
+            # PRIORITÉ 1 : Tarif à la pièce (téléphone/électronique)
+            if self.type_transport in ['cargo', 'express'] and self.type_colis != 'standard':
+                # Chercher tarif spécifique pour ce type de colis
+                tarif_piece = ShippingPrice.objects.filter(
+                    actif=True,
+                    methode_calcul='par_piece',
+                    type_transport__in=[self.type_transport, 'all'],
+                    type_colis__in=[self.type_colis, 'all'],
+                    pays_destination__in=[self.client.pays, 'ALL']
+                ).first()
+                
+                if tarif_piece and tarif_piece.prix_par_piece:
+                    prix = float(tarif_piece.prix_par_piece) * self.quantite_pieces
+                    return max(prix, 1000)  # Minimum 1000 FCFA
             
-            # Prix de base selon le type de transport si aucun tarif trouvé
-            if prix_max == 0:
-                if self.type_transport in ['cargo', 'express']:
-                    # Prix basé sur le poids
-                    multiplier = 12000 if self.type_transport == 'express' else 10000
-                    prix_max = float(self.poids) * multiplier
-                else:  # bateau
-                    # Prix basé sur le volume
-                    prix_max = volume_m3 * 300000  # 50 000 CFA par m³
-                    
-            return max(prix_max, 1000)  # Prix minimum de 1000 CFA
+            # PRIORITÉ 2 : Tarif au kilo (standard)
+            if self.type_transport in ['cargo', 'express']:
+                tarifs = ShippingPrice.objects.filter(
+                    actif=True,
+                    methode_calcul='par_kilo',
+                    type_transport__in=[self.type_transport, 'all'],
+                    pays_destination__in=[self.client.pays, 'ALL']
+                )
+                
+                prix_max = 0
+                for tarif in tarifs:
+                    prix_calcule = tarif.calculer_prix(float(self.poids), volume_m3)
+                    if prix_calcule > prix_max:
+                        prix_max = prix_calcule
+                
+                if prix_max > 0:
+                    return max(prix_max, 1000)
+                
+                # Prix par défaut si aucun tarif
+                multiplier = 12000 if self.type_transport == 'express' else 10000
+                return float(self.poids) * multiplier
+            
+            # PRIORITÉ 3 : Tarif au volume (bateau)
+            else:  # bateau
+                tarifs = ShippingPrice.objects.filter(
+                    actif=True,
+                    methode_calcul='par_metre_cube',
+                    type_transport__in=['bateau', 'all'],
+                    pays_destination__in=[self.client.pays, 'ALL']
+                )
+                
+                prix_max = 0
+                for tarif in tarifs:
+                    prix_calcule = tarif.calculer_prix(float(self.poids), volume_m3)
+                    if prix_calcule > prix_max:
+                        prix_max = prix_calcule
+                
+                if prix_max > 0:
+                    return max(prix_max, 1000)
+                
+                # Prix par défaut
+                return volume_m3 * 300000
             
         except Exception as e:
-            # En cas d'erreur, retourner un prix basique
+            # Fallback en cas d'erreur
             if self.type_transport in ['cargo', 'express']:
-                return float(self.poids) * 10000
+                if self.type_colis == 'telephone':
+                    return 5000 * self.quantite_pieces
+                elif self.type_colis == 'electronique':
+                    return 3000 * self.quantite_pieces
+                else:
+                    return float(self.poids) * 10000
             else:
                 return self.volume_m3() * 300000
 

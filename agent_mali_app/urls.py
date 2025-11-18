@@ -43,6 +43,8 @@ urlpatterns = [
     
     # Rapports
     path('rapports/', views.rapports_view, name='rapports'),
+    path('rapport-journalier/', views.rapport_journalier_view, name='rapport_journalier'),
+    path('rapport-journalier/pdf/', views.generer_pdf_rapport_journalier, name='rapport_journalier_pdf'),
     
     # API pour les rapports
     path('api/generate-daily-report/', views.generate_daily_report_api, name='generate_daily_report_api'),

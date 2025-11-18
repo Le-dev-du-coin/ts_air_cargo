@@ -146,6 +146,45 @@
                                         Veuillez sélectionner une photo du colis.
                                     </div>
                                 </div>
+                                
+                                <!-- Type de colis (visible uniquement pour Cargo/Express) -->
+                                <div class="col-md-6 mb-3" id="type_colis_group" style="display: none;">
+                                    <label for="type_colis" class="form-label">
+                                        Type de colis
+                                    </label>
+                                    <select class="form-select" id="type_colis" name="type_colis" onchange="toggleTypeColisFields()">
+                                        <option value="standard" {% if not colis or colis.type_colis == 'standard' %}selected{% endif %}>
+                                            Standard (au kilo)
+                                        </option>
+                                        <option value="telephone" {% if colis and colis.type_colis == 'telephone' %}selected{% endif %}>
+                                            Téléphone (à la pièce)
+                                        </option>
+                                        <option value="electronique" {% if colis and colis.type_colis == 'electronique' %}selected{% endif %}>
+                                            Électronique (à la pièce)
+                                        </option>
+                                    </select>
+                                    <div class="form-text">
+                                        Choisir 'Téléphone' ou 'Électronique' pour tarif à la pièce
+                                    </div>
+                                </div>
+                                
+                                <!-- Quantité de pièces (visible si téléphone/électronique) -->
+                                <div class="col-md-6 mb-3" id="quantite_pieces_group" style="display: none;">
+                                    <label for="quantite_pieces" class="form-label">
+                                        Nombre de pièces
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-hash"></i>
+                                        </span>
+                                        <input type="number" class="form-control" id="quantite_pieces" name="quantite_pieces" 
+                                               min="1" value="{% if colis %}{{ colis.quantite_pieces }}{% else %}1{% endif %}">
+                                        <span class="input-group-text">pièce(s)</span>
+                                    </div>
+                                    <div class="form-text">
+                                        Nombre d'appareils dans ce colis
+                                    </div>
+                                </div>
                             </div>
                             
                             <!-- Prévisualisation de l'image -->
@@ -206,8 +245,8 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Champ de poids (visible seulement pour cargo/express) -->
-                                <div class="col-md-12 mb-3 weight-field" {% if colis and colis.type_transport == 'bateau' %}style="display: none;"{% endif %}>
+                                <!-- Champ de poids (visible seulement pour cargo/express standard) -->
+                                <div class="col-md-12 mb-3 weight-field" id="poids_group" {% if colis and colis.type_transport == 'bateau' %}style="display: none;"{% endif %}>
                                     <label for="poids" class="form-label">
                                         Poids (kg) <span class="text-danger">*</span>
                                     </label>
@@ -227,6 +266,10 @@
                                 <div id="transport-info">
                                     <i class="bi bi-info-circle"></i>
                                     <strong>Cargo/Express:</strong> Le prix est calculé selon le poids uniquement.
+                                </div>
+                                <div id="type-colis-info" style="display: none;">
+                                    <i class="bi bi-phone"></i>
+                                    <strong>Tarif à la pièce:</strong> Le prix est calculé selon le nombre de pièces.
                                 </div>
                             </div>
                         </div>
@@ -277,14 +320,14 @@
                             </h5>
                         </div>
                         <div class="modern-card-body">
-                            <!-- Prix manuel (prioritaire) - Prix par kg -->
+                            <!-- Prix manuel (prioritaire) - Dynamique selon type de colis -->
                             <div class="mb-3">
                                 <label for="prix_transport_manuel_par_kg" class="form-label">
                                     <i class="bi bi-pencil-square"></i>
-                                    Prix de transport manuel (par kg)
+                                    <span id="prix_manuel_label">Prix de transport manuel (par kg)</span>
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text">FCFA/kg</span>
+                                    <span class="input-group-text" id="prix_manuel_unit">FCFA/kg</span>
                                     <input type="number" class="form-control" id="prix_transport_manuel_par_kg" 
                                            step="100" min="0" placeholder="Prix par kilo (ex: 9000)"
                                            value="">
@@ -294,7 +337,7 @@
                                 
                                 <div class="form-text">
                                     <i class="bi bi-info-circle"></i>
-                                    Saisissez le prix par kilogramme. Le total sera calculé automatiquement.
+                                    <span id="prix_manuel_help">Saisissez le prix par kilogramme. Le total sera calculé automatiquement.</span>
                                 </div>
                                 
                                 <!-- Affichage du calcul en temps réel -->
@@ -617,25 +660,50 @@
 // Variables globales
 let selectedClientData = null;
 
-// Calcul automatique du prix total à partir du prix par kg
+// Calcul automatique du prix total selon le type de colis
 function calculateManualPriceTotal() {
-    const prixParKg = parseFloat(document.getElementById('prix_transport_manuel_par_kg').value) || 0;
-    const poids = parseFloat(document.getElementById('poids').value) || 0;
+    const prixUnitaire = parseFloat(document.getElementById('prix_transport_manuel_par_kg').value) || 0;
+    const typeColis = document.getElementById('type_colis').value;
+    const typeTransport = document.getElementById('type_transport').value;
     
-    if (prixParKg > 0 && poids > 0) {
-        const total = Math.round(prixParKg * poids);
+    // Déterminer si c'est un tarif à la pièce ou au poids
+    const isPieceBased = (typeTransport === 'cargo' || typeTransport === 'express') && 
+                         (typeColis === 'telephone' || typeColis === 'electronique');
+    
+    if (prixUnitaire > 0) {
+        let total, detail;
         
-        // Mettre à jour le champ caché (envoyé au backend)
-        document.getElementById('prix_transport_manuel').value = total;
+        if (isPieceBased) {
+            // Tarif à la pièce
+            const quantite = parseInt(document.getElementById('quantite_pieces').value) || 0;
+            if (quantite > 0) {
+                total = Math.round(prixUnitaire * quantite);
+                detail = `${prixUnitaire.toLocaleString('fr-FR')} FCFA/pièce × ${quantite} pc`;
+            }
+        } else {
+            // Tarif au poids
+            const poids = parseFloat(document.getElementById('poids').value) || 0;
+            if (poids > 0) {
+                total = Math.round(prixUnitaire * poids);
+                detail = `${prixUnitaire.toLocaleString('fr-FR')} FCFA/kg × ${poids} kg`;
+            }
+        }
         
-        // Afficher le calcul
-        document.getElementById('prix_manuel_total').textContent = total.toLocaleString('fr-FR');
-        document.getElementById('prix_manuel_detail').textContent = `${prixParKg.toLocaleString('fr-FR')} FCFA/kg × ${poids} kg`;
-        document.getElementById('prix_manuel_calcul').style.display = 'block';
-    } else {
-        document.getElementById('prix_transport_manuel').value = '';
-        document.getElementById('prix_manuel_calcul').style.display = 'none';
+        if (total) {
+            // Mettre à jour le champ caché (envoyé au backend)
+            document.getElementById('prix_transport_manuel').value = total;
+            
+            // Afficher le calcul
+            document.getElementById('prix_manuel_total').textContent = total.toLocaleString('fr-FR');
+            document.getElementById('prix_manuel_detail').textContent = detail;
+            document.getElementById('prix_manuel_calcul').style.display = 'block';
+            return;
+        }
     }
+    
+    // Réinitialiser si pas de valeur valide
+    document.getElementById('prix_transport_manuel').value = '';
+    document.getElementById('prix_manuel_calcul').style.display = 'none';
 }
 
 // Charger les informations du client sélectionné
@@ -698,6 +766,74 @@ function clearClientSelection() {
     document.getElementById('prix_calcule').innerHTML = '<span class="text-muted">Sélectionnez un client et saisissez les mesures pour calculer</span>';
 }
 
+// Affichage conditionnel type de colis
+function toggleTypeColisFields() {
+    const typeTransport = document.getElementById('type_transport').value;
+    const typeColis = document.getElementById('type_colis').value;
+    const typeColisGroup = document.getElementById('type_colis_group');
+    const quantiteGroup = document.getElementById('quantite_pieces_group');
+    const poidsGroup = document.getElementById('poids_group');
+    const poidsField = document.getElementById('poids');
+    const transportInfo = document.getElementById('transport-info');
+    const typeColisInfo = document.getElementById('type-colis-info');
+    
+    // Afficher type_colis seulement pour Cargo/Express
+    if (typeTransport === 'cargo' || typeTransport === 'express') {
+        typeColisGroup.style.display = 'block';
+        
+        // Afficher quantité et CACHER poids si téléphone ou électronique
+        if (typeColis === 'telephone' || typeColis === 'electronique') {
+            quantiteGroup.style.display = 'block';
+            // CACHER le champ poids pour tarif à la pièce
+            if (poidsGroup) {
+                poidsGroup.style.display = 'none';
+            }
+            if (poidsField) {
+                poidsField.required = false;
+            }
+            // Afficher message tarif à la pièce
+            if (transportInfo) transportInfo.style.display = 'none';
+            if (typeColisInfo) typeColisInfo.style.display = 'block';
+            
+            // Mettre à jour les labels du prix manuel
+            document.getElementById('prix_manuel_label').textContent = 'Prix de transport manuel (par pièce)';
+            document.getElementById('prix_manuel_unit').textContent = 'FCFA/pc';
+            document.getElementById('prix_manuel_help').textContent = 'Saisissez le prix par pièce. Le total sera calculé automatiquement.';
+            document.getElementById('prix_transport_manuel_par_kg').placeholder = 'Prix par pièce (ex: 5000)';
+        } else {
+            // Type Standard: afficher poids, cacher quantité
+            quantiteGroup.style.display = 'none';
+            if (poidsGroup) {
+                poidsGroup.style.display = 'block';
+            }
+            if (poidsField) {
+                poidsField.required = true;
+            }
+            // Afficher message poids
+            if (transportInfo) transportInfo.style.display = 'block';
+            if (typeColisInfo) typeColisInfo.style.display = 'none';
+            
+            // Réinitialiser les labels du prix manuel (mode poids)
+            document.getElementById('prix_manuel_label').textContent = 'Prix de transport manuel (par kg)';
+            document.getElementById('prix_manuel_unit').textContent = 'FCFA/kg';
+            document.getElementById('prix_manuel_help').textContent = 'Saisissez le prix par kilogramme. Le total sera calculé automatiquement.';
+            document.getElementById('prix_transport_manuel_par_kg').placeholder = 'Prix par kilo (ex: 9000)';
+        }
+    } else {
+        // Bateau: cacher type_colis et quantité, afficher dimensions
+        typeColisGroup.style.display = 'none';
+        quantiteGroup.style.display = 'none';
+        // Reset à standard
+        document.getElementById('type_colis').value = 'standard';
+        // Restaurer message transport
+        if (transportInfo) transportInfo.style.display = 'block';
+        if (typeColisInfo) typeColisInfo.style.display = 'none';
+    }
+    
+    // Recalculer le prix
+    setTimeout(calculatePrice, 300);
+}
+
 // Basculer l'affichage des champs selon le type de transport
 function toggleTransportFields() {
     const transportType = document.getElementById('type_transport').value;
@@ -742,8 +878,8 @@ function toggleTransportFields() {
         `;
     }
     
-    // Recalculer le prix
-    setTimeout(calculatePrice, 300);
+    // Appeler la gestion du type de colis
+    toggleTypeColisFields();
 }
 
 // Calcul automatique du prix
@@ -758,6 +894,8 @@ function calculatePrice() {
     const hauteur = parseFloat(document.getElementById('hauteur').value) || 0;
     const poids = parseFloat(document.getElementById('poids').value) || 0;
     const typeTransport = document.getElementById('type_transport').value;
+    const typeColis = document.getElementById('type_colis').value;
+    const quantitePieces = parseInt(document.getElementById('quantite_pieces').value) || 1;
     const prixManuel = parseFloat(document.getElementById('prix_transport_manuel').value) || null;
 
     // Si prix manuel fourni (TOTAL), l'afficher directement
@@ -774,16 +912,27 @@ function calculatePrice() {
         return;
     }
     
-    // Vérifier que les champs requis sont remplis selon le type de transport
+    // Vérifier que les champs requis sont remplis selon le type de transport et type de colis
     let fieldsOk = false;
     if (typeTransport === 'bateau') {
         fieldsOk = longueur && largeur && hauteur;
+    } else if (typeColis === 'telephone' || typeColis === 'electronique') {
+        // Pour tarif à la pièce : seule la quantité est requise
+        fieldsOk = quantitePieces > 0;
     } else {
+        // Pour standard : poids requis
         fieldsOk = poids > 0;
     }
 
     if (!fieldsOk) {
-        const requiredText = typeTransport === 'bateau' ? 'les dimensions' : 'le poids';
+        let requiredText = '';
+        if (typeTransport === 'bateau') {
+            requiredText = 'les dimensions';
+        } else if (typeColis === 'telephone' || typeColis === 'electronique') {
+            requiredText = 'la quantité de pièces';
+        } else {
+            requiredText = 'le poids';
+        }
         document.getElementById('prix_calcule').innerHTML = `<span class="text-muted">Veuillez saisir ${requiredText} pour calculer</span>`;
         return;
     }
@@ -802,6 +951,8 @@ function calculatePrice() {
         hauteur: hauteur,
         poids: poids,
         type_transport: typeTransport,
+        type_colis: typeColis,
+        quantite_pieces: quantitePieces,
         pays_destination: selectedClientData.pays,
         prix_manuel: prixManuel
     };
@@ -858,8 +1009,15 @@ function calculatePrice() {
                     </div>
                 `;
             } else {
-                // Pour express/cargo : afficher seulement le prix
-                const prixSubLabel = isManuel ? '' : ' (par kg)';
+                // Pour express/cargo : afficher selon le type de colis
+                let prixSubLabel = '';
+                if (!isManuel) {
+                    if (typeColis === 'telephone' || typeColis === 'electronique') {
+                        prixSubLabel = ` (à la pièce - ${quantitePieces} pc)`;
+                    } else {
+                        prixSubLabel = ' (par kg)';
+                    }
+                }
                 priceDisplay = `
                     <div class="text-center">
                         <small class="text-muted">${prixLabel}${prixSubLabel}</small><br>
@@ -1128,6 +1286,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configuration initiale
     toggleTransportFields();
+    toggleTypeColisFields();
     setupImagePreview();
     
     // Initialiser le calcul du prix manuel si en mode édition
@@ -1154,11 +1313,11 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
     
     // Écouteurs pour calcul automatique
-    ['longueur', 'largeur', 'hauteur', 'poids'].forEach(id => {
+    ['longueur', 'largeur', 'hauteur', 'poids', 'quantite_pieces'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', function() {
             setTimeout(calculatePrice, 500);
             // Recalculer aussi le prix manuel si saisi
-            if (id === 'poids') {
+            if (id === 'poids' || id === 'quantite_pieces') {
                 calculateManualPriceTotal();
             }
         });
@@ -1167,6 +1326,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Écouteur spécifique pour le prix manuel par kg
     document.getElementById('prix_transport_manuel_par_kg')?.addEventListener('input', function() {
         calculateManualPriceTotal();
+        setTimeout(calculatePrice, 500);
+    });
+    
+    // Écouteur pour le type de colis
+    document.getElementById('id_type_colis')?.addEventListener('change', function() {
+        toggleTypeColisFields();
         setTimeout(calculatePrice, 500);
     });
 

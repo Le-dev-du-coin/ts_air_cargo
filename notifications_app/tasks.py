@@ -625,11 +625,9 @@ def notify_colis_created(colis_id, initiated_by_id=None):
         colis = Colis.objects.select_related('client__user', 'lot').get(id=colis_id)
         client = colis.client
         
-        # Détails selon le type de transport
-        if colis.type_transport == 'bateau':
-            details_transport = f"📊 Dimensions: {colis.longueur}x{colis.largeur}x{colis.hauteur} cm"
-        else:  # cargo ou express
-            details_transport = f"⚖️ Poids: {colis.poids} kg"
+        # Détails selon le type de transport et type de colis
+        from notifications_app.services import get_colis_details_for_notification
+        details_transport = get_colis_details_for_notification(colis)
         
         # Message d'invitation à se connecter pour voir l'image
         photo_message = ""

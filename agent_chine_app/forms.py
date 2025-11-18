@@ -146,7 +146,7 @@ class ColisForm(forms.ModelForm):
     class Meta:
         model = Colis
         fields = [
-            'client', 'lot', 'type_transport', 'image',
+            'client', 'lot', 'type_transport', 'type_colis', 'quantite_pieces', 'image',
             'longueur', 'largeur', 'hauteur', 'poids', 
             'mode_paiement', 'statut', 'description'
         ]
@@ -164,6 +164,17 @@ class ColisForm(forms.ModelForm):
                 'class': 'form-select',
                 'id': 'id_type_transport',
                 'onchange': 'toggleTransportFields()'
+            }),
+            'type_colis': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_type_colis',
+                'onchange': 'toggleTypeColisFields()'
+            }),
+            'quantite_pieces': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'id': 'id_quantite_pieces',
+                'min': '1',
+                'value': '1'
             }),
             'image': forms.ClearableFileInput(attrs={
                 'class': 'form-control',
@@ -210,6 +221,8 @@ class ColisForm(forms.ModelForm):
             'client': 'Client',
             'lot': 'Lot',
             'type_transport': 'Type de transport',
+            'type_colis': 'Type de colis',
+            'quantite_pieces': 'Nombre de pièces',
             'image': 'Photo du colis',
             'longueur': 'Longueur (cm)',
             'largeur': 'Largeur (cm)', 

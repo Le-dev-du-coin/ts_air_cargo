@@ -10,8 +10,23 @@ class ShippingPrice(models.Model):
     METHODE_CALCUL_CHOICES = [
         ('par_kilo', 'Par Kilo'),
         ('par_metre_cube', 'Par Mètre Cube'),
+        ('par_piece', 'Par Pièce'),
         ('forfaitaire', 'Prix Forfaitaire'),
         ('mixte', 'Mixte (Poids + Volume)'),
+    ]
+    
+    TYPE_TRANSPORT_CHOICES = [
+        ('cargo', 'Cargo'),
+        ('express', 'Express'),
+        ('bateau', 'Bateau'),
+        ('all', 'Tous'),
+    ]
+    
+    TYPE_COLIS_CHOICES = [
+        ('standard', 'Standard'),
+        ('telephone', 'Téléphone'),
+        ('electronique', 'Électronique'),
+        ('all', 'Tous types'),
     ]
     
     nom_tarif = models.CharField(
@@ -47,6 +62,28 @@ class ShippingPrice(models.Model):
         null=True,
         blank=True,
         help_text="Prix forfaitaire en FCFA"
+    )
+    
+    prix_par_piece = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Prix en FCFA par pièce (pour téléphones, électronique, etc.)"
+    )
+    
+    type_transport = models.CharField(
+        max_length=20,
+        choices=TYPE_TRANSPORT_CHOICES,
+        default='all',
+        help_text="Type de transport concerné par ce tarif"
+    )
+    
+    type_colis = models.CharField(
+        max_length=20,
+        choices=TYPE_COLIS_CHOICES,
+        default='all',
+        help_text="Type de colis concerné (pour tarif à la pièce)"
     )
     
     poids_minimum = models.DecimalField(
@@ -136,24 +173,27 @@ class ShippingPrice(models.Model):
     def __str__(self):
         return f"{self.nom_tarif} - {self.get_methode_calcul_display()} - {self.pays_destination}"
     
-    def calculer_prix(self, poids_kg, volume_m3):
+    def calculer_prix(self, poids_kg, volume_m3, quantite_pieces=1):
         """
         Calculer le prix selon la méthode définie
+        Ajout du paramètre quantite_pieces pour tarif à la pièce
         """
         if not self.actif:
             return 0
         
-        # Vérifier les limites de poids
-        if poids_kg < self.poids_minimum:
-            return 0
-        if self.poids_maximum and poids_kg > self.poids_maximum:
-            return 0
+        # Vérifier les limites de poids (sauf pour tarif à la pièce)
+        if self.methode_calcul != 'par_piece':
+            if poids_kg < self.poids_minimum:
+                return 0
+            if self.poids_maximum and poids_kg > self.poids_maximum:
+                return 0
         
-        # Vérifier les limites de volume
-        if volume_m3 < self.volume_minimum:
-            return 0
-        if self.volume_maximum and volume_m3 > self.volume_maximum:
-            return 0
+        # Vérifier les limites de volume (sauf pour tarif à la pièce)
+        if self.methode_calcul != 'par_piece':
+            if volume_m3 < self.volume_minimum:
+                return 0
+            if self.volume_maximum and volume_m3 > self.volume_maximum:
+                return 0
         
         # Calcul selon la méthode
         if self.methode_calcul == 'par_kilo':
@@ -161,6 +201,9 @@ class ShippingPrice(models.Model):
         
         elif self.methode_calcul == 'par_metre_cube':
             return volume_m3 * self.prix_par_m3 if self.prix_par_m3 else 0
+        
+        elif self.methode_calcul == 'par_piece':
+            return quantite_pieces * self.prix_par_piece if self.prix_par_piece else 0
         
         elif self.methode_calcul == 'forfaitaire':
             return self.prix_forfaitaire if self.prix_forfaitaire else 0

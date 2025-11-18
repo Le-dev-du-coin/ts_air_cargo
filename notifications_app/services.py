@@ -12,6 +12,28 @@ from .wachap_service import wachap_service
 
 logger = logging.getLogger(__name__)
 
+def get_colis_details_for_notification(colis):
+    """
+    Génère les détails d'un colis pour les notifications
+    Retourne la description adaptée selon le type de transport et type de colis
+    
+    Args:
+        colis: Instance du modèle Colis
+        
+    Returns:
+        str: Description formatée (ex: "⚖️ Poids: 5 kg" ou "📱 Téléphone(s): 2 pièce(s)")
+    """
+    if colis.type_transport == 'bateau':
+        return f"📊Dimensions: {colis.longueur}x{colis.largeur}x{colis.hauteur} cm"
+    elif hasattr(colis, 'type_colis') and colis.type_colis in ['telephone', 'electronique']:
+        # Tarif à la pièce
+        type_display = 'Téléphone(s)' if colis.type_colis == 'telephone' else 'Électronique(s)'
+        quantite = getattr(colis, 'quantite_pieces', 1)
+        return f"📱 {type_display}: {quantite} pièce(s)"
+    else:
+        # Cargo ou express standard
+        return f"⚖️ Poids: {colis.poids} kg"
+
 class NotificationService:
     """
     Service centralisé pour l'envoi de notifications
@@ -490,13 +512,17 @@ Le rapport détaillé est disponible sur la plateforme.
                     continue
                 clients_notifies.add(client.id)
                 
+                # Générer les détails du colis (poids ou pièces)
+                details_colis = get_colis_details_for_notification(colis)
+                
                 # Préparer le message personnalisé
-                message = f"""🇟🇲 Excellente nouvelle !
+                message = f"""🉟🇮 Excellente nouvelle !
 
 Votre colis du lot {lot.numero_lot} est arrivé à Bamako !
 
 📅 Date d'arrivée: {timezone.now().strftime('%d/%m/%Y à %H:%M')}
 📦 Numéro de suivi: {colis.numero_suivi}
+{details_colis}
 
 Nous vous contacterons bientôt pour organiser la livraison.
 

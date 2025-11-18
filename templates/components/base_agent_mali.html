@@ -611,13 +611,23 @@
             </div>
 
             <div class="nav-section">
-                <div class="nav-section-title">Autres</div>
+                <div class="nav-section-title">Analyses</div>
                 <div class="nav-item">
-                    <a href="{% url 'agent_mali:rapports' %}" class="nav-link {% if 'rapport' in request.resolver_match.url_name %}active{% endif %}">
-                        <i class="bi bi-graph-up"></i>
-                        <span>Rapports</span>
+                    <a href="{% url 'agent_mali:rapport_journalier' %}" class="nav-link {% if 'rapport_journalier' in request.resolver_match.url_name %}active{% endif %}">
+                        <i class="bi bi-file-bar-graph"></i>
+                        <span>Rapport Journalier</span>
                     </a>
                 </div>
+                <div class="nav-item">
+                    <a href="{% url 'agent_mali:rapports' %}" class="nav-link {% if request.resolver_match.url_name == 'rapports' %}active{% endif %}">
+                        <i class="bi bi-graph-up"></i>
+                        <span>Rapports Avancés</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Système</div>
                 <div class="nav-item">
                     <a href="{% url 'authentication:logout' %}" class="nav-link">
                         <i class="bi bi-box-arrow-right"></i>
@@ -667,7 +677,9 @@
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="appsDropdown">
                         <li><h6 class="dropdown-header">Applications</h6></li>
                         <li><a class="dropdown-item" href="{% url 'agent_mali:dashboard' %}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
-                        <li><a class="dropdown-item" href="{% url 'agent_mali:rapports' %}"><i class="bi bi-graph-up me-2"></i>Rapports</a></li>
+                        <li><a class="dropdown-item" href="{% url 'agent_mali:rapport_journalier' %}"><i class="bi bi-file-bar-graph me-2"></i>Rapport Journalier</a></li>
+                        <li><a class="dropdown-item" href="{% url 'agent_mali:rapports' %}"><i class="bi bi-graph-up me-2"></i>Rapports Avancés</a></li>
+                        <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="#"><i class="bi bi-calculator me-2"></i>Calculatrice</a></li>
                         <li><a class="dropdown-item" href="#"><i class="bi bi-calendar me-2"></i>Calendrier</a></li>
                     </ul>

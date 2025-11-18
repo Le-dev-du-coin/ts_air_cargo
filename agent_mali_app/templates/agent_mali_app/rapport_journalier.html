@@ -1,0 +1,500 @@
+{% extends 'components/base_agent_mali.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ title }} - TS Air Cargo Mali{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 25px rgba(0,0,0,0.12) !important;
+    }
+    
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 2rem;
+    }
+    
+    .badge-custom {
+        font-size: 0.75rem;
+        border-radius: 6px;
+        padding: 0.375rem 0.75rem;
+    }
+    
+    /* Styles pour l'impression */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        
+        .stats-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        
+        .chart-container {
+            height: 250px;
+        }
+        
+        body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+        }
+        
+        .card {
+            border: 1px solid #dee2e6 !important;
+            box-shadow: none !important;
+        }
+        
+        h2, h3, h4, h5, h6 {
+            page-break-after: avoid;
+        }
+        
+        table {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header avec actions -->
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div>
+        <h2 class="h4 mb-1">📊 Rapport Journalier</h2>
+        <p class="text-muted mb-0">Synthèse complète d'activité du {{ date_rapport_str }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <input type="date" id="date-selector" class="form-control" value="{{ date_rapport|date:'Y-m-d' }}" style="max-width: 200px;">
+        <a href="{% url 'agent_mali:rapport_journalier_pdf' %}?date={{ date_rapport|date:'Y-m-d' }}" 
+           class="btn btn-danger" target="_blank">
+            <i class="bi bi-file-earmark-pdf"></i> Télécharger PDF
+        </a>
+        <a href="{% url 'agent_mali:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+
+<!-- En-tête pour impression -->
+<div class="d-none d-print-block mb-4 text-center">
+    <h2>📊 TS AIR CARGO - RAPPORT JOURNALIER</h2>
+    <h4>Date: {{ date_rapport_str }}</h4>
+    <p>Généré le {{ "now"|date:"d/m/Y à H:i" }}</p>
+    <hr>
+</div>
+
+<!-- Statistiques principales -->
+<div class="row mb-4 g-3">
+    <!-- Colis Réceptionnés -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #3b82f6;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-box-seam" style="color: #3b82f6;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ nb_colis_receptionnes }}</h3>
+                <p class="text-muted mb-0 small">Colis Réceptionnés</p>
+                <small class="text-muted">{{ valeur_colis_receptionnes|floatformat:0|intcomma }} FCFA</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Colis Livrés -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #10b981;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-truck" style="color: #10b981;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ nb_colis_livres }}</h3>
+                <p class="text-muted mb-0 small">Colis Livrés</p>
+                <small class="text-muted">Taux: {{ taux_livraison|floatformat:1 }}%</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenus -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #f59e0b;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-warning bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-cash-coin" style="color: #f59e0b;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ revenus_jour|floatformat:0|intcomma }}</h3>
+                <p class="text-muted mb-0 small">Revenus (FCFA)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dépenses -->
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #ef4444;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-danger bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-wallet2" style="color: #ef4444;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ total_depenses|floatformat:0|intcomma }}</h3>
+                <p class="text-muted mb-0 small">Dépenses (FCFA)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bénéfice Net et Lots en cours -->
+<div class="row mb-4 g-3">
+    <!-- Bénéfice Net -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid {% if benefice_net >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon {% if benefice_net >= 0 %}bg-success{% else %}bg-danger{% endif %} bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-graph-up-arrow" style="color: {% if benefice_net >= 0 %}#10b981{% else %}#ef4444{% endif %};"></i>
+                </div>
+                <h3 class="mb-1 fw-bold {% if benefice_net >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {{ benefice_net|floatformat:0|intcomma }}
+                </h3>
+                <p class="text-muted mb-0 small">Bénéfice Net (FCFA)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lots en cours -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #8b5cf6;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-purple bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-layers" style="color: #8b5cf6;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ lots_en_cours }}</h3>
+                <p class="text-muted mb-0 small">Lots En Cours</p>
+                <small class="text-muted">{{ lots_partiels }} partiels</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Colis en attente -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 stats-card" style="border-top: 4px solid #f59e0b;">
+            <div class="card-body text-center p-3">
+                <div class="stats-icon bg-warning bg-opacity-10 rounded-circle mx-auto mb-2">
+                    <i class="bi bi-hourglass-split" style="color: #f59e0b;"></i>
+                </div>
+                <h3 class="mb-1 fw-bold">{{ colis_en_attente }}</h3>
+                <p class="text-muted mb-0 small">Colis En Attente</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques -->
+<div class="row mb-4 g-3">
+    <!-- Graphique Revenus vs Dépenses (7 jours) -->
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> Évolution sur 7 jours</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="revenusDepensesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique Dépenses par type -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Dépenses par Type</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="depensesTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Listes détaillées -->
+<div class="row g-3">
+    <!-- Colis Réceptionnés -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0"><i class="bi bi-box-seam"></i> Colis Réceptionnés ({{ nb_colis_receptionnes }})</h5>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% if colis_receptionnes %}
+                    <div class="list-group list-group-flush">
+                        {% for colis in colis_receptionnes %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ colis.numero_suivi }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-person"></i> {{ colis.client.user.get_full_name }}
+                                    </small>
+                                </div>
+                                <span class="badge bg-primary">{{ colis.prix_calcule|floatformat:0|intcomma }} F</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if nb_colis_receptionnes > 10 %}
+                    <div class="text-center mt-2">
+                        <small class="text-muted">Et {{ nb_colis_receptionnes|add:"-10" }} autres...</small>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted text-center mb-0">Aucun colis réceptionné ce jour</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Colis Livrés -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0"><i class="bi bi-truck"></i> Colis Livrés ({{ nb_colis_livres }})</h5>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% if livraisons_jour %}
+                    <div class="list-group list-group-flush">
+                        {% for livraison in livraisons_jour %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ livraison.colis.numero_suivi }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-person"></i> {{ livraison.nom_destinataire }}
+                                    </small>
+                                </div>
+                                {% if livraison.montant_collecte %}
+                                <span class="badge bg-success">{{ livraison.montant_collecte|floatformat:0|intcomma }} F</span>
+                                {% else %}
+                                <span class="badge bg-secondary">0 F</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if nb_colis_livres > 10 %}
+                    <div class="text-center mt-2">
+                        <small class="text-muted">Et {{ nb_colis_livres|add:"-10" }} autres...</small>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted text-center mb-0">Aucun colis livré ce jour</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Dépenses -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0"><i class="bi bi-wallet2"></i> Dépenses du Jour</h5>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% if depenses_jour %}
+                    <div class="list-group list-group-flush">
+                        {% for depense in depenses_jour %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ depense.libelle }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-tag"></i> {{ depense.get_type_depense_display }}
+                                    </small>
+                                </div>
+                                <span class="badge bg-danger">{{ depense.montant|floatformat:0|intcomma }} F</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if depenses_jour.count > 10 %}
+                    <div class="text-center mt-2">
+                        <small class="text-muted">Et plus encore...</small>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted text-center mb-0">Aucune dépense enregistrée ce jour</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pied de page pour impression -->
+<div class="d-none d-print-block mt-4 pt-4 border-top text-center">
+    <p class="mb-0"><strong>TS Air Cargo Mali</strong> | Rapport Journalier - {{ date_rapport_str }}</p>
+    <p class="mb-0 text-muted small">Document généré automatiquement - Confidentiel</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// Données depuis Django
+const stats7Jours = {{ stats_7_jours|safe }};
+const depensesParType = {{ depenses_par_type|safe }};
+
+// Graphique Revenus vs Dépenses (7 jours)
+const ctx1 = document.getElementById('revenusDepensesChart').getContext('2d');
+new Chart(ctx1, {
+    type: 'bar',
+    data: {
+        labels: stats7Jours.map(s => s.date),
+        datasets: [
+            {
+                label: 'Revenus',
+                data: stats7Jours.map(s => s.revenus),
+                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                borderColor: 'rgb(16, 185, 129)',
+                borderWidth: 2
+            },
+            {
+                label: 'Dépenses',
+                data: stats7Jours.map(s => s.depenses),
+                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                borderColor: 'rgb(239, 68, 68)',
+                borderWidth: 2
+            },
+            {
+                label: 'Bénéfice',
+                data: stats7Jours.map(s => s.benefice),
+                type: 'line',
+                backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                borderColor: 'rgb(245, 158, 11)',
+                borderWidth: 3,
+                fill: true
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            title: {
+                display: true,
+                text: 'Revenus, Dépenses et Bénéfice (7 derniers jours)'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return value.toLocaleString('fr-FR') + ' FCFA';
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Graphique Dépenses par Type (Pie Chart)
+if (depensesParType.length > 0) {
+    const ctx2 = document.getElementById('depensesTypeChart').getContext('2d');
+    
+    // Mapping des types de dépenses vers leurs labels
+    const typeLabels = {
+        'transport': 'Transport',
+        'manutention': 'Manutention',
+        'douane': 'Douane',
+        'stockage': 'Stockage',
+        'carburant': 'Carburant',
+        'reparation': 'Réparation',
+        'communication': 'Communication',
+        'bureau': 'Bureau',
+        'autre': 'Autre'
+    };
+    
+    // Couleurs pour chaque type
+    const colors = [
+        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+        '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1'
+    ];
+    
+    new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: depensesParType.map(d => typeLabels[d.type_depense] || d.type_depense),
+            datasets: [{
+                data: depensesParType.map(d => parseFloat(d.total)),
+                backgroundColor: colors.slice(0, depensesParType.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        font: {
+                            size: 10
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            return label + ': ' + value.toLocaleString('fr-FR') + ' FCFA';
+                        }
+                    }
+                }
+            }
+        }
+    });
+} else {
+    // Afficher un message si pas de dépenses
+    const canvas = document.getElementById('depensesTypeChart');
+    const ctx = canvas.getContext('2d');
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#6b7280';
+    ctx.textAlign = 'center';
+    ctx.fillText('Aucune dépense ce jour', canvas.width / 2, canvas.height / 2);
+}
+
+// Sélecteur de date
+document.getElementById('date-selector').addEventListener('change', function() {
+    const selectedDate = this.value;
+    window.location.href = '{% url "agent_mali:rapport_journalier" %}?date=' + selectedDate;
+});
+</script>
+{% endblock %}

@@ -212,6 +212,9 @@ class WaChapService:
             elif clean_phone.startswith('0') and len(clean_phone) in (9, 10):
                 # Numéro local Mali (0XXXXXXXX) → +223XXXXXXXX
                 clean_phone = '+223' + clean_phone[1:]
+            elif len(clean_phone) == 8 and clean_phone.isdigit():
+                # Numéro malien sur 8 chiffres (76543210) → +22376543210
+                clean_phone = '+223' + clean_phone
             elif re.match(r'^1[3-9]\d{9}$', clean_phone):
                 # Numéro mobile chinois sur 11 chiffres sans indicatif → +86
                 clean_phone = '+86' + clean_phone

@@ -1159,9 +1159,11 @@ def calculate_price_api(request):
         
         pays_destination = data.get('pays_destination', 'ML')
         type_transport = data.get('type_transport', 'cargo')
+        type_colis = data.get('type_colis', 'standard')
+        quantite_pieces = int(data.get('quantite_pieces', 1))
         prix_manuel = data.get('prix_manuel')  # Prix manuel si fourni
         
-        # Validation des paramètres selon le type de transport
+        # Validation des paramètres selon le type de transport et type de colis
         if type_transport == 'bateau':
             if not all([longueur, largeur, hauteur]):
                 return JsonResponse({
@@ -1170,44 +1172,70 @@ def calculate_price_api(request):
                     'details': 'Veuillez saisir longueur, largeur et hauteur'
                 })
         else:  # cargo ou express
-            if not poids:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Poids requis pour transport cargo/express',
-                    'details': 'Veuillez saisir le poids du colis'
-                })
+            # Pour téléphone/électronique : seule la quantité est requise
+            if type_colis in ['telephone', 'electronique']:
+                if not quantite_pieces or quantite_pieces <= 0:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Quantité de pièces requise',
+                        'details': 'Veuillez saisir le nombre de pièces'
+                    })
+            else:  # standard : poids requis
+                if not poids:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Poids requis pour transport cargo/express',
+                        'details': 'Veuillez saisir le poids du colis'
+                    })
         
-        # Si un prix manuel est fourni, calculer le prix total (prix par kilo * poids)
+        # Si un prix manuel est fourni, calculer le prix total
         if prix_manuel is not None:
             try:
-                prix_par_kilo = float(prix_manuel)
-                if prix_par_kilo >= 0:
-                    # Pour le prix manuel, on a besoin du poids
-                    if not poids or poids <= 0:
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'Poids requis pour le prix manuel',
-                            'details': 'Le prix manuel est calculé par kilogramme'
-                        })
-                    
-                    prix_total = prix_par_kilo * poids
+                prix_unitaire = float(prix_manuel)
+                if prix_unitaire >= 0:
                     volume_m3 = (longueur * largeur * hauteur) / 1000000
+                    
+                    # Calcul selon le type de colis
+                    if type_colis in ['telephone', 'electronique']:
+                        # Prix manuel à la pièce : prix_par_piece × quantité
+                        prix_total = prix_unitaire * quantite_pieces
+                        message = f'Prix manuel: {prix_unitaire:,.0f} FCFA/pièce × {quantite_pieces} pc'
+                        debug_methode = {
+                            'type_colis': type_colis,
+                            'quantite_pieces': quantite_pieces,
+                            'prix_par_piece': prix_unitaire,
+                            'prix_total': prix_total,
+                            'methode': 'prix_manuel_piece'
+                        }
+                    else:
+                        # Prix manuel au poids : prix_par_kg × poids
+                        if not poids or poids <= 0:
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Poids requis pour le prix manuel',
+                                'details': 'Le prix manuel est calculé par kilogramme'
+                            })
+                        prix_total = prix_unitaire * poids
+                        message = f'Prix manuel: {prix_unitaire:,.0f} FCFA/kg × {poids} kg'
+                        debug_methode = {
+                            'poids': poids,
+                            'prix_par_kilo': prix_unitaire,
+                            'prix_total': prix_total,
+                            'methode': 'prix_manuel_poids'
+                        }
                     
                     return JsonResponse({
                         'success': True,
                         'prix': prix_total,
                         'volume_m3': volume_m3,
                         'prix_type': 'manuel',
-                        'message': f'Prix manuel: {prix_par_kilo:,.0f} FCFA/kg × {poids} kg',
+                        'message': message,
                         'debug_info': {
-                            'poids': poids,
                             'dimensions': f'{longueur}x{largeur}x{hauteur}cm',
                             'volume_m3': volume_m3,
                             'pays': pays_destination,
                             'type_transport': type_transport,
-                            'prix_par_kilo': prix_par_kilo,
-                            'prix_total': prix_total,
-                            'methode': 'prix_manuel'
+                            **debug_methode
                         }
                     })
             except (ValueError, TypeError):
@@ -1219,83 +1247,88 @@ def calculate_price_api(request):
         # Calculer le volume en m3
         volume_m3 = (longueur * largeur * hauteur) / 1000000
         
-        # Vérifier s'il y a des tarifs disponibles
-        tarifs_disponibles = ShippingPrice.objects.filter(actif=True)
-        total_tarifs = tarifs_disponibles.count()
-        
-        if total_tarifs == 0:
-            # Pas de tarifs configurés - utiliser des tarifs par défaut
-            prix_default = calculate_default_price(poids, volume_m3, type_transport)
+        # Utiliser la logique du modèle Colis pour calculer le prix automatique
+        # Créer un objet temporaire (non sauvegardé) pour utiliser calculer_prix_automatique()
+        try:
+            # Récupérer un client pour le pays (ou créer un objet minimal)
+            from authentication_app.models import User
+            
+            # Créer un client temporaire pour le calcul
+            temp_user = User(first_name='Temp', last_name='Client')
+            temp_client = Client(
+                user=temp_user,
+                pays=pays_destination,
+                telephone='00000000',
+                adresse='Temp'
+            )
+            
+            # Créer un colis temporaire avec les paramètres
+            temp_colis = Colis(
+                client=temp_client,
+                type_transport=type_transport,
+                type_colis=type_colis,
+                quantite_pieces=quantite_pieces,
+                poids=poids if poids else 0,
+                longueur=longueur if longueur else 0,
+                largeur=largeur if largeur else 0,
+                hauteur=hauteur if hauteur else 0
+            )
+            
+            # Calculer le prix avec la logique du modèle
+            prix_calcule = temp_colis.calculer_prix_automatique()
+            
+            # Déterminer la méthode utilisée
+            if type_colis in ['telephone', 'electronique']:
+                methode_utilisee = f'Tarif à la pièce ({type_colis})'
+                details_calcul = f'{quantite_pieces} pièces'
+            elif type_transport == 'bateau':
+                methode_utilisee = 'Tarif au volume'
+                details_calcul = f'{volume_m3:.4f} m³'
+            else:
+                methode_utilisee = 'Tarif au poids'
+                details_calcul = f'{poids} kg'
             
             return JsonResponse({
                 'success': True,
-                'prix': float(prix_default),
+                'prix': float(prix_calcule),
                 'volume_m3': volume_m3,
                 'prix_type': 'automatique',
-                'message': f'Prix calculé avec tarif par défaut ({type_transport})',
+                'message': f'Prix calculé avec succès ({methode_utilisee})',
                 'debug_info': {
                     'poids': poids,
                     'dimensions': f'{longueur}x{largeur}x{hauteur}cm',
                     'volume_m3': volume_m3,
                     'pays': pays_destination,
                     'type_transport': type_transport,
-                    'tarifs_disponibles': 0,
-                    'methode': 'tarif_defaut'
+                    'type_colis': type_colis,
+                    'quantite_pieces': quantite_pieces,
+                    'methode': methode_utilisee,
+                    'details_calcul': details_calcul
                 }
             })
         
-        # Rechercher les tarifs applicables
-        tarifs = ShippingPrice.objects.filter(
-            actif=True,
-            pays_destination__in=[pays_destination, 'ALL']
-        )
-        
-        prix_max = 0
-        tarif_utilise = None
-        prix_details = []
-        
-        # Calculer le prix avec chaque tarif applicable
-        for tarif in tarifs:
-            try:
-                prix_calcule = tarif.calculer_prix(poids, volume_m3)
-                prix_details.append({
-                    'nom_tarif': tarif.nom_tarif,
-                    'methode': tarif.methode_calcul,
-                    'prix_calcule': float(prix_calcule)
-                })
-                
-                if prix_calcule > prix_max:
-                    prix_max = prix_calcule
-                    tarif_utilise = tarif
-            except Exception as e:
-                # Erreur calcul tarif - continuer avec le tarif suivant
-                continue
-        
-        # Si aucun tarif ne donne de prix, utiliser tarif par défaut
-        if prix_max == 0:
-            prix_max = calculate_default_price(poids, volume_m3, type_transport)
-            methode_utilisee = 'tarif_defaut'
-        else:
-            methode_utilisee = tarif_utilise.nom_tarif if tarif_utilise else 'inconnu'
-        
-        return JsonResponse({
-            'success': True,
-            'prix': float(prix_max),
-            'volume_m3': volume_m3,
-            'prix_type': 'automatique',
-            'message': f'Prix calculé avec succès ({methode_utilisee})',
-            'debug_info': {
-                'poids': poids,
-                'dimensions': f'{longueur}x{largeur}x{hauteur}cm',
+        except Exception as calc_error:
+            # Fallback en cas d'erreur avec la méthode du modèle
+            prix_default = calculate_default_price(poids, volume_m3, type_transport, type_colis, quantite_pieces)
+            
+            return JsonResponse({
+                'success': True,
+                'prix': float(prix_default),
                 'volume_m3': volume_m3,
-                'pays': pays_destination,
-                'type_transport': type_transport,
-                'tarifs_disponibles': total_tarifs,
-                'tarifs_applicables': len(prix_details),
-                'methode': methode_utilisee,
-                'prix_details': prix_details
-            }
-        })
+                'prix_type': 'automatique',
+                'message': f'Prix calculé avec tarif par défaut (fallback)',
+                'debug_info': {
+                    'poids': poids,
+                    'dimensions': f'{longueur}x{largeur}x{hauteur}cm',
+                    'volume_m3': volume_m3,
+                    'pays': pays_destination,
+                    'type_transport': type_transport,
+                    'type_colis': type_colis,
+                    'quantite_pieces': quantite_pieces,
+                    'methode': 'tarif_defaut',
+                    'error': str(calc_error)
+                }
+            })
         
     except Exception as e:
         return JsonResponse({
@@ -1307,23 +1340,21 @@ def calculate_price_api(request):
         })
 
 
-def calculate_default_price(poids, volume_m3, type_transport):
+def calculate_default_price(poids, volume_m3, type_transport, type_colis='standard', quantite_pieces=1):
     """
     Calcule un prix par défaut quand aucun tarif n'est configuré
     """
-    # Tarifs par défaut en FCFA
-    tarifs_defaut = {
-        # Aligné avec Colis.calculer_prix_automatique() (fallback)
-        # cargo: 10000 FCFA/kg, express: 12000 FCFA/kg, bateau: 300000 FCFA/m3
-        'cargo': 10000,
-        'express': 12000,
-        'bateau': 300000,
-    }
-    
+    # Tarifs par défaut en FCFA (alignés avec Colis.calculer_prix_automatique)
     if type_transport == 'bateau':
-        return volume_m3 * tarifs_defaut['bateau']
-    else:
-        return poids * tarifs_defaut.get(type_transport, 10000)
+        return volume_m3 * 300000
+    elif type_colis == 'telephone':
+        return quantite_pieces * 5000  # 5000 FCFA par téléphone
+    elif type_colis == 'electronique':
+        return quantite_pieces * 3000  # 3000 FCFA par appareil électronique
+    elif type_transport == 'express':
+        return poids * 12000  # 12000 FCFA/kg
+    else:  # cargo standard
+        return poids * 10000  # 10000 FCFA/kg
 
 
 # Fonction calculate_manual_price_total supprimée - Prix manuel maintenant saisi directement comme TOTAL
