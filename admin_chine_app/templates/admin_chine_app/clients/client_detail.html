@@ -114,9 +114,9 @@
                                 </td>
                                 <td class="small">{{ c.date_creation|date:"d/m/Y" }}</td>
                                 <td>
-                                    <a href="{% url 'admin_chine_app:colis_detail' c.id %}" 
-                                       class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i>
+                                    <a href="{% url 'admin_chine_app:lot_detail' c.lot.id %}" 
+                                       class="btn btn-sm btn-outline-primary" title="Voir le lot">
+                                        <i class="bi bi-box"></i>
                                     </a>
                                 </td>
                             </tr>

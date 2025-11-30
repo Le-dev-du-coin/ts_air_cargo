@@ -49,11 +49,9 @@
             <a href="{% url 'admin_chine_app:lot_edit' lot.id %}" class="btn btn-warning">
                 <i class="bi bi-pencil"></i> Modifier
             </a>
-            {% if lot.colis.count == 0 %}
-            <a href="{% url 'admin_chine_app:lot_delete' lot.id %}" class="btn btn-danger">
-                <i class="bi bi-trash"></i> Supprimer
+            <a href="{% url 'admin_chine_app:lot_delete' lot.id %}" class="btn btn-danger" title="{% if lot.colis.count > 0 %}Supprimer le lot et ses {{ lot.colis.count }} colis{% else %}Supprimer le lot{% endif %}">
+                <i class="bi bi-trash"></i> Supprimer{% if lot.colis.count > 0 %} ({{ lot.colis.count }}){% endif %}
             </a>
-            {% endif %}
         </div>
     </div>
 

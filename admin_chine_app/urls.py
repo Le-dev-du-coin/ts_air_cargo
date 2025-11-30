@@ -64,7 +64,7 @@ urlpatterns = [
     # path('colis/<int:colis_id>/edit/', views.colis_edit, name='colis_edit'),
     # path('colis/<int:colis_id>/delete/', views.colis_delete, name='colis_delete'),
     
-    # === Gestion des Clients (Admin Chine) - DÉSACTIVÉ ===
-    # path('clients/', views.clients_list, name='clients_list'),
-    # path('clients/<int:client_id>/', views.client_detail, name='client_detail'),
+    # === Gestion des Clients (Admin Chine) ===
+    path('clients/', views.clients_list, name='clients_list'),
+    path('clients/<int:client_id>/', views.client_detail, name='client_detail'),
 ]

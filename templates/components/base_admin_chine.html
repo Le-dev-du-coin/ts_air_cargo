@@ -560,6 +560,12 @@
                         <span>Gestion des Lots</span>
                     </a>
                 </div>
+                <div class="nav-item">
+                    <a href="{% url 'admin_chine_app:clients_list' %}" class="nav-link {% if 'client' in request.resolver_match.url_name %}active{% endif %}">
+                        <i class="fas fa-users"></i>
+                        <span>Gestion des Clients</span>
+                    </a>
+                </div>
             </div>
 
             <div class="nav-section">

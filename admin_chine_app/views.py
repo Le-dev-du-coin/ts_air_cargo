@@ -9,9 +9,8 @@ from decimal import Decimal
 import calendar
 
 from admin_mali_app.models import TransfertArgent
-from agent_chine_app.models import Lot, Colis
+from agent_chine_app.models import Lot, Colis, Client
 from agent_mali_app.models import Depense
-from client_app.models import Client
 from authentication.models import CustomUser
 
 
@@ -2381,29 +2380,30 @@ def lot_edit(request, lot_id):
 @admin_chine_required
 def lot_delete(request, lot_id):
     """
-    Suppression d'un lot (uniquement si vide)
+    Suppression d'un lot (avec suppression en cascade des colis)
     """
     lot = get_object_or_404(Lot, id=lot_id)
     
-    # Vérifier que le lot est vide
+    # Compter les colis pour l'affichage
     nb_colis = lot.colis.count()
     
     if request.method == 'POST':
-        if nb_colis > 0:
-            messages.error(
-                request, 
-                f"❌ Impossible de supprimer le lot {lot.numero_lot}. "
-                f"Il contient {nb_colis} colis. Supprimez d'abord tous les colis."
-            )
-            return redirect('admin_chine_app:lot_detail', lot_id=lot_id)
-        
         try:
             numero_lot = lot.numero_lot
+            
+            # Supprimer le lot (les colis seront supprimés en cascade grâce au ForeignKey)
             lot.delete()
-            messages.success(
-                request, 
-                f"✅ Lot {numero_lot} supprimé avec succès."
-            )
+            
+            if nb_colis > 0:
+                messages.success(
+                    request, 
+                    f"✅ Lot {numero_lot} et ses {nb_colis} colis supprimés avec succès."
+                )
+            else:
+                messages.success(
+                    request, 
+                    f"✅ Lot {numero_lot} supprimé avec succès."
+                )
             return redirect('admin_chine_app:lots_list')
         except Exception as e:
             messages.error(request, f"❌ Erreur lors de la suppression: {str(e)}")
@@ -2845,9 +2845,10 @@ def clients_list(request):
     recherche = request.GET.get('recherche', '').strip()
     if recherche:
         clients_qs = clients_qs.filter(
-            Q(nom_complet__icontains=recherche) |
-            Q(telephone__icontains=recherche) |
-            Q(user__email__icontains=recherche)
+            Q(user__first_name__icontains=recherche) |
+            Q(user__last_name__icontains=recherche) |
+            Q(user__email__icontains=recherche) |
+            Q(pays__icontains=recherche)
         )
     
     # Filtre actif/inactif
@@ -2858,8 +2859,8 @@ def clients_list(request):
         clients_qs = clients_qs.filter(user__is_active=False)
     
     # Tri
-    tri = request.GET.get('tri', 'nom_complet')
-    valid_tris = ['nom_complet', '-nom_complet', 'date_creation', '-date_creation']
+    tri = request.GET.get('tri', 'user__first_name')
+    valid_tris = ['user__first_name', '-user__first_name', 'user__last_name', '-user__last_name', 'date_creation', '-date_creation']
     if tri in valid_tris:
         clients_qs = clients_qs.order_by(tri)
     
@@ -2919,7 +2920,7 @@ def client_detail(request, client_id):
             }
     
     context = {
-        'title': f'Client: {client.nom_complet}',
+        'title': f'Client: {client.user.get_full_name()}',
         'client': client,
         'colis': colis[:20],  # 20 derniers colis
         'total_colis': total_colis,

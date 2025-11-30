@@ -16,41 +16,83 @@
                 </div>
                 <div class="card-body">
                     {% if nb_colis > 0 %}
-                    <!-- Lot non vide - Suppression impossible -->
+                    <!-- Lot avec colis - Avertissement de suppression en cascade -->
                     <div class="alert alert-danger">
                         <h5 class="alert-heading">
-                            <i class="bi bi-x-circle me-2"></i>
-                            Suppression Impossible
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            ⚠️ ATTENTION - Suppression en Cascade !
                         </h5>
+                        <p class="mb-2">
+                            Ce lot contient <strong class="fs-5">{{ nb_colis }} colis</strong>.
+                        </p>
                         <p class="mb-0">
-                            Ce lot contient <strong>{{ nb_colis }} colis</strong>. 
-                            Vous devez d'abord supprimer ou réaffecter tous les colis avant de pouvoir supprimer le lot.
+                            <strong>La suppression du lot entraînera la suppression définitive de TOUS les colis associés.</strong>
+                            Cette action est <strong class="text-decoration-underline">IRRÉVERSIBLE</strong>.
                         </p>
                     </div>
                     
-                    <div class="card bg-light">
+                    <div class="card bg-light mb-4">
                         <div class="card-body">
-                            <h6>Informations du Lot</h6>
-                            <ul class="mb-0">
-                                <li><strong>Numéro :</strong> {{ lot.numero_lot }}</li>
-                                <li><strong>Statut :</strong> {{ lot.get_statut_display }}</li>
-                                <li><strong>Type :</strong> {{ lot.get_type_lot_display }}</li>
-                                <li><strong>Colis :</strong> {{ nb_colis }}</li>
-                            </ul>
+                            <h6 class="mb-3 text-danger"><i class="bi bi-info-circle me-2"></i>Informations du Lot à Supprimer</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Numéro de Lot</small>
+                                        <div class="fw-bold">{{ lot.numero_lot }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Statut</small>
+                                        <div class="fw-bold">{{ lot.get_statut_display }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Type de Transport</small>
+                                        <div class="fw-bold">{{ lot.get_type_lot_display }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Date de Création</small>
+                                        <div class="fw-bold">{{ lot.date_creation|date:"d/m/Y à H:i" }}</div>
+                                    </div>
+                                </div>
+                                {% if lot.agent_createur %}
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Agent Créateur</small>
+                                        <div class="fw-bold">{{ lot.agent_createur.get_full_name }}</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Nombre de Colis</small>
+                                        <div class="fw-bold {% if nb_colis > 0 %}text-danger{% else %}text-success{% endif %}">
+                                            {{ nb_colis }} colis {% if nb_colis == 0 %}(vide){% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="d-flex gap-2 mt-4">
-                        <a href="{% url 'admin_chine_app:lot_detail' lot.id %}" class="btn btn-primary">
-                            <i class="bi bi-arrow-left"></i> Retour aux Détails du Lot
-                        </a>
-                        <a href="{% url 'admin_chine_app:lots_list' %}" class="btn btn-outline-secondary">
-                            <i class="bi bi-list"></i> Liste des Lots
-                        </a>
-                    </div>
+                    <form method="post" onsubmit="return confirm('{% if nb_colis > 0 %}⚠️ ATTENTION !\n\nVous allez supprimer le lot {{ lot.numero_lot }} et ses {{ nb_colis }} colis.\n\nCette action est DÉFINITIVE et IRRÉVERSIBLE !\n\nÊtes-vous ABSOLUMENT sûr de vouloir continuer ?{% else %}Êtes-vous vraiment sûr de vouloir supprimer ce lot ?{% endif %}');">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'admin_chine_app:lot_detail' lot.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> {% if nb_colis > 0 %}Supprimer le Lot et ses {{ nb_colis }} Colis{% else %}Confirmer la Suppression{% endif %}
+                            </button>
+                        </div>
+                    </form>
                     
                     {% else %}
-                    <!-- Lot vide - Suppression possible -->
+                    <!-- Lot vide - Suppression simple -->
                     <div class="alert alert-warning">
                         <h5 class="alert-heading">
                             <i class="bi bi-exclamation-triangle me-2"></i>
@@ -128,12 +170,14 @@
                 <div class="card-body">
                     <h6 class="mb-3">
                         <i class="bi bi-info-circle me-2"></i>
-                        Information
+                        Information Importante
                     </h6>
                     <ul class="small mb-0">
-                        <li>Seuls les lots vides (sans colis) peuvent être supprimés</li>
-                        <li>La suppression est définitive et ne peut pas être annulée</li>
+                        <li><strong>Les lots peuvent être supprimés même s'ils contiennent des colis</strong></li>
+                        <li>Si le lot contient des colis, <strong class="text-danger">TOUS les colis seront également supprimés</strong> (suppression en cascade)</li>
+                        <li>La suppression est <strong>définitive et irréversible</strong></li>
                         <li>Le numéro de lot ne pourra pas être réutilisé</li>
+                        <li>Une confirmation supplémentaire vous sera demandée avant la suppression</li>
                     </ul>
                 </div>
             </div>

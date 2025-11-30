@@ -74,8 +74,10 @@
                     </div>
                     <div class="col-md-3">
                         <select name="tri" class="form-select">
-                            <option value="nom_complet" {% if tri == 'nom_complet' %}selected{% endif %}>Nom (A-Z)</option>
-                            <option value="-nom_complet" {% if tri == '-nom_complet' %}selected{% endif %}>Nom (Z-A)</option>
+                            <option value="user__first_name" {% if tri == 'user__first_name' %}selected{% endif %}>Prénom (A-Z)</option>
+                            <option value="-user__first_name" {% if tri == '-user__first_name' %}selected{% endif %}>Prénom (Z-A)</option>
+                            <option value="user__last_name" {% if tri == 'user__last_name' %}selected{% endif %}>Nom (A-Z)</option>
+                            <option value="-user__last_name" {% if tri == '-user__last_name' %}selected{% endif %}>Nom (Z-A)</option>
                             <option value="-date_creation" {% if tri == '-date_creation' %}selected{% endif %}>Plus récents</option>
                             <option value="date_creation" {% if tri == 'date_creation' %}selected{% endif %}>Plus anciens</option>
                         </select>
@@ -101,7 +103,6 @@
                 <thead class="table-light">
                     <tr>
                         <th>Client</th>
-                        <th>Téléphone</th>
                         <th>Email</th>
                         <th>Pays</th>
                         <th>Total Colis</th>
@@ -115,8 +116,7 @@
                 <tbody>
                     {% for client in clients %}
                     <tr style="cursor: pointer;" onclick="window.location='{% url 'admin_chine_app:client_detail' client.id %}'">
-                        <td><strong>{{ client.nom_complet }}</strong></td>
-                        <td>{{ client.telephone }}</td>
+                        <td><strong>{{ client.user.get_full_name }}</strong></td>
                         <td class="small">{{ client.user.email|default:"-" }}</td>
                         <td>{{ client.pays }}</td>
                         <td><span class="badge bg-primary">{{ client.nb_colis }}</span></td>
@@ -139,7 +139,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center py-4 text-muted">
+                        <td colspan="9" class="text-center py-4 text-muted">
                             Aucun client trouvé
                         </td>
                     </tr>
