@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, Avg, Max, Min
 from django.utils import timezone
+from django.core.paginator import Paginator
 from datetime import datetime, timedelta
 from decimal import Decimal
 import calendar
@@ -10,8 +11,8 @@ import calendar
 from admin_mali_app.models import TransfertArgent
 from agent_chine_app.models import Lot, Colis
 from agent_mali_app.models import Depense
+from client_app.models import Client
 from authentication.models import CustomUser
-# Import sera fait localement dans la fonction
 
 
 def admin_chine_required(view_func):
@@ -2090,3 +2091,841 @@ def export_rapport_express_excel(request):
     
     wb.save(response)
     return response
+
+
+# ==================== GESTION CRUD DES LOTS (ADMIN CHINE) ====================
+
+@admin_chine_required
+def lot_create(request):
+    """
+    Création d'un nouveau lot par l'admin Chine
+    """
+    if request.method == 'POST':
+        try:
+            type_lot = request.POST.get('type_lot', 'cargo')
+            prix_transport = request.POST.get('prix_transport')
+            frais_douane = request.POST.get('frais_douane')
+            agent_createur_id = request.POST.get('agent_createur')
+            notes = request.POST.get('notes', '')
+            
+            # Validation du type de lot
+            valid_types = [choice[0] for choice in Lot.TRANSPORT_CHOICES]
+            if type_lot not in valid_types:
+                messages.error(request, f"❌ Type de transport invalide: {type_lot}")
+                return redirect('admin_chine_app:lot_create')
+            
+            # Récupération de l'agent créateur
+            if agent_createur_id:
+                agent_createur = get_object_or_404(CustomUser, id=agent_createur_id, is_agent_chine=True)
+            else:
+                # Par défaut, utiliser l'admin comme créateur si aucun agent spécifié
+                agent_createur = request.user
+            
+            # Préparation des données
+            lot_data = {
+                'agent_createur': agent_createur,
+                'type_lot': type_lot,
+                'statut': 'ouvert'
+            }
+            
+            # Ajouter le prix de transport si fourni
+            if prix_transport and prix_transport.strip():
+                try:
+                    prix_float = float(prix_transport)
+                    if prix_float > 0:
+                        lot_data['prix_transport'] = prix_float
+                except (ValueError, TypeError):
+                    messages.error(request, "❌ Prix de transport invalide")
+                    return redirect('admin_chine_app:lot_create')
+            
+            # Ajouter les frais de douane si fournis
+            if frais_douane and frais_douane.strip():
+                try:
+                    frais_float = float(frais_douane)
+                    if frais_float >= 0:
+                        lot_data['frais_douane'] = frais_float
+                except (ValueError, TypeError):
+                    messages.error(request, "❌ Frais de douane invalides")
+                    return redirect('admin_chine_app:lot_create')
+            
+            # Créer le lot
+            lot = Lot.objects.create(**lot_data)
+            
+            messages.success(
+                request, 
+                f"✅ Lot {lot.numero_lot} ({lot.get_type_lot_display()}) créé avec succès par l'admin."
+            )
+            return redirect('admin_chine_app:lot_detail', lot_id=lot.id)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la création du lot: {str(e)}")
+    
+    # Récupérer la liste des agents Chine pour le formulaire
+    agents_chine = CustomUser.objects.filter(
+        is_agent_chine=True, 
+        is_active=True
+    ).order_by('first_name', 'last_name')
+    
+    context = {
+        'title': 'Créer un Nouveau Lot',
+        'submit_text': 'Créer le lot',
+        'transport_choices': Lot.TRANSPORT_CHOICES,
+        'agents_chine': agents_chine,
+    }
+    return render(request, 'admin_chine_app/lots/lot_form.html', context)
+
+
+@admin_chine_required
+def lots_list(request):
+    """
+    Liste de tous les lots avec filtres avancés et pagination
+    """
+    from django.core.paginator import Paginator
+    
+    lots = Lot.objects.select_related('agent_createur').prefetch_related('colis').all()
+    
+    # Filtres
+    search_query = request.GET.get('search', '')
+    statut_filter = request.GET.get('statut', '')
+    type_filter = request.GET.get('type_transport', '')
+    agent_filter = request.GET.get('agent', '')
+    date_debut = request.GET.get('date_debut', '')
+    date_fin = request.GET.get('date_fin', '')
+    tri = request.GET.get('tri', '-date_creation')
+    
+    # Appliquer les filtres
+    if search_query:
+        lots = lots.filter(numero_lot__icontains=search_query)
+    
+    if statut_filter:
+        lots = lots.filter(statut=statut_filter)
+    
+    if type_filter:
+        lots = lots.filter(type_lot=type_filter)
+    
+    if agent_filter:
+        lots = lots.filter(agent_createur__id=agent_filter)
+    
+    if date_debut:
+        lots = lots.filter(date_creation__gte=date_debut)
+    
+    if date_fin:
+        lots = lots.filter(date_creation__lte=date_fin)
+    
+    # Tri
+    valid_sort_fields = [
+        'date_creation', '-date_creation',
+        'numero_lot', '-numero_lot',
+        'statut', '-statut',
+        'prix_transport', '-prix_transport',
+        'benefice', '-benefice',
+        'date_expedition', '-date_expedition'
+    ]
+    if tri in valid_sort_fields:
+        lots = lots.order_by(tri)
+    else:
+        lots = lots.order_by('-date_creation')
+    
+    # Récupérer la liste des agents pour le filtre
+    agents = CustomUser.objects.filter(is_agent_chine=True).order_by('first_name', 'last_name')
+    
+    # Statistiques globales
+    total_lots = lots.count()
+    total_colis = sum(lot.colis.count() for lot in lots)
+    valeur_transport_total = sum(float(lot.prix_transport or 0) for lot in lots)
+    benefice_total = sum(float(lot.benefice or 0) for lot in lots if lot.benefice)
+    
+    # Pagination
+    paginator = Paginator(lots, 30)  # 30 lots par page
+    page_number = request.GET.get('page')
+    lots_page = paginator.get_page(page_number)
+    
+    context = {
+        'title': 'Gestion des Lots',
+        'lots': lots_page,
+        'total_lots': total_lots,
+        'total_colis': total_colis,
+        'valeur_transport_total': valeur_transport_total,
+        'benefice_total': benefice_total,
+        'search_query': search_query,
+        'statut_filter': statut_filter,
+        'type_filter': type_filter,
+        'agent_filter': agent_filter,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'tri': tri,
+        'statut_choices': Lot.STATUS_CHOICES,
+        'type_choices': Lot.TRANSPORT_CHOICES,
+        'agents': agents,
+    }
+    return render(request, 'admin_chine_app/lots/lot_list.html', context)
+
+
+@admin_chine_required
+def lot_detail(request, lot_id):
+    """
+    Détails complets d'un lot avec ses colis et statistiques
+    """
+    lot = get_object_or_404(Lot, id=lot_id)
+    colis = lot.colis.all().select_related('client__user').order_by('-date_creation')
+    
+    # Statistiques du lot
+    total_colis = colis.count()
+    total_poids = sum(float(c.poids) for c in colis)
+    total_valeur_colis = sum(float(c.get_prix_effectif()) for c in colis)
+    
+    # Statistiques par statut
+    colis_par_statut = {}
+    for statut_value, statut_label in Colis.STATUS_CHOICES:
+        count = colis.filter(statut=statut_value).count()
+        if count > 0:
+            colis_par_statut[statut_label] = count
+    
+    context = {
+        'title': f'Détails du Lot {lot.numero_lot}',
+        'lot': lot,
+        'colis': colis,
+        'total_colis': total_colis,
+        'total_poids': total_poids,
+        'total_valeur_colis': total_valeur_colis,
+        'colis_par_statut': colis_par_statut,
+    }
+    return render(request, 'admin_chine_app/lots/lot_detail.html', context)
+
+
+@admin_chine_required
+def lot_edit(request, lot_id):
+    """
+    Modification d'un lot existant
+    """
+    lot = get_object_or_404(Lot, id=lot_id)
+    
+    if request.method == 'POST':
+        try:
+            type_lot = request.POST.get('type_lot', 'cargo')
+            prix_transport = request.POST.get('prix_transport')
+            frais_douane = request.POST.get('frais_douane')
+            agent_createur_id = request.POST.get('agent_createur')
+            notes = request.POST.get('notes', '')
+            
+            # Validation du type de lot
+            valid_types = [choice[0] for choice in Lot.TRANSPORT_CHOICES]
+            if type_lot not in valid_types:
+                messages.error(request, f"❌ Type de transport invalide: {type_lot}")
+                return redirect('admin_chine_app:lot_edit', lot_id=lot_id)
+            
+            # Récupération de l'agent créateur
+            if agent_createur_id:
+                agent_createur = get_object_or_404(CustomUser, id=agent_createur_id, is_agent_chine=True)
+                lot.agent_createur = agent_createur
+            
+            # Mise à jour des champs
+            lot.type_lot = type_lot
+            
+            # Prix de transport
+            if prix_transport and prix_transport.strip():
+                try:
+                    prix_float = float(prix_transport)
+                    if prix_float > 0:
+                        lot.prix_transport = prix_float
+                    else:
+                        lot.prix_transport = None
+                except (ValueError, TypeError):
+                    messages.error(request, "❌ Prix de transport invalide")
+                    return redirect('admin_chine_app:lot_edit', lot_id=lot_id)
+            else:
+                lot.prix_transport = None
+            
+            # Frais de douane
+            if frais_douane and frais_douane.strip():
+                try:
+                    frais_float = float(frais_douane)
+                    if frais_float >= 0:
+                        lot.frais_douane = frais_float
+                    else:
+                        lot.frais_douane = None
+                except (ValueError, TypeError):
+                    messages.error(request, "❌ Frais de douane invalides")
+                    return redirect('admin_chine_app:lot_edit', lot_id=lot_id)
+            else:
+                lot.frais_douane = None
+            
+            # Sauvegarder (le bénéfice sera recalculé automatiquement)
+            lot.save()
+            
+            messages.success(
+                request, 
+                f"✅ Lot {lot.numero_lot} modifié avec succès."
+            )
+            return redirect('admin_chine_app:lot_detail', lot_id=lot.id)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la modification du lot: {str(e)}")
+    
+    # Récupérer la liste des agents Chine pour le formulaire
+    agents_chine = CustomUser.objects.filter(
+        is_agent_chine=True, 
+        is_active=True
+    ).order_by('first_name', 'last_name')
+    
+    context = {
+        'title': f'Modifier le Lot {lot.numero_lot}',
+        'submit_text': 'Enregistrer les modifications',
+        'transport_choices': Lot.TRANSPORT_CHOICES,
+        'agents_chine': agents_chine,
+        'lot': lot,
+    }
+    return render(request, 'admin_chine_app/lots/lot_form.html', context)
+
+
+@admin_chine_required
+def lot_delete(request, lot_id):
+    """
+    Suppression d'un lot (uniquement si vide)
+    """
+    lot = get_object_or_404(Lot, id=lot_id)
+    
+    # Vérifier que le lot est vide
+    nb_colis = lot.colis.count()
+    
+    if request.method == 'POST':
+        if nb_colis > 0:
+            messages.error(
+                request, 
+                f"❌ Impossible de supprimer le lot {lot.numero_lot}. "
+                f"Il contient {nb_colis} colis. Supprimez d'abord tous les colis."
+            )
+            return redirect('admin_chine_app:lot_detail', lot_id=lot_id)
+        
+        try:
+            numero_lot = lot.numero_lot
+            lot.delete()
+            messages.success(
+                request, 
+                f"✅ Lot {numero_lot} supprimé avec succès."
+            )
+            return redirect('admin_chine_app:lots_list')
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la suppression: {str(e)}")
+            return redirect('admin_chine_app:lot_detail', lot_id=lot_id)
+    
+    context = {
+        'title': f'Supprimer le Lot {lot.numero_lot}',
+        'lot': lot,
+        'nb_colis': nb_colis,
+    }
+    return render(request, 'admin_chine_app/lots/lot_delete_confirm.html', context)
+
+
+@admin_chine_required
+def lot_change_status(request, lot_id):
+    """
+    Changement manuel du statut d'un lot
+    """
+    lot = get_object_or_404(Lot, id=lot_id)
+    
+    if request.method == 'POST':
+        nouveau_statut = request.POST.get('nouveau_statut')
+        
+        # Validation du statut
+        valid_statuts = [choice[0] for choice in Lot.STATUS_CHOICES]
+        if nouveau_statut not in valid_statuts:
+            messages.error(request, "❌ Statut invalide")
+            return redirect('admin_chine_app:lot_detail', lot_id=lot_id)
+        
+        # Transitions de statut valides (logique métier)
+        ancien_statut = lot.statut
+        
+        # Mise à jour du statut
+        lot.statut = nouveau_statut
+        
+        # Mettre à jour les dates selon le statut
+        if nouveau_statut == 'ferme' and not lot.date_fermeture:
+            lot.date_fermeture = timezone.now()
+        elif nouveau_statut == 'expedie' and not lot.date_expedition:
+            lot.date_expedition = timezone.now()
+            # Mettre à jour le statut des colis
+            lot.colis.update(statut='en_transit')
+        elif nouveau_statut == 'arrive' and not lot.date_arrivee:
+            lot.date_arrivee = timezone.now()
+        
+        lot.save()
+        
+        messages.success(
+            request, 
+            f"✅ Statut du lot {lot.numero_lot} changé de '{dict(Lot.STATUS_CHOICES)[ancien_statut]}' "
+            f"à '{dict(Lot.STATUS_CHOICES)[nouveau_statut]}'"
+        )
+        return redirect('admin_chine_app:lot_detail', lot_id=lot_id)
+    
+    # Si GET, rediriger vers les détails
+    return redirect('admin_chine_app:lot_detail', lot_id=lot_id)
+
+
+# ============================================================================
+# CRUD COLIS - ADMIN CHINE
+# ============================================================================
+
+@admin_chine_required
+def colis_list(request):
+    """
+    Liste de tous les colis avec filtres avancés et pagination
+    """
+    colis_qs = Colis.objects.select_related(
+        'client', 'lot', 'lot__agent_createur'
+    ).all()
+    
+    # Filtres
+    recherche = request.GET.get('recherche', '').strip()
+    if recherche:
+        colis_qs = colis_qs.filter(
+            Q(numero_suivi__icontains=recherche) |
+            Q(client__nom_complet__icontains=recherche) |
+            Q(client__telephone__icontains=recherche) |
+            Q(lot__numero_lot__icontains=recherche) |
+            Q(description__icontains=recherche)
+        )
+    
+    # Filtre statut
+    statut = request.GET.get('statut', '').strip()
+    if statut:
+        valid_statuts = [choice[0] for choice in Colis.STATUS_CHOICES]
+        if statut in valid_statuts:
+            colis_qs = colis_qs.filter(statut=statut)
+    
+    # Filtre type transport
+    type_transport = request.GET.get('type_transport', '').strip()
+    if type_transport:
+        valid_types = [choice[0] for choice in Colis.TRANSPORT_CHOICES]
+        if type_transport in valid_types:
+            colis_qs = colis_qs.filter(type_transport=type_transport)
+    
+    # Filtre type colis
+    type_colis = request.GET.get('type_colis', '').strip()
+    if type_colis:
+        valid_types = [choice[0] for choice in Colis.TYPE_COLIS_CHOICES]
+        if type_colis in valid_types:
+            colis_qs = colis_qs.filter(type_colis=type_colis)
+    
+    # Filtre mode paiement
+    mode_paiement = request.GET.get('mode_paiement', '').strip()
+    if mode_paiement:
+        valid_modes = [choice[0] for choice in Colis.PAYMENT_CHOICES]
+        if mode_paiement in valid_modes:
+            colis_qs = colis_qs.filter(mode_paiement=mode_paiement)
+    
+    # Filtre lot
+    lot_id = request.GET.get('lot', '').strip()
+    if lot_id:
+        colis_qs = colis_qs.filter(lot_id=lot_id)
+    
+    # Filtre client
+    client_id = request.GET.get('client', '').strip()
+    if client_id:
+        colis_qs = colis_qs.filter(client_id=client_id)
+    
+    # Filtre par période
+    date_debut = request.GET.get('date_debut', '').strip()
+    date_fin = request.GET.get('date_fin', '').strip()
+    
+    if date_debut:
+        try:
+            date_debut_obj = datetime.strptime(date_debut, '%Y-%m-%d')
+            colis_qs = colis_qs.filter(date_creation__gte=date_debut_obj)
+        except ValueError:
+            pass
+    
+    if date_fin:
+        try:
+            date_fin_obj = datetime.strptime(date_fin, '%Y-%m-%d')
+            date_fin_obj = date_fin_obj.replace(hour=23, minute=59, second=59)
+            colis_qs = colis_qs.filter(date_creation__lte=date_fin_obj)
+        except ValueError:
+            pass
+    
+    # Tri
+    tri = request.GET.get('tri', '-date_creation')
+    valid_tris = [
+        'date_creation', '-date_creation',
+        'numero_suivi', '-numero_suivi',
+        'statut', '-statut',
+        'poids', '-poids',
+        'prix_calcule', '-prix_calcule'
+    ]
+    if tri in valid_tris:
+        colis_qs = colis_qs.order_by(tri)
+    
+    # Statistiques
+    total_colis = colis_qs.count()
+    total_poids = colis_qs.aggregate(Sum('poids'))['poids__sum'] or 0
+    total_valeur = sum(c.get_prix_effectif() for c in colis_qs)
+    
+    # Stats par statut
+    stats_statut = {}
+    for statut_key, statut_label in Colis.STATUS_CHOICES:
+        stats_statut[statut_key] = {
+            'label': statut_label,
+            'count': colis_qs.filter(statut=statut_key).count()
+        }
+    
+    # Pagination
+    paginator = Paginator(colis_qs, 30)
+    page_number = request.GET.get('page', 1)
+    colis_page = paginator.get_page(page_number)
+    
+    context = {
+        'title': 'Gestion des Colis',
+        'colis': colis_page,
+        'total_colis': total_colis,
+        'total_poids': total_poids,
+        'total_valeur': total_valeur,
+        'stats_statut': stats_statut,
+        'status_choices': Colis.STATUS_CHOICES,
+        'transport_choices': Colis.TRANSPORT_CHOICES,
+        'type_colis_choices': Colis.TYPE_COLIS_CHOICES,
+        'payment_choices': Colis.PAYMENT_CHOICES,
+        # Préserver les filtres
+        'recherche': recherche,
+        'statut_filtre': statut,
+        'type_transport_filtre': type_transport,
+        'type_colis_filtre': type_colis,
+        'mode_paiement_filtre': mode_paiement,
+        'lot_filtre': lot_id,
+        'client_filtre': client_id,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'tri': tri,
+    }
+    return render(request, 'admin_chine_app/colis/colis_list.html', context)
+
+
+@admin_chine_required
+def colis_detail(request, colis_id):
+    """
+    Détails complets d'un colis
+    """
+    colis = get_object_or_404(
+        Colis.objects.select_related('client', 'lot', 'lot__agent_createur'),
+        id=colis_id
+    )
+    
+    context = {
+        'title': f'Colis {colis.numero_suivi}',
+        'colis': colis,
+        'status_choices': Colis.STATUS_CHOICES,
+    }
+    return render(request, 'admin_chine_app/colis/colis_detail.html', context)
+
+
+@admin_chine_required
+def colis_create(request):
+    """
+    Création d'un nouveau colis
+    """
+    if request.method == 'POST':
+        try:
+            # Récupération des données
+            client_id = request.POST.get('client')
+            lot_id = request.POST.get('lot')
+            type_transport = request.POST.get('type_transport')
+            type_colis = request.POST.get('type_colis', 'standard')
+            quantite_pieces = int(request.POST.get('quantite_pieces', 1))
+            
+            # Dimensions et poids
+            longueur = Decimal(request.POST.get('longueur'))
+            largeur = Decimal(request.POST.get('largeur'))
+            hauteur = Decimal(request.POST.get('hauteur'))
+            poids = Decimal(request.POST.get('poids'))
+            
+            # Prix manuel (optionnel)
+            prix_manuel = request.POST.get('prix_transport_manuel', '').strip()
+            prix_transport_manuel = Decimal(prix_manuel) if prix_manuel else None
+            
+            # Autres champs
+            mode_paiement = request.POST.get('mode_paiement', 'non_paye')
+            description = request.POST.get('description', '').strip()
+            
+            # Validations
+            client = get_object_or_404(Client, id=client_id)
+            lot = get_object_or_404(Lot, id=lot_id)
+            
+            # Vérifier que le lot est ouvert
+            if lot.statut != 'ouvert':
+                messages.error(request, f"❌ Le lot {lot.numero_lot} n'est pas ouvert. Impossible d'y ajouter des colis.")
+                return redirect('admin_chine_app:colis_create')
+            
+            # Créer le colis
+            colis = Colis.objects.create(
+                client=client,
+                lot=lot,
+                type_transport=type_transport,
+                type_colis=type_colis,
+                quantite_pieces=quantite_pieces,
+                longueur=longueur,
+                largeur=largeur,
+                hauteur=hauteur,
+                poids=poids,
+                prix_transport_manuel=prix_transport_manuel,
+                mode_paiement=mode_paiement,
+                description=description,
+                statut='receptionne_chine'
+            )
+            
+            # Recalculer le bénéfice du lot
+            lot.recalculer_benefice()
+            
+            messages.success(
+                request, 
+                f"✅ Colis {colis.numero_suivi} créé avec succès dans le lot {lot.numero_lot}."
+            )
+            return redirect('admin_chine_app:colis_detail', colis_id=colis.id)
+            
+        except (ValueError, Decimal.InvalidOperation) as e:
+            messages.error(request, f"❌ Erreur de validation: Vérifiez les valeurs numériques.")
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la création du colis: {str(e)}")
+    
+    # Récupérer les données pour le formulaire
+    clients = Client.objects.filter(
+        user__is_active=True
+    ).order_by('nom_complet')
+    
+    lots_ouverts = Lot.objects.filter(
+        statut='ouvert'
+    ).select_related('agent_createur').order_by('-date_creation')
+    
+    context = {
+        'title': 'Créer un Colis',
+        'submit_text': 'Créer le colis',
+        'clients': clients,
+        'lots': lots_ouverts,
+        'transport_choices': Colis.TRANSPORT_CHOICES,
+        'type_colis_choices': Colis.TYPE_COLIS_CHOICES,
+        'payment_choices': Colis.PAYMENT_CHOICES,
+    }
+    return render(request, 'admin_chine_app/colis/colis_form.html', context)
+
+
+@admin_chine_required
+def colis_edit(request, colis_id):
+    """
+    Modification d'un colis existant
+    """
+    colis = get_object_or_404(Colis, id=colis_id)
+    ancien_lot = colis.lot
+    
+    if request.method == 'POST':
+        try:
+            # Récupération des données
+            lot_id = request.POST.get('lot')
+            type_transport = request.POST.get('type_transport')
+            type_colis = request.POST.get('type_colis', 'standard')
+            quantite_pieces = int(request.POST.get('quantite_pieces', 1))
+            
+            # Dimensions et poids
+            colis.longueur = Decimal(request.POST.get('longueur'))
+            colis.largeur = Decimal(request.POST.get('largeur'))
+            colis.hauteur = Decimal(request.POST.get('hauteur'))
+            colis.poids = Decimal(request.POST.get('poids'))
+            
+            # Prix manuel (optionnel)
+            prix_manuel = request.POST.get('prix_transport_manuel', '').strip()
+            colis.prix_transport_manuel = Decimal(prix_manuel) if prix_manuel else None
+            
+            # Autres champs
+            colis.type_transport = type_transport
+            colis.type_colis = type_colis
+            colis.quantite_pieces = quantite_pieces
+            colis.mode_paiement = request.POST.get('mode_paiement', 'non_paye')
+            colis.description = request.POST.get('description', '').strip()
+            
+            # Changement de lot
+            nouveau_lot = get_object_or_404(Lot, id=lot_id)
+            if nouveau_lot.id != ancien_lot.id:
+                # Vérifier que le nouveau lot est ouvert
+                if nouveau_lot.statut != 'ouvert':
+                    messages.error(request, f"❌ Le lot {nouveau_lot.numero_lot} n'est pas ouvert.")
+                    return redirect('admin_chine_app:colis_edit', colis_id=colis_id)
+                
+                colis.lot = nouveau_lot
+            
+            # Changement de statut (optionnel)
+            nouveau_statut = request.POST.get('statut', '').strip()
+            if nouveau_statut:
+                valid_statuts = [choice[0] for choice in Colis.STATUS_CHOICES]
+                if nouveau_statut in valid_statuts:
+                    colis.statut = nouveau_statut
+            
+            colis.save()
+            
+            # Recalculer le bénéfice des lots affectés
+            ancien_lot.recalculer_benefice()
+            if nouveau_lot.id != ancien_lot.id:
+                nouveau_lot.recalculer_benefice()
+            
+            messages.success(
+                request, 
+                f"✅ Colis {colis.numero_suivi} modifié avec succès."
+            )
+            return redirect('admin_chine_app:colis_detail', colis_id=colis.id)
+            
+        except (ValueError, Decimal.InvalidOperation) as e:
+            messages.error(request, f"❌ Erreur de validation: Vérifiez les valeurs numériques.")
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la modification: {str(e)}")
+    
+    # Récupérer les données pour le formulaire
+    clients = Client.objects.filter(
+        user__is_active=True
+    ).order_by('nom_complet')
+    
+    # Lots ouverts + le lot actuel du colis
+    lots_disponibles = Lot.objects.filter(
+        Q(statut='ouvert') | Q(id=colis.lot.id)
+    ).select_related('agent_createur').order_by('-date_creation')
+    
+    context = {
+        'title': f'Modifier le Colis {colis.numero_suivi}',
+        'submit_text': 'Enregistrer les modifications',
+        'colis': colis,
+        'clients': clients,
+        'lots': lots_disponibles,
+        'transport_choices': Colis.TRANSPORT_CHOICES,
+        'type_colis_choices': Colis.TYPE_COLIS_CHOICES,
+        'payment_choices': Colis.PAYMENT_CHOICES,
+        'status_choices': Colis.STATUS_CHOICES,
+    }
+    return render(request, 'admin_chine_app/colis/colis_form.html', context)
+
+
+@admin_chine_required
+def colis_delete(request, colis_id):
+    """
+    Suppression d'un colis
+    """
+    colis = get_object_or_404(Colis, id=colis_id)
+    lot = colis.lot
+    
+    if request.method == 'POST':
+        try:
+            numero_suivi = colis.numero_suivi
+            colis.delete()
+            
+            # Recalculer le bénéfice du lot
+            lot.recalculer_benefice()
+            
+            messages.success(
+                request, 
+                f"✅ Colis {numero_suivi} supprimé avec succès."
+            )
+            return redirect('admin_chine_app:colis_list')
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la suppression: {str(e)}")
+            return redirect('admin_chine_app:colis_detail', colis_id=colis_id)
+    
+    context = {
+        'title': f'Supprimer le Colis {colis.numero_suivi}',
+        'colis': colis,
+    }
+    return render(request, 'admin_chine_app/colis/colis_delete_confirm.html', context)
+
+
+# ============================================================================
+# GESTION CLIENTS - ADMIN CHINE
+# ============================================================================
+
+@admin_chine_required
+def clients_list(request):
+    """
+    Liste de tous les clients avec statistiques
+    """
+    clients_qs = Client.objects.select_related('user').all()
+    
+    # Filtres
+    recherche = request.GET.get('recherche', '').strip()
+    if recherche:
+        clients_qs = clients_qs.filter(
+            Q(nom_complet__icontains=recherche) |
+            Q(telephone__icontains=recherche) |
+            Q(user__email__icontains=recherche)
+        )
+    
+    # Filtre actif/inactif
+    statut = request.GET.get('statut', '').strip()
+    if statut == 'actif':
+        clients_qs = clients_qs.filter(user__is_active=True)
+    elif statut == 'inactif':
+        clients_qs = clients_qs.filter(user__is_active=False)
+    
+    # Tri
+    tri = request.GET.get('tri', 'nom_complet')
+    valid_tris = ['nom_complet', '-nom_complet', 'date_creation', '-date_creation']
+    if tri in valid_tris:
+        clients_qs = clients_qs.order_by(tri)
+    
+    # Statistiques globales
+    total_clients = clients_qs.count()
+    actifs = clients_qs.filter(user__is_active=True).count()
+    inactifs = clients_qs.filter(user__is_active=False).count()
+    
+    # Pagination
+    paginator = Paginator(clients_qs, 30)
+    page_number = request.GET.get('page', 1)
+    clients_page = paginator.get_page(page_number)
+    
+    # Enrichir avec stats colis pour chaque client
+    for client in clients_page:
+        client.nb_colis = client.colis.count()
+        client.nb_colis_livres = client.colis.filter(statut='livre').count()
+        client.valeur_totale = sum(c.get_prix_effectif() for c in client.colis.all())
+    
+    context = {
+        'title': 'Gestion des Clients',
+        'clients': clients_page,
+        'total_clients': total_clients,
+        'actifs': actifs,
+        'inactifs': inactifs,
+        'recherche': recherche,
+        'statut': statut,
+        'tri': tri,
+    }
+    return render(request, 'admin_chine_app/clients/clients_list.html', context)
+
+
+@admin_chine_required
+def client_detail(request, client_id):
+    """
+    Détails d'un client avec historique complet
+    """
+    client = get_object_or_404(Client.objects.select_related('user'), id=client_id)
+    
+    # Historique des colis
+    colis = client.colis.select_related('lot').order_by('-date_creation')
+    
+    # Statistiques
+    total_colis = colis.count()
+    colis_en_cours = colis.exclude(statut__in=['livre', 'perdu']).count()
+    colis_livres = colis.filter(statut='livre').count()
+    valeur_totale = sum(c.get_prix_effectif() for c in colis)
+    
+    # Stats par statut
+    stats_statut = {}
+    for statut_key, statut_label in Colis.STATUS_CHOICES:
+        count = colis.filter(statut=statut_key).count()
+        if count > 0:
+            stats_statut[statut_key] = {
+                'label': statut_label,
+                'count': count
+            }
+    
+    context = {
+        'title': f'Client: {client.nom_complet}',
+        'client': client,
+        'colis': colis[:20],  # 20 derniers colis
+        'total_colis': total_colis,
+        'colis_en_cours': colis_en_cours,
+        'colis_livres': colis_livres,
+        'valeur_totale': valeur_totale,
+        'stats_statut': stats_statut,
+    }
+    return render(request, 'admin_chine_app/clients/client_detail.html', context)

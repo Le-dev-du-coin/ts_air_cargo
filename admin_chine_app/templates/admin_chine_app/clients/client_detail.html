@@ -1,0 +1,209 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="d-flex align-items-center mb-4">
+        <a href="{% url 'admin_chine_app:clients_list' %}" class="btn btn-outline-secondary me-3">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h2 class="mb-0">{{ client.nom_complet }}</h2>
+            <p class="text-muted mb-0">Client depuis le {{ client.date_creation|date:"d/m/Y" }}</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Colonne principale -->
+        <div class="col-lg-8">
+            <!-- Statistiques -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <i class="bi bi-box-seam fs-2 text-primary"></i>
+                            <h3 class="mt-2 mb-0">{{ total_colis }}</h3>
+                            <p class="text-muted small mb-0">Total Colis</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <i class="bi bi-hourglass-split fs-2 text-warning"></i>
+                            <h3 class="mt-2 mb-0">{{ colis_en_cours }}</h3>
+                            <p class="text-muted small mb-0">En Cours</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <i class="bi bi-check-circle fs-2 text-success"></i>
+                            <h3 class="mt-2 mb-0">{{ colis_livres }}</h3>
+                            <p class="text-muted small mb-0">Livrés</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <i class="bi bi-currency-exchange fs-2 text-info"></i>
+                            <h5 class="mt-2 mb-0 small">{{ valeur_totale|floatformat:0 }}</h5>
+                            <p class="text-muted small mb-0">FCFA</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Répartition par statut -->
+            {% if stats_statut %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Répartition par Statut</h6>
+                </div>
+                <div class="card-body">
+                    {% for key, stat in stats_statut.items %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ stat.label }}</span>
+                        <span class="badge bg-secondary">{{ stat.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Historique des colis -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Historique des Colis ({{ total_colis }})</h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>N° Suivi</th>
+                                <th>Lot</th>
+                                <th>Poids</th>
+                                <th>Prix</th>
+                                <th>Statut</th>
+                                <th>Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in colis %}
+                            <tr>
+                                <td><strong class="text-primary">{{ c.numero_suivi }}</strong></td>
+                                <td><span class="badge bg-secondary">{{ c.lot.numero_lot }}</span></td>
+                                <td>{{ c.poids }} kg</td>
+                                <td>{{ c.get_prix_effectif|floatformat:0 }} FCFA</td>
+                                <td>
+                                    {% if c.statut == 'livre' %}
+                                    <span class="badge bg-success">{{ c.get_statut_display }}</span>
+                                    {% elif c.statut == 'en_transit' %}
+                                    <span class="badge bg-info">{{ c.get_statut_display }}</span>
+                                    {% elif c.statut == 'perdu' %}
+                                    <span class="badge bg-danger">{{ c.get_statut_display }}</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">{{ c.get_statut_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small">{{ c.date_creation|date:"d/m/Y" }}</td>
+                                <td>
+                                    <a href="{% url 'admin_chine_app:colis_detail' c.id %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    Aucun colis
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if total_colis > 20 %}
+                <div class="card-footer bg-white text-center">
+                    <small class="text-muted">Affichage des 20 derniers colis sur {{ total_colis }} au total</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Colonne latérale -->
+        <div class="col-lg-4">
+            <!-- Informations client -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-person me-2"></i>Informations</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <strong>Nom:</strong><br>
+                        {{ client.nom_complet }}
+                    </p>
+                    <p class="mb-2">
+                        <strong>Téléphone:</strong><br>
+                        <i class="bi bi-telephone me-1"></i>{{ client.telephone }}
+                    </p>
+                    {% if client.user.email %}
+                    <p class="mb-2">
+                        <strong>Email:</strong><br>
+                        <i class="bi bi-envelope me-1"></i>{{ client.user.email }}
+                    </p>
+                    {% endif %}
+                    {% if client.adresse %}
+                    <p class="mb-2">
+                        <strong>Adresse:</strong><br>
+                        <i class="bi bi-geo-alt me-1"></i>{{ client.adresse }}
+                    </p>
+                    {% endif %}
+                    {% if client.ville %}
+                    <p class="mb-2">
+                        <strong>Ville:</strong><br>
+                        {{ client.ville }}
+                    </p>
+                    {% endif %}
+                    <p class="mb-2">
+                        <strong>Pays:</strong><br>
+                        <i class="bi bi-globe me-1"></i>{{ client.pays }}
+                    </p>
+                    <p class="mb-0">
+                        <strong>Statut:</strong><br>
+                        {% if client.user.is_active %}
+                        <span class="badge bg-success">Actif</span>
+                        {% else %}
+                        <span class="badge bg-danger">Inactif</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Dates -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-calendar me-2"></i>Dates</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">
+                        <strong>Inscription:</strong><br>
+                        {{ client.date_creation|date:"d/m/Y à H:i" }}
+                    </p>
+                    <p class="small mb-0">
+                        <strong>Dernière Modification:</strong><br>
+                        {{ client.date_modification|date:"d/m/Y à H:i" }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

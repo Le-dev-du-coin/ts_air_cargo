@@ -642,12 +642,58 @@ def colis_details_api(request, colis_id):
 def lots_en_transit_view(request):
     """
     Liste des lots en transit venant de Chine (inclut les lots expédiés)
+    Avec pagination et filtres avancés
     """
     lots = Lot.objects.filter(
         statut__in=['expedie', 'en_transit']
-    ).select_related('agent_createur').prefetch_related('colis__client__user').order_by('-date_expedition')
+    ).select_related('agent_createur').prefetch_related('colis__client__user')
     
-    # Calculs pour statistiques
+    # Filtres
+    search_query = request.GET.get('search', '')
+    type_transport = request.GET.get('type_transport', '')
+    agent_filter = request.GET.get('agent', '')
+    date_debut = request.GET.get('date_debut', '')
+    date_fin = request.GET.get('date_fin', '')
+    tri = request.GET.get('tri', '-date_expedition')
+    
+    # Appliquer les filtres
+    if search_query:
+        lots = lots.filter(numero_lot__icontains=search_query)
+    
+    if type_transport:
+        lots = lots.filter(type_lot=type_transport)
+    
+    if agent_filter:
+        lots = lots.filter(agent_createur__id=agent_filter)
+    
+    if date_debut:
+        lots = lots.filter(date_expedition__gte=date_debut)
+    
+    if date_fin:
+        lots = lots.filter(date_expedition__lte=date_fin)
+    
+    # Tri
+    valid_sort_fields = [
+        '-date_expedition', 'date_expedition',
+        'numero_lot', '-numero_lot',
+        '-prix_transport', 'prix_transport'
+    ]
+    if tri in valid_sort_fields:
+        lots = lots.order_by(tri)
+    else:
+        lots = lots.order_by('-date_expedition')
+    
+    # Récupérer liste des agents pour le filtre
+    agents = User.objects.filter(is_agent_chine=True).order_by('first_name', 'last_name')
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(lots, 20)  # 20 lots par page
+    page_number = request.GET.get('page')
+    lots_page = paginator.get_page(page_number)
+    
+    # Calculs pour statistiques (sur tous les lots, pas seulement la page)
+    total_lots = lots.count()
     total_colis = sum(lot.colis.count() for lot in lots)
     valeur_transport_total = sum(float(lot.prix_transport or 0) for lot in lots)
     
@@ -657,10 +703,19 @@ def lots_en_transit_view(request):
         valeur_totale_colis += sum(float(colis.prix_calcule or 0) for colis in lot.colis.all())
     
     context = {
-        'lots': lots,
+        'lots': lots_page,
+        'total_lots': total_lots,
         'total_colis': total_colis,
         'valeur_transport_total': valeur_transport_total,
         'valeur_totale_colis': valeur_totale_colis,
+        'search_query': search_query,
+        'type_transport': type_transport,
+        'agent_filter': agent_filter,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'tri': tri,
+        'agents': agents,
+        'type_choices': Lot.TRANSPORT_CHOICES,
         'title': 'Lots En Transit',
     }
     return render(request, 'agent_mali_app/lots_en_transit.html', context)

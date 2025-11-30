@@ -1,0 +1,117 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Confirmer la Suppression
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Attention !
+                        </h5>
+                        <p class="mb-0">
+                            Vous êtes sur le point de supprimer définitivement le colis <strong>{{ colis.numero_suivi }}</strong>. 
+                            Cette action est <strong>irréversible</strong>.
+                        </p>
+                    </div>
+                    
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="mb-3">Informations du Colis à Supprimer</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Numéro de Suivi</small>
+                                        <div class="fw-bold text-primary">{{ colis.numero_suivi }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Statut</small>
+                                        <div class="fw-bold">{{ colis.get_statut_display }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Client</small>
+                                        <div class="fw-bold">{{ colis.client.nom_complet }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Lot</small>
+                                        <div class="fw-bold">{{ colis.lot.numero_lot }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Type Transport</small>
+                                        <div class="fw-bold">{{ colis.get_type_transport_display }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Poids</small>
+                                        <div class="fw-bold">{{ colis.poids }} kg</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Prix Effectif</small>
+                                        <div class="fw-bold">{{ colis.get_prix_effectif|floatformat:0 }} FCFA</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted">Date Création</small>
+                                        <div class="fw-bold">{{ colis.date_creation|date:"d/m/Y à H:i" }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="post" onsubmit="return confirm('Êtes-vous vraiment sûr de vouloir supprimer ce colis ?');">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'admin_chine_app:colis_detail' colis.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Confirmer la Suppression
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Info supplémentaire -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-body">
+                    <h6 class="mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Informations
+                    </h6>
+                    <ul class="small mb-0">
+                        <li>La suppression du colis est définitive</li>
+                        <li>Le bénéfice du lot {{ colis.lot.numero_lot }} sera recalculé</li>
+                        <li>Le numéro de suivi ne pourra pas être réutilisé</li>
+                        <li>Cette action sera enregistrée dans les logs</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

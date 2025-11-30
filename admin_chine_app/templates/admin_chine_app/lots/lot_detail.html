@@ -1,0 +1,297 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .info-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-size: 1.125rem;
+        color: #1f2937;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 mb-1">{{ title }}</h2>
+            <p class="text-muted mb-0">
+                Créé le {{ lot.date_creation|date:"d/m/Y à H:i" }}
+                {% if lot.agent_createur %}
+                 par {{ lot.agent_createur.get_full_name }}
+                {% endif %}
+            </p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'admin_chine_app:lots_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Retour
+            </a>
+            <a href="{% url 'admin_chine_app:lot_edit' lot.id %}" class="btn btn-warning">
+                <i class="bi bi-pencil"></i> Modifier
+            </a>
+            {% if lot.colis.count == 0 %}
+            <a href="{% url 'admin_chine_app:lot_delete' lot.id %}" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Supprimer
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Informations principales -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="info-card">
+                <h5 class="mb-4"><i class="bi bi-info-circle me-2"></i>Informations du Lot</h5>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="info-label">Numéro de Lot</div>
+                        <div class="info-value">{{ lot.numero_lot }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-label">Statut</div>
+                        <div class="info-value">
+                            <span class="badge 
+                                {% if lot.statut == 'ouvert' %}bg-info
+                                {% elif lot.statut == 'ferme' %}bg-warning
+                                {% elif lot.statut == 'expedie' %}bg-primary
+                                {% elif lot.statut == 'en_transit' %}bg-secondary
+                                {% elif lot.statut == 'arrive' %}bg-success
+                                {% elif lot.statut == 'livre' %}bg-dark
+                                {% endif %} fs-6">
+                                {{ lot.get_statut_display }}
+                            </span>
+                            
+                            <!-- Bouton changement de statut -->
+                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-bs-toggle="modal" data-bs-target="#changeStatusModal">
+                                <i class="bi bi-arrow-repeat"></i> Changer
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-label">Type de Transport</div>
+                        <div class="info-value">{{ lot.get_type_lot_display }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-label">Agent Créateur</div>
+                        <div class="info-value">
+                            {% if lot.agent_createur %}
+                                {{ lot.agent_createur.get_full_name }}
+                            {% else %}
+                                <span class="text-muted">Non défini</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations financières -->
+            <div class="info-card">
+                <h5 class="mb-4"><i class="bi bi-cash-stack me-2"></i>Informations Financières</h5>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="info-label">Prix de Transport</div>
+                        <div class="info-value text-success">
+                            {% if lot.prix_transport %}
+                                {{ lot.prix_transport|floatformat:0|intcomma }} FCFA
+                            {% else %}
+                                <span class="text-muted">Non défini</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-label">Frais de Douane</div>
+                        <div class="info-value text-warning">
+                            {% if lot.frais_douane %}
+                                {{ lot.frais_douane|floatformat:0|intcomma }} FCFA
+                            {% else %}
+                                <span class="text-muted">Non défini</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-label">Bénéfice Calculé</div>
+                        <div class="info-value {% if lot.benefice >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if lot.benefice %}
+                                {{ lot.benefice|floatformat:0|intcomma }} FCFA
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dates importantes -->
+            <div class="info-card">
+                <h5 class="mb-4"><i class="bi bi-calendar-event me-2"></i>Chronologie</h5>
+                <div class="row g-4">
+                    <div class="col-md-3">
+                        <div class="info-label">Création</div>
+                        <div class="info-value small">{{ lot.date_creation|date:"d/m/Y H:i" }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-label">Fermeture</div>
+                        <div class="info-value small">
+                            {% if lot.date_fermeture %}
+                                {{ lot.date_fermeture|date:"d/m/Y H:i" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-label">Expédition</div>
+                        <div class="info-value small">
+                            {% if lot.date_expedition %}
+                                {{ lot.date_expedition|date:"d/m/Y H:i" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-label">Arrivée Mali</div>
+                        <div class="info-value small">
+                            {% if lot.date_arrivee %}
+                                {{ lot.date_arrivee|date:"d/m/Y H:i" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="col-md-4">
+            <div class="info-card">
+                <h5 class="mb-4"><i class="bi bi-graph-up me-2"></i>Statistiques</h5>
+                <div class="mb-3">
+                    <div class="info-label">Total Colis</div>
+                    <div class="info-value text-primary">{{ total_colis }}</div>
+                </div>
+                <div class="mb-3">
+                    <div class="info-label">Poids Total</div>
+                    <div class="info-value">{{ total_poids|floatformat:2 }} kg</div>
+                </div>
+                <div class="mb-3">
+                    <div class="info-label">Valeur Totale Colis</div>
+                    <div class="info-value">{{ total_valeur_colis|floatformat:0|intcomma }} FCFA</div>
+                </div>
+                
+                {% if colis_par_statut %}
+                <hr>
+                <h6 class="mb-3">Répartition par Statut</h6>
+                {% for statut, count in colis_par_statut.items %}
+                <div class="d-flex justify-content-between mb-2">
+                    <span>{{ statut }}</span>
+                    <strong>{{ count }}</strong>
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des colis -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-box-seam me-2"></i>Colis dans ce Lot
+                <span class="badge bg-secondary">{{ total_colis }}</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if colis %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° Suivi</th>
+                            <th>Client</th>
+                            <th>Statut</th>
+                            <th>Type Transport</th>
+                            <th>Poids (kg)</th>
+                            <th>Prix (FCFA)</th>
+                            <th>Date Création</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in colis %}
+                        <tr>
+                            <td><strong>{{ c.numero_suivi }}</strong></td>
+                            <td>{{ c.client.user.get_full_name }}</td>
+                            <td><span class="badge bg-secondary">{{ c.get_statut_display }}</span></td>
+                            <td>{{ c.get_type_transport_display }}</td>
+                            <td>{{ c.poids }}</td>
+                            <td>{{ c.get_prix_effectif|floatformat:0|intcomma }}</td>
+                            <td><small class="text-muted">{{ c.date_creation|date:"d/m/Y" }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                <p class="text-muted mt-3">Aucun colis dans ce lot</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Changement de Statut -->
+<div class="modal fade" id="changeStatusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'admin_chine_app:lot_change_status' lot.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Changer le Statut du Lot</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Statut actuel : <strong>{{ lot.get_statut_display }}</strong></p>
+                    <div class="mb-3">
+                        <label for="nouveau_statut" class="form-label">Nouveau Statut</label>
+                        <select class="form-select" name="nouveau_statut" id="nouveau_statut" required>
+                            {% for value, label in lot.STATUS_CHOICES %}
+                            <option value="{{ value }}" {% if value == lot.statut %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Les dates seront automatiquement mises à jour selon le nouveau statut.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Confirmer le Changement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

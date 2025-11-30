@@ -1,0 +1,350 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête avec bouton d'action -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-box-seam me-2"></i>
+            {{ title }}
+        </h2>
+        <a href="{% url 'admin_chine_app:colis_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>
+            Créer un Colis
+        </a>
+    </div>
+    
+    <!-- Cartes statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-box-seam fs-2 text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Total Colis</h6>
+                            <h3 class="mb-0">{{ total_colis }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-weight fs-2 text-info"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Poids Total</h6>
+                            <h3 class="mb-0">{{ total_poids|floatformat:2 }} kg</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-currency-exchange fs-2 text-success"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Valeur Totale</h6>
+                            <h3 class="mb-0">{{ total_valeur|floatformat:0 }} FCFA</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Statuts</h6>
+                    <div class="small">
+                        {% for key, stat in stats_statut.items %}
+                            {% if stat.count > 0 %}
+                            <div class="d-flex justify-content-between">
+                                <span>{{ stat.label }}:</span>
+                                <strong>{{ stat.count }}</strong>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Barre de filtres -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">
+                <i class="bi bi-funnel me-2"></i>
+                Filtres
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="get" id="filterForm">
+                <div class="row g-3">
+                    <!-- Recherche -->
+                    <div class="col-md-3">
+                        <label class="form-label small">Recherche</label>
+                        <input type="text" name="recherche" class="form-control" 
+                               placeholder="N° suivi, client, lot..." value="{{ recherche }}">
+                    </div>
+                    
+                    <!-- Statut -->
+                    <div class="col-md-2">
+                        <label class="form-label small">Statut</label>
+                        <select name="statut" class="form-select">
+                            <option value="">Tous</option>
+                            {% for key, label in status_choices %}
+                            <option value="{{ key }}" {% if statut_filtre == key %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Type transport -->
+                    <div class="col-md-2">
+                        <label class="form-label small">Transport</label>
+                        <select name="type_transport" class="form-select">
+                            <option value="">Tous</option>
+                            {% for key, label in transport_choices %}
+                            <option value="{{ key }}" {% if type_transport_filtre == key %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Type colis -->
+                    <div class="col-md-2">
+                        <label class="form-label small">Type Colis</label>
+                        <select name="type_colis" class="form-select">
+                            <option value="">Tous</option>
+                            {% for key, label in type_colis_choices %}
+                            <option value="{{ key }}" {% if type_colis_filtre == key %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Mode paiement -->
+                    <div class="col-md-3">
+                        <label class="form-label small">Mode Paiement</label>
+                        <select name="mode_paiement" class="form-select">
+                            <option value="">Tous</option>
+                            {% for key, label in payment_choices %}
+                            <option value="{{ key }}" {% if mode_paiement_filtre == key %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Date début -->
+                    <div class="col-md-2">
+                        <label class="form-label small">Date Début</label>
+                        <input type="date" name="date_debut" class="form-control" value="{{ date_debut }}">
+                    </div>
+                    
+                    <!-- Date fin -->
+                    <div class="col-md-2">
+                        <label class="form-label small">Date Fin</label>
+                        <input type="date" name="date_fin" class="form-control" value="{{ date_fin }}">
+                    </div>
+                    
+                    <!-- Tri -->
+                    <div class="col-md-2">
+                        <label class="form-label small">Trier par</label>
+                        <select name="tri" class="form-select">
+                            <option value="-date_creation" {% if tri == '-date_creation' %}selected{% endif %}>Plus récents</option>
+                            <option value="date_creation" {% if tri == 'date_creation' %}selected{% endif %}>Plus anciens</option>
+                            <option value="numero_suivi" {% if tri == 'numero_suivi' %}selected{% endif %}>N° suivi (A-Z)</option>
+                            <option value="-numero_suivi" {% if tri == '-numero_suivi' %}selected{% endif %}>N° suivi (Z-A)</option>
+                            <option value="-poids" {% if tri == '-poids' %}selected{% endif %}>Poids (décroissant)</option>
+                            <option value="poids" {% if tri == 'poids' %}selected{% endif %}>Poids (croissant)</option>
+                            <option value="-prix_calcule" {% if tri == '-prix_calcule' %}selected{% endif %}>Prix (décroissant)</option>
+                            <option value="prix_calcule" {% if tri == 'prix_calcule' %}selected{% endif %}>Prix (croissant)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Boutons -->
+                    <div class="col-md-6 d-flex align-items-end gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> Filtrer
+                        </button>
+                        <a href="{% url 'admin_chine_app:colis_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Réinitialiser
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Table des colis -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+                Liste des Colis ({{ colis.paginator.count }} résultat{{ colis.paginator.count|pluralize }})
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° Suivi</th>
+                            <th>Client</th>
+                            <th>Lot</th>
+                            <th>Type</th>
+                            <th>Poids</th>
+                            <th>Dimensions</th>
+                            <th>Prix</th>
+                            <th>Statut</th>
+                            <th>Paiement</th>
+                            <th>Date Création</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in colis %}
+                        <tr style="cursor: pointer;" onclick="window.location='{% url 'admin_chine_app:colis_detail' c.id %}'">
+                            <td>
+                                <strong class="text-primary">{{ c.numero_suivi }}</strong>
+                            </td>
+                            <td>
+                                <div class="small">
+                                    <strong>{{ c.client.nom_complet }}</strong><br>
+                                    <span class="text-muted">{{ c.client.telephone }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ c.lot.numero_lot }}</span>
+                            </td>
+                            <td>
+                                <div class="small">
+                                    <span class="badge bg-info">{{ c.get_type_transport_display }}</span><br>
+                                    <span class="text-muted">{{ c.get_type_colis_display }}</span>
+                                </div>
+                            </td>
+                            <td>{{ c.poids }} kg</td>
+                            <td class="small text-muted">
+                                {{ c.longueur }}×{{ c.largeur }}×{{ c.hauteur }} cm
+                            </td>
+                            <td>
+                                <strong>{{ c.get_prix_effectif|floatformat:0 }} FCFA</strong>
+                                {% if c.get_source_prix == 'manuel' %}
+                                <br><span class="badge bg-warning text-dark small">Manuel</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.statut == 'en_attente' %}
+                                <span class="badge bg-secondary">{{ c.get_statut_display }}</span>
+                                {% elif c.statut == 'receptionne_chine' %}
+                                <span class="badge bg-primary">{{ c.get_statut_display }}</span>
+                                {% elif c.statut == 'en_transit' %}
+                                <span class="badge bg-info">{{ c.get_statut_display }}</span>
+                                {% elif c.statut == 'arrive' %}
+                                <span class="badge bg-warning text-dark">{{ c.get_statut_display }}</span>
+                                {% elif c.statut == 'livre' %}
+                                <span class="badge bg-success">{{ c.get_statut_display }}</span>
+                                {% else %}
+                                <span class="badge bg-danger">{{ c.get_statut_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.mode_paiement == 'paye_chine' %}
+                                <span class="badge bg-success">{{ c.get_mode_paiement_display }}</span>
+                                {% elif c.mode_paiement == 'paye_mali' %}
+                                <span class="badge bg-info">{{ c.get_mode_paiement_display }}</span>
+                                {% else %}
+                                <span class="badge bg-danger">{{ c.get_mode_paiement_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ c.date_creation|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" onclick="event.stopPropagation();">
+                                    <a href="{% url 'admin_chine_app:colis_detail' c.id %}" 
+                                       class="btn btn-outline-primary" title="Détails">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'admin_chine_app:colis_edit' c.id %}" 
+                                       class="btn btn-outline-secondary" title="Modifier">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'admin_chine_app:colis_delete' c.id %}" 
+                                       class="btn btn-outline-danger" title="Supprimer">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mb-0 mt-2">Aucun colis trouvé</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if colis.has_other_pages %}
+        <div class="card-footer bg-white">
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if colis.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&recherche={{ recherche }}&statut={{ statut_filtre }}&type_transport={{ type_transport_filtre }}&type_colis={{ type_colis_filtre }}&mode_paiement={{ mode_paiement_filtre }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}&tri={{ tri }}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ colis.previous_page_number }}&recherche={{ recherche }}&statut={{ statut_filtre }}&type_transport={{ type_transport_filtre }}&type_colis={{ type_colis_filtre }}&mode_paiement={{ mode_paiement_filtre }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}&tri={{ tri }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ colis.number }} sur {{ colis.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if colis.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ colis.next_page_number }}&recherche={{ recherche }}&statut={{ statut_filtre }}&type_transport={{ type_transport_filtre }}&type_colis={{ type_colis_filtre }}&mode_paiement={{ mode_paiement_filtre }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}&tri={{ tri }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ colis.paginator.num_pages }}&recherche={{ recherche }}&statut={{ statut_filtre }}&type_transport={{ type_transport_filtre }}&type_colis={{ type_colis_filtre }}&mode_paiement={{ mode_paiement_filtre }}&date_debut={{ date_debut }}&date_fin={{ date_fin }}&tri={{ tri }}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

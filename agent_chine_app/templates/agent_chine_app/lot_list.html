@@ -21,10 +21,18 @@
 <div class="modern-card mb-4">
     <div class="modern-card-body">
         <form method="get" class="row g-3">
-            <div class="col-md-4">
-                <label for="statut" class="form-label">Filtrer par statut</label>
+            <!-- Recherche -->
+            <div class="col-md-3">
+                <label for="search" class="form-label">Rechercher</label>
+                <input type="text" class="form-control" name="search" id="search" 
+                       placeholder="N° de lot..." value="{{ search_query }}">
+            </div>
+            
+            <!-- Statut -->
+            <div class="col-md-2">
+                <label for="statut" class="form-label">Statut</label>
                 <select class="form-select" name="statut" id="statut">
-                    <option value="">Tous les statuts</option>
+                    <option value="">Tous</option>
                     {% for value, label in statut_choices %}
                     <option value="{{ value }}" {% if statut_filter == value %}selected{% endif %}>
                         {{ label }}
@@ -32,6 +40,60 @@
                     {% endfor %}
                 </select>
             </div>
+            
+            <!-- Type de transport -->
+            <div class="col-md-2">
+                <label for="type_transport" class="form-label">Type Transport</label>
+                <select class="form-select" name="type_transport" id="type_transport">
+                    <option value="">Tous</option>
+                    {% for value, label in type_choices %}
+                    <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Agent -->
+            <div class="col-md-2">
+                <label for="agent" class="form-label">Agent</label>
+                <select class="form-select" name="agent" id="agent">
+                    <option value="">Tous</option>
+                    {% for agent in agents %}
+                    <option value="{{ agent.id }}" {% if agent_filter == agent.id|stringformat:"s" %}selected{% endif %}>
+                        {{ agent.get_full_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Tri -->
+            <div class="col-md-2">
+                <label for="tri" class="form-label">Trier par</label>
+                <select class="form-select" name="tri" id="tri">
+                    <option value="-date_creation" {% if tri == "-date_creation" %}selected{% endif %}>Plus récent</option>
+                    <option value="date_creation" {% if tri == "date_creation" %}selected{% endif %}>Plus ancien</option>
+                    <option value="numero_lot" {% if tri == "numero_lot" %}selected{% endif %}>N° Lot A-Z</option>
+                    <option value="-numero_lot" {% if tri == "-numero_lot" %}selected{% endif %}>N° Lot Z-A</option>
+                    <option value="statut" {% if tri == "statut" %}selected{% endif %}>Statut</option>
+                    <option value="-prix_transport" {% if tri == "-prix_transport" %}selected{% endif %}>Prix ↓</option>
+                    <option value="prix_transport" {% if tri == "prix_transport" %}selected{% endif %}>Prix ↑</option>
+                </select>
+            </div>
+            
+            <!-- Date début -->
+            <div class="col-md-2">
+                <label for="date_debut" class="form-label">Date début</label>
+                <input type="date" class="form-control" name="date_debut" id="date_debut" value="{{ date_debut }}">
+            </div>
+            
+            <!-- Date fin -->
+            <div class="col-md-2">
+                <label for="date_fin" class="form-label">Date fin</label>
+                <input type="date" class="form-control" name="date_fin" id="date_fin" value="{{ date_fin }}">
+            </div>
+            
+            <!-- Boutons -->
             <div class="col-md-8 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary me-2">
                     <i class="bi bi-funnel me-1"></i>
@@ -56,7 +118,7 @@
             <small class="text-muted">- {{ statut_filter|capfirst }}</small>
             {% endif %}
         </h5>
-        <span class="status-badge status-ouvert">{{ lots.count }} lot{{ lots.count|pluralize }}</span>
+        <span class="status-badge status-ouvert">{{ lots.paginator.count }} lot{{ lots.paginator.count|pluralize }}</span>
     </div>
     <div class="modern-card-body p-0">
         {% if lots %}
@@ -203,6 +265,50 @@
             </div>
         {% endif %}
     </div>
+    
+    <!-- Pagination -->
+    {% if lots.has_other_pages %}
+    <div class="modern-card-footer">
+        <nav aria-label="Navigation des lots">
+            <ul class="pagination justify-content-center mb-0">
+                {% if lots.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ lots.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        Page {{ lots.number }} sur {{ lots.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if lots.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ lots.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ lots.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        <div class="text-center text-muted small mt-2">
+            Affichage de {{ lots.start_index }}-{{ lots.end_index }} sur {{ lots.paginator.count }} lots
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Bouton flottant mobile -->

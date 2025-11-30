@@ -73,12 +73,12 @@
         <div class="stat-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h3 class="stat-value">{{ stats.total_prix|floatformat:0 }}</h3>
+                    <h3 class="stat-value">{{ stats.total_prix|cfa }}</h3>
                     <p class="stat-label">Prix total (FCFA)</p>
                     {% if lot.prix_transport %}
                     <div class="stat-change">
                         <i class="bi bi-truck"></i>
-                        Transport: {{ lot.prix_transport|floatformat:0 }} FCFA
+                        Transport: {{ lot.prix_transport|cfa }} FCFA
                     </div>
                     {% endif %}
                 </div>
@@ -93,7 +93,7 @@
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <h3 class="stat-value {% if lot.benefice and lot.benefice > 0 %}text-success{% elif lot.benefice and lot.benefice < 0 %}text-danger{% endif %}">
-                        {{ lot.benefice|default:"-"|floatformat:0 }}
+                        {% if lot.benefice %}{{ lot.benefice|cfa }}{% else %}-{% endif %}
                     </h3>
                     <p class="stat-label">Bénéfice (FCFA)</p>
                     {% if lot.benefice is not None %}
@@ -158,7 +158,7 @@
                     {% if lot.prix_transport %}
                     <div class="col-6 mb-3">
                         <label class="small fw-bold text-muted">PRIX TRANSPORT</label>
-                        <div class="text-success fw-bold">{{ lot.prix_transport|floatformat:0 }} FCFA</div>
+                        <div class="text-success fw-bold">{{ lot.prix_transport|cfa }} FCFA</div>
                     </div>
                     {% endif %}
                 </div>

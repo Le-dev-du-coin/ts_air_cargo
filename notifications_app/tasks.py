@@ -11,8 +11,84 @@ from django.db import transaction
 from .models import Notification, NotificationTask
 from .services import NotificationService
 from .utils import format_cfa
+from .error_classifier import classify_wachap_error
+from .alert_system import check_notification_health
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(bind=True)
+def retry_failed_notifications_task():
+    """
+    Tâche Celery Beat pour relancer automatiquement les notifications échouées
+    Exécutée périodiquement (toutes les 30 minutes)
+    """
+    from django.db.models import Q
+    
+    try:
+        now = timezone.now()
+        max_retries = 10
+        limit = 100  # Limiter pour éviter surcharge
+        
+        # Récupérer les notifications éligibles
+        notifications_to_retry = Notification.objects.filter(
+            Q(statut='echec') &
+            Q(prochaine_tentative__lte=now) &
+            Q(nombre_tentatives__lt=max_retries)
+        ).select_related('destinataire')[:limit]
+        
+        count = notifications_to_retry.count()
+        
+        if count == 0:
+            logger.info("✅ Aucune notification à relancer")
+            return {'success': True, 'retried': 0, 'message': 'Aucune notification à relancer'}
+        
+        logger.info(f"🔄 Début retry automatique : {count} notification(s) à traiter")
+        
+        stats = {'queued': 0, 'errors': 0}
+        
+        for notification in notifications_to_retry:
+            try:
+                # Lancer la tâche d'envoi individuelle
+                send_individual_notification.delay(notification.id)
+                stats['queued'] += 1
+            except Exception as e:
+                stats['errors'] += 1
+                logger.error(f"❌ Erreur lors du retry notification {notification.id}: {str(e)}")
+        
+        logger.info(
+            f"✅ Retry automatique terminé : {stats['queued']} mis en file, "
+            f"{stats['errors']} erreurs"
+        )
+        
+        return {
+            'success': True,
+            'retried': stats['queued'],
+            'errors': stats['errors'],
+            'total': count
+        }
+        
+    except Exception as e:
+        error_msg = f"Erreur lors du retry automatique : {str(e)}"
+        logger.error(error_msg)
+        return {'success': False, 'error': error_msg}
+
+
+@shared_task(bind=True)
+def check_notification_health_task():
+    """
+    Tâche Celery Beat pour vérifier la santé du système de notifications
+    Exécutée périodiquement pour détecter les défaillances critiques
+    """
+    try:
+        logger.info("💚 Début vérification santé notifications")
+        check_notification_health()
+        logger.info("✅ Vérification santé notifications terminée")
+        return {'success': True, 'message': 'Vérification santé terminée'}
+    except Exception as e:
+        error_msg = f"Erreur lors de la vérification santé : {str(e)}"
+        logger.error(error_msg)
+        return {'success': False, 'error': error_msg}
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3, 'countdown': 60})
@@ -68,18 +144,32 @@ def send_individual_notification(self, notification_id):
                 'recipient': notification.destinataire.telephone
             }
         else:
-            error_message = "Échec d'envoi via le service de notification"
-            notification.marquer_comme_echec(error_message)
-            logger.error(f"Échec envoi notification {notification_id}: {error_message}")
+            # Classifier l'erreur pour déterminer si temporaire ou permanente
+            error_classification = classify_wachap_error(
+                error_type='general_error',
+                error_message=notification.erreur_envoi or "Échec d'envoi"
+            )
             
-            # Relancer la tâche si pas encore au maximum de tentatives
-            if self.request.retries < self.max_retries:
+            error_type = 'permanent' if not error_classification['should_retry'] else 'temporaire'
+            notification.marquer_comme_echec(
+                erreur=notification.erreur_envoi or "Échec d'envoi via le service de notification",
+                erreur_type=error_type
+            )
+            
+            logger.error(
+                f"Échec envoi notification {notification_id}: {notification.erreur_envoi} "
+                f"(classifié: {error_classification['classification']})"
+            )
+            
+            # Relancer la tâche si erreur temporaire et pas au max de tentatives
+            if error_classification['should_retry'] and self.request.retries < self.max_retries:
                 raise Exception(f"Retry notification {notification_id}")
             
             return {
                 'success': False,
                 'notification_id': notification_id,
-                'error': error_message,
+                'error': notification.erreur_envoi,
+                'error_type': error_type,
                 'recipient': notification.destinataire.telephone
             }
             

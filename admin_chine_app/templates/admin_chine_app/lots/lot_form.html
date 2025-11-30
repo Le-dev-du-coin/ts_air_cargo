@@ -1,0 +1,229 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .form-section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .required-indicator {
+        color: #ef4444;
+        font-weight: bold;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    
+    .form-actions {
+        background: #f9fafb;
+        padding: 1.5rem;
+        border-radius: 8px;
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 mb-1">{{ title }}</h2>
+            <p class="text-muted mb-0">Gestion des lots de transport</p>
+        </div>
+        <a href="{% url 'admin_chine_app:lots_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour à la liste
+        </a>
+    </div>
+
+    <!-- Formulaire -->
+    <form method="post" class="needs-validation" novalidate>
+        {% csrf_token %}
+        
+        <!-- Section : Informations Générales -->
+        <div class="form-section">
+            <h3 class="form-section-title">
+                <i class="bi bi-info-circle me-2"></i>
+                Informations Générales
+            </h3>
+            
+            <div class="row g-3">
+                <!-- Type de transport -->
+                <div class="col-md-6">
+                    <label for="type_lot" class="form-label">
+                        Type de Transport <span class="required-indicator">*</span>
+                    </label>
+                    <select class="form-select" name="type_lot" id="type_lot" required>
+                        <option value="">Sélectionner un type</option>
+                        {% for value, label in transport_choices %}
+                        <option value="{{ value }}" {% if lot and lot.type_lot == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="help-text">Type de transport principal pour ce lot</div>
+                </div>
+                
+                <!-- Agent créateur -->
+                <div class="col-md-6">
+                    <label for="agent_createur" class="form-label">
+                        Agent Créateur
+                    </label>
+                    <select class="form-select" name="agent_createur" id="agent_createur">
+                        <option value="">Moi-même (Admin)</option>
+                        {% for agent in agents_chine %}
+                        <option value="{{ agent.id }}" {% if lot and lot.agent_createur.id == agent.id %}selected{% endif %}>
+                            {{ agent.get_full_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="help-text">Laisser vide pour vous désigner comme créateur</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section : Informations Financières -->
+        <div class="form-section">
+            <h3 class="form-section-title">
+                <i class="bi bi-cash-stack me-2"></i>
+                Informations Financières
+            </h3>
+            
+            <div class="row g-3">
+                <!-- Prix de transport -->
+                <div class="col-md-6">
+                    <label for="prix_transport" class="form-label">
+                        Prix de Transport (FCFA)
+                    </label>
+                    <input 
+                        type="number" 
+                        class="form-control" 
+                        name="prix_transport" 
+                        id="prix_transport"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value="{% if lot %}{{ lot.prix_transport }}{% endif %}"
+                    >
+                    <div class="help-text">
+                        Peut être ajouté/modifié plus tard
+                    </div>
+                </div>
+                
+                <!-- Frais de douane -->
+                <div class="col-md-6">
+                    <label for="frais_douane" class="form-label">
+                        Frais de Douane (FCFA)
+                    </label>
+                    <input 
+                        type="number" 
+                        class="form-control" 
+                        name="frais_douane" 
+                        id="frais_douane"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value="{% if lot %}{{ lot.frais_douane }}{% endif %}"
+                    >
+                    <div class="help-text">
+                        Généralement ajouté par l'agent Mali lors de la réception
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section : Notes -->
+        <div class="form-section">
+            <h3 class="form-section-title">
+                <i class="bi bi-sticky me-2"></i>
+                Notes et Remarques
+            </h3>
+            
+            <div class="row g-3">
+                <div class="col-12">
+                    <label for="notes" class="form-label">
+                        Notes Internes
+                    </label>
+                    <textarea 
+                        class="form-control" 
+                        name="notes" 
+                        id="notes" 
+                        rows="4"
+                        placeholder="Ajouter des notes ou remarques concernant ce lot..."
+                    >{% if lot %}{{ lot.notes }}{% endif %}</textarea>
+                    <div class="help-text">
+                        Ces notes sont visibles uniquement par les administrateurs
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="form-actions">
+            <a href="{% url 'admin_chine_app:lots_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Annuler
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> {{ submit_text }}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Validation du formulaire Bootstrap
+(function() {
+    'use strict';
+    
+    // Récupérer tous les formulaires nécessitant une validation
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    // Boucle sur eux et empêcher la soumission
+    Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+
+// Calcul automatique du bénéfice si prix et frais sont renseignés
+document.getElementById('prix_transport').addEventListener('input', calculateBenefit);
+document.getElementById('frais_douane').addEventListener('input', calculateBenefit);
+
+function calculateBenefit() {
+    var prix = parseFloat(document.getElementById('prix_transport').value) || 0;
+    var frais = parseFloat(document.getElementById('frais_douane').value) || 0;
+    
+    if (prix > 0 || frais > 0) {
+        console.log('Prix:', prix, 'Frais:', frais);
+        // Le bénéfice sera calculé automatiquement par le backend en fonction des colis
+    }
+}
+</script>
+{% endblock %}

@@ -601,14 +601,54 @@ def client_creation_tasks_list(request):
 @agent_chine_required
 def lot_list_view(request):
     """
-    Liste des lots avec pagination
+    Liste des lots avec pagination et filtres avancés
     """
-    lots = Lot.objects.select_related('agent_createur').prefetch_related('colis').all().order_by('-date_creation')
+    lots = Lot.objects.select_related('agent_createur').prefetch_related('colis').all()
     
     # Filtrage par statut
     statut_filter = request.GET.get('statut', '')
     if statut_filter:
         lots = lots.filter(statut=statut_filter)
+    
+    # Recherche par numéro de lot
+    search_query = request.GET.get('search', '')
+    if search_query:
+        lots = lots.filter(numero_lot__icontains=search_query)
+    
+    # Filtre par type de transport
+    type_filter = request.GET.get('type_transport', '')
+    if type_filter:
+        lots = lots.filter(type_lot=type_filter)
+    
+    # Filtre par agent créateur
+    agent_filter = request.GET.get('agent', '')
+    if agent_filter:
+        lots = lots.filter(agent_createur__id=agent_filter)
+    
+    # Filtre par période
+    date_debut = request.GET.get('date_debut', '')
+    date_fin = request.GET.get('date_fin', '')
+    if date_debut:
+        lots = lots.filter(date_creation__gte=date_debut)
+    if date_fin:
+        lots = lots.filter(date_creation__lte=date_fin)
+    
+    # Tri personnalisable
+    tri = request.GET.get('tri', '-date_creation')
+    valid_sort_fields = [
+        'date_creation', '-date_creation',
+        'numero_lot', '-numero_lot',
+        'statut', '-statut',
+        'prix_transport', '-prix_transport',
+        'date_expedition', '-date_expedition'
+    ]
+    if tri in valid_sort_fields:
+        lots = lots.order_by(tri)
+    else:
+        lots = lots.order_by('-date_creation')
+    
+    # Récupérer la liste des agents pour le filtre
+    agents = User.objects.filter(is_agent_chine=True).order_by('first_name', 'last_name')
     
     # Pagination
     paginator = Paginator(lots, 12)  # 12 lots par page
@@ -618,7 +658,15 @@ def lot_list_view(request):
     context = {
         'lots': lots_page,
         'statut_filter': statut_filter,
+        'search_query': search_query,
+        'type_filter': type_filter,
+        'agent_filter': agent_filter,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+        'tri': tri,
         'statut_choices': Lot.STATUS_CHOICES,
+        'type_choices': Lot.TRANSPORT_CHOICES,
+        'agents': agents,
     }
     return render(request, 'agent_chine_app/lot_list.html', context)
 
@@ -682,7 +730,7 @@ def lot_detail_view(request, lot_id):
     # Statistiques du lot
     total_colis = colis.count()
     total_poids = sum(float(c.poids) for c in colis)
-    total_prix = sum(float(c.prix_calcule) for c in colis)
+    total_prix = sum(c.get_prix_effectif() for c in colis)  # Utilise prix manuel si défini
     
     context = {
         'lot': lot,
@@ -759,7 +807,7 @@ def lot_close_view(request, lot_id):
     # Calculer les statistiques du lot pour affichage
     colis = lot.colis.all()
     total_poids = sum(float(c.poids) for c in colis)
-    total_prix_colis = sum(float(c.prix_calcule) for c in colis)
+    total_prix_colis = sum(c.get_prix_effectif() for c in colis)  # Utilise prix manuel si défini
     
     context = {
         'lot': lot,

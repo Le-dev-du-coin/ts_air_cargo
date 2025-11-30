@@ -47,4 +47,24 @@ urlpatterns = [
     # === Monitoring WhatsApp Complet (Admin) ===
     # Import des vues depuis whatsapp_monitoring_app pour monitoring global
     path('whatsapp/monitoring/', views.whatsapp_admin_monitoring, name='whatsapp_monitoring'),
+    
+    # === Gestion CRUD des Lots (Admin Chine) ===
+    path('lots/', views.lots_list, name='lots_list'),
+    path('lots/create/', views.lot_create, name='lot_create'),
+    path('lots/<int:lot_id>/', views.lot_detail, name='lot_detail'),
+    path('lots/<int:lot_id>/edit/', views.lot_edit, name='lot_edit'),
+    path('lots/<int:lot_id>/delete/', views.lot_delete, name='lot_delete'),
+    path('lots/<int:lot_id>/change-status/', views.lot_change_status, name='lot_change_status'),
+    
+    # === Gestion CRUD des Colis (Admin Chine) - DÉSACTIVÉ ===
+    # Gestion des colis se fait maintenant dans lot_detail
+    # path('colis/', views.colis_list, name='colis_list'),
+    # path('colis/create/', views.colis_create, name='colis_create'),
+    # path('colis/<int:colis_id>/', views.colis_detail, name='colis_detail'),
+    # path('colis/<int:colis_id>/edit/', views.colis_edit, name='colis_edit'),
+    # path('colis/<int:colis_id>/delete/', views.colis_delete, name='colis_delete'),
+    
+    # === Gestion des Clients (Admin Chine) - DÉSACTIVÉ ===
+    # path('clients/', views.clients_list, name='clients_list'),
+    # path('clients/<int:client_id>/', views.client_detail, name='client_detail'),
 ]

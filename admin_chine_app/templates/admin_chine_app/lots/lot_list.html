@@ -1,0 +1,290 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid transparent;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    }
+    
+    .lot-row:hover {
+        background-color: #f9fafb;
+        cursor: pointer;
+    }
+    
+    .badge-statut {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 mb-1">{{ title }}</h2>
+            <p class="text-muted mb-0">Gestion complète de tous les lots</p>
+        </div>
+        <a href="{% url 'admin_chine_app:lot_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Créer un Lot
+        </a>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm h-100 stats-card" style="border-left-color: #3b82f6 !important;">
+                <div class="card-body text-center p-3">
+                    <h3 class="mb-1 fw-bold text-primary">{{ total_lots }}</h3>
+                    <p class="text-muted mb-0 small">Total Lots</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm h-100 stats-card" style="border-left-color: #10b981 !important;">
+                <div class="card-body text-center p-3">
+                    <h3 class="mb-1 fw-bold text-success">{{ total_colis }}</h3>
+                    <p class="text-muted mb-0 small">Total Colis</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm h-100 stats-card" style="border-left-color: #f59e0b !important;">
+                <div class="card-body text-center p-3">
+                    <h3 class="mb-1 fw-bold text-warning">{{ valeur_transport_total|floatformat:0|intcomma }}</h3>
+                    <p class="text-muted mb-0 small">Valeur Transport (F)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm h-100 stats-card" style="border-left-color: #8b5cf6 !important;">
+                <div class="card-body text-center p-3">
+                    <h3 class="mb-1 fw-bold text-purple">{{ benefice_total|floatformat:0|intcomma }}</h3>
+                    <p class="text-muted mb-0 small">Bénéfice Total (F)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et filtres -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label small">Rechercher</label>
+                    <input type="text" name="search" class="form-control" placeholder="N° de lot..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Statut</label>
+                    <select name="statut" class="form-select">
+                        <option value="">Tous</option>
+                        {% for value, label in statut_choices %}
+                        <option value="{{ value }}" {% if statut_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Type Transport</label>
+                    <select name="type_transport" class="form-select">
+                        <option value="">Tous</option>
+                        {% for value, label in type_choices %}
+                        <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Agent</label>
+                    <select name="agent" class="form-select">
+                        <option value="">Tous</option>
+                        {% for agent in agents %}
+                        <option value="{{ agent.id }}" {% if agent_filter == agent.id|stringformat:"s" %}selected{% endif %}>{{ agent.get_full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Trier par</label>
+                    <select name="tri" class="form-select">
+                        <option value="-date_creation" {% if tri == "-date_creation" %}selected{% endif %}>Plus récent</option>
+                        <option value="date_creation" {% if tri == "date_creation" %}selected{% endif %}>Plus ancien</option>
+                        <option value="numero_lot" {% if tri == "numero_lot" %}selected{% endif %}>N° Lot A-Z</option>
+                        <option value="-benefice" {% if tri == "-benefice" %}selected{% endif %}>Bénéfice ↓</option>
+                        <option value="benefice" {% if tri == "benefice" %}selected{% endif %}>Bénéfice ↑</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filtrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des lots -->
+    {% if lots %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-box"></i> Liste des Lots
+                <span class="badge bg-secondary">{{ lots.paginator.count }} lot{{ lots.paginator.count|pluralize }}</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° Lot</th>
+                            <th>Statut</th>
+                            <th>Type</th>
+                            <th>Colis</th>
+                            <th>Prix Transport</th>
+                            <th>Frais Douane</th>
+                            <th>Bénéfice</th>
+                            <th>Agent</th>
+                            <th>Date Création</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lot in lots %}
+                        <tr class="lot-row" onclick="window.location='{% url 'admin_chine_app:lot_detail' lot.id %}'">
+                            <td><strong>{{ lot.numero_lot }}</strong></td>
+                            <td>
+                                <span class="badge badge-statut 
+                                    {% if lot.statut == 'ouvert' %}bg-info
+                                    {% elif lot.statut == 'ferme' %}bg-warning
+                                    {% elif lot.statut == 'expedie' %}bg-primary
+                                    {% elif lot.statut == 'en_transit' %}bg-secondary
+                                    {% elif lot.statut == 'arrive' %}bg-success
+                                    {% elif lot.statut == 'livre' %}bg-dark
+                                    {% endif %}">
+                                    {{ lot.get_statut_display }}
+                                </span>
+                            </td>
+                            <td><span class="badge bg-secondary">{{ lot.get_type_lot_display }}</span></td>
+                            <td>{{ lot.colis.count }}</td>
+                            <td>
+                                {% if lot.prix_transport %}
+                                    <span class="text-success fw-bold">{{ lot.prix_transport|floatformat:0|intcomma }} F</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if lot.frais_douane %}
+                                    {{ lot.frais_douane|floatformat:0|intcomma }} F
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if lot.benefice %}
+                                    <span class="{% if lot.benefice >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                        {{ lot.benefice|floatformat:0|intcomma }} F
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if lot.agent_createur %}
+                                    <small>{{ lot.agent_createur.get_full_name }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ lot.date_creation|date:"d/m/Y" }}</small></td>
+                            <td onclick="event.stopPropagation();">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'admin_chine_app:lot_detail' lot.id %}" class="btn btn-outline-primary" title="Voir">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'admin_chine_app:lot_edit' lot.id %}" class="btn btn-outline-warning" title="Modifier">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% if lot.colis.count == 0 %}
+                                    <a href="{% url 'admin_chine_app:lot_delete' lot.id %}" class="btn btn-outline-danger" title="Supprimer">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if lots.has_other_pages %}
+        <div class="card-footer bg-white">
+            <nav aria-label="Navigation des lots">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if lots.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ lots.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ lots.number }} sur {{ lots.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if lots.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ lots.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ lots.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if type_filter %}&type_transport={{ type_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+                <div class="text-center text-muted small mt-2">
+                    Affichage de {{ lots.start_index }}-{{ lots.end_index }} sur {{ lots.paginator.count }} lots
+                </div>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <!-- État vide -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 4rem; color: #cbd5e1;"></i>
+            <h5 class="mt-3 text-muted">Aucun lot trouvé</h5>
+            <p class="text-muted">Créez votre premier lot pour commencer</p>
+            <a href="{% url 'admin_chine_app:lot_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Créer un Lot
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

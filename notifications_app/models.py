@@ -17,6 +17,8 @@ class Notification(models.Model):
         ('en_attente', 'En attente'),
         ('envoye', 'Envoyé'),
         ('echec', 'Échec'),
+        ('echec_permanent', 'Échec permanent'),
+        ('annulee', 'Annulée'),
         ('lu', 'Lu'),
     ]
     
@@ -184,17 +186,41 @@ class Notification(models.Model):
             self.message_id_externe = message_id
         self.save(update_fields=['statut', 'date_envoi', 'message_id_externe'])
     
-    def marquer_comme_echec(self, erreur=None):
+    def marquer_comme_echec(self, erreur=None, erreur_type='temporaire'):
         """
         Marquer la notification comme échouée
+        
+        Args:
+            erreur: Message d'erreur
+            erreur_type: 'temporaire' (retry possible) ou 'permanent' (pas de retry)
         """
-        self.statut = 'echec'
         self.nombre_tentatives += 1
+        
+        if erreur_type == 'permanent':
+            # Erreur permanente : pas de retry
+            self.statut = 'echec_permanent'
+            self.prochaine_tentative = None
+        else:
+            # Erreur temporaire : programmer retry avec backoff exponentiel
+            self.statut = 'echec'
+            # Backoff : 30min, 1h, 2h, 4h... (max 24h)
+            minutes = min(30 * (2 ** (self.nombre_tentatives - 1)), 1440)
+            self.prochaine_tentative = timezone.now() + timezone.timedelta(minutes=minutes)
+        
         if erreur:
             self.erreur_envoi = erreur
-        # Programmer une nouvelle tentative dans 30 minutes
-        self.prochaine_tentative = timezone.now() + timezone.timedelta(minutes=30)
+        
         self.save(update_fields=['statut', 'nombre_tentatives', 'erreur_envoi', 'prochaine_tentative'])
+    
+    def annuler(self, raison=None):
+        """
+        Annuler la notification (ex: obsolète, client injoignable)
+        """
+        self.statut = 'annulee'
+        if raison:
+            self.erreur_envoi = f"Annulée : {raison}"
+        self.prochaine_tentative = None
+        self.save(update_fields=['statut', 'erreur_envoi', 'prochaine_tentative'])
 
 class ConfigurationNotification(models.Model):
     """

@@ -1,0 +1,220 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- En-tête avec actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+            <a href="{% url 'admin_chine_app:colis_list' %}" class="btn btn-outline-secondary me-3">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="mb-0">Colis {{ colis.numero_suivi }}</h2>
+                <p class="text-muted mb-0 small">Créé le {{ colis.date_creation|date:"d/m/Y à H:i" }}</p>
+            </div>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'admin_chine_app:colis_edit' colis.id %}" class="btn btn-primary">
+                <i class="bi bi-pencil me-2"></i>Modifier
+            </a>
+            <a href="{% url 'admin_chine_app:colis_delete' colis.id %}" class="btn btn-danger">
+                <i class="bi bi-trash me-2"></i>Supprimer
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Colonne principale -->
+        <div class="col-lg-8">
+            <!-- Informations générales -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informations Générales</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">Numéro de Suivi</label>
+                            <p class="fw-bold fs-5 text-primary">{{ colis.numero_suivi }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Statut</label>
+                            <p>
+                                {% if colis.statut == 'en_attente' %}
+                                <span class="badge bg-secondary fs-6">{{ colis.get_statut_display }}</span>
+                                {% elif colis.statut == 'receptionne_chine' %}
+                                <span class="badge bg-primary fs-6">{{ colis.get_statut_display }}</span>
+                                {% elif colis.statut == 'en_transit' %}
+                                <span class="badge bg-info fs-6">{{ colis.get_statut_display }}</span>
+                                {% elif colis.statut == 'arrive' %}
+                                <span class="badge bg-warning text-dark fs-6">{{ colis.get_statut_display }}</span>
+                                {% elif colis.statut == 'livre' %}
+                                <span class="badge bg-success fs-6">{{ colis.get_statut_display }}</span>
+                                {% else %}
+                                <span class="badge bg-danger fs-6">{{ colis.get_statut_display }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Type de Transport</label>
+                            <p><span class="badge bg-info">{{ colis.get_type_transport_display }}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Type de Colis</label>
+                            <p>{{ colis.get_type_colis_display }}
+                            {% if colis.type_colis != 'standard' %}
+                                <span class="text-muted">({{ colis.quantite_pieces }} pièce{{ colis.quantite_pieces|pluralize }})</span>
+                            {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dimensions et Poids -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-rulers me-2"></i>Dimensions et Poids</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="text-muted small">Longueur</label>
+                            <p class="fw-bold">{{ colis.longueur }} cm</p>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small">Largeur</label>
+                            <p class="fw-bold">{{ colis.largeur }} cm</p>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small">Hauteur</label>
+                            <p class="fw-bold">{{ colis.hauteur }} cm</p>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small">Volume</label>
+                            <p class="fw-bold">{{ colis.volume_m3|floatformat:6 }} m³</p>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="text-muted small">Poids</label>
+                            <p class="fw-bold fs-5">{{ colis.poids }} kg</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tarification -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-currency-exchange me-2"></i>Tarification</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="text-muted small">Prix Automatique</label>
+                            <p class="fw-bold">{{ colis.prix_calcule|floatformat:0 }} FCFA</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Prix Manuel</label>
+                            <p class="fw-bold">
+                                {% if colis.prix_transport_manuel %}
+                                {{ colis.prix_transport_manuel|floatformat:0 }} FCFA
+                                {% else %}
+                                <span class="text-muted">Non défini</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="alert alert-info mb-0">
+                                <strong>Prix Effectif:</strong> {{ colis.get_prix_effectif|floatformat:0 }} FCFA
+                                <span class="text-muted">({{ colis.get_source_prix }})</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted small">Mode de Paiement</label>
+                            <p>
+                                {% if colis.mode_paiement == 'paye_chine' %}
+                                <span class="badge bg-success">{{ colis.get_mode_paiement_display }}</span>
+                                {% elif colis.mode_paiement == 'paye_mali' %}
+                                <span class="badge bg-info">{{ colis.get_mode_paiement_display }}</span>
+                                {% else %}
+                                <span class="badge bg-danger">{{ colis.get_mode_paiement_display }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Description -->
+            {% if colis.description %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-card-text me-2"></i>Description</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ colis.description|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Colonne latérale -->
+        <div class="col-lg-4">
+            <!-- Client -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-person me-2"></i>Client</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">{{ colis.client.nom_complet }}</h6>
+                    <p class="mb-2"><i class="bi bi-telephone me-2"></i>{{ colis.client.telephone }}</p>
+                    {% if colis.client.adresse %}
+                    <p class="mb-2 small text-muted"><i class="bi bi-geo-alt me-2"></i>{{ colis.client.adresse }}</p>
+                    {% endif %}
+                    <p class="mb-0 small text-muted">
+                        <i class="bi bi-globe me-2"></i>{{ colis.client.pays }}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Lot -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-box me-2"></i>Lot</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">{{ colis.lot.numero_lot }}</h6>
+                    <p class="mb-2"><span class="badge bg-{{ colis.lot.statut|slice:'0:1' }}">{{ colis.lot.get_statut_display }}</span></p>
+                    <p class="mb-2 small"><strong>Type:</strong> {{ colis.lot.get_type_lot_display }}</p>
+                    {% if colis.lot.agent_createur %}
+                    <p class="mb-2 small"><strong>Agent:</strong> {{ colis.lot.agent_createur.get_full_name }}</p>
+                    {% endif %}
+                    <a href="{% url 'admin_chine_app:lot_detail' colis.lot.id %}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-eye me-1"></i>Voir le lot
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Dates -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-clock me-2"></i>Chronologie</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">
+                        <strong>Créé:</strong><br>
+                        {{ colis.date_creation|date:"d/m/Y à H:i" }}
+                    </p>
+                    <p class="small mb-0">
+                        <strong>Modifié:</strong><br>
+                        {{ colis.date_modification|date:"d/m/Y à H:i" }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

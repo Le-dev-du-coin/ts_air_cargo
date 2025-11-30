@@ -249,6 +249,21 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'agent_chine_app.tasks.cleanup_old_tasks',
         'schedule': 86400.0 * 7,  # Une fois par semaine
     },
+    'retry-failed-notifications': {
+        'task': 'notifications_app.tasks.retry_failed_notifications_task',
+        'schedule': 1800.0,  # Toutes les 30 minutes
+        'options': {
+            'queue': 'notifications',
+            'expires': 1500,  # Expire après 25 min si non exécutée
+        }
+    },
+    'check-notification-health': {
+        'task': 'notifications_app.tasks.check_notification_health_task',
+        'schedule': 3600.0,  # Toutes les heures
+        'options': {
+            'queue': 'notifications',
+        }
+    },
 }
 
 
