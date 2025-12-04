@@ -649,7 +649,7 @@ def lots_en_transit_view(request):
     ).select_related('agent_createur').prefetch_related('colis__client__user')
     
     # Filtres
-    search_query = request.GET.get('search', '')
+    search_query = request.GET.get('search', '').strip()
     type_transport = request.GET.get('type_transport', '')
     agent_filter = request.GET.get('agent', '')
     date_debut = request.GET.get('date_debut', '')
@@ -657,8 +657,13 @@ def lots_en_transit_view(request):
     tri = request.GET.get('tri', '-date_expedition')
     
     # Appliquer les filtres
+    # Recherche combinée : numéro de lot OU nom du client (prénom + nom)
     if search_query:
-        lots = lots.filter(numero_lot__icontains=search_query)
+        lots = lots.filter(
+            Q(numero_lot__icontains=search_query) |
+            Q(colis__client__user__first_name__icontains=search_query) |
+            Q(colis__client__user__last_name__icontains=search_query)
+        ).distinct()
     
     if type_transport:
         lots = lots.filter(type_lot=type_transport)
@@ -726,21 +731,26 @@ def lots_receptionnes_view(request):
     Liste des lots réceptionnés au Mali (statut: arrive)
     Les colis sont groupés par lot pour une meilleure organisation
     """
-    # Base queryset - inclure lots partiellement réceptionnés
+    # Base queryset - inclure uniquement les lots ayant au moins un colis avec statut='arrive'
     lots = Lot.objects.filter(
-        Q(statut='arrive') | Q(colis__statut='arrive')
+        colis__statut='arrive'
     ).distinct().select_related('agent_createur').prefetch_related('colis__client__user')
     
     # Filtres
-    search_query = request.GET.get('search', '')
+    search_query = request.GET.get('search', '').strip()
     type_transport = request.GET.get('type_transport', '')
     date_debut = request.GET.get('date_debut', '')
     date_fin = request.GET.get('date_fin', '')
     tri = request.GET.get('tri', '-date_arrivee')
     
     # Appliquer les filtres
+    # Recherche combinée : numéro de lot OU nom du client (prénom + nom)
     if search_query:
-        lots = lots.filter(numero_lot__icontains=search_query)
+        lots = lots.filter(
+            Q(numero_lot__icontains=search_query) |
+            Q(colis__client__user__first_name__icontains=search_query) |
+            Q(colis__client__user__last_name__icontains=search_query)
+        ).distinct()
     
     if type_transport:
         lots = lots.filter(type_lot=type_transport)
@@ -762,10 +772,10 @@ def lots_receptionnes_view(request):
     
     # Calculs pour statistiques (sur tous les lots, pas seulement la page)
     total_lots = lots.count()
-    total_colis = sum(lot.colis.count() for lot in lots)
+    # Compter uniquement les colis avec statut='arrive' (exclure livrés et perdus)
     total_colis_arrives = sum(lot.colis.filter(statut='arrive').count() for lot in lots)
     
-    # Calcul de la valeur totale des colis réceptionnés
+    # Calcul de la valeur totale des colis réceptionnés (uniquement statut='arrive')
     valeur_totale_colis = 0
     for lot in lots:
         valeur_totale_colis += sum(float(colis.prix_calcule or 0) for colis in lot.colis.filter(statut='arrive'))
@@ -776,7 +786,6 @@ def lots_receptionnes_view(request):
     context = {
         'lots': lots_page,
         'total_lots': total_lots,
-        'total_colis': total_colis,
         'total_colis_arrives': total_colis_arrives,
         'valeur_totale_colis': valeur_totale_colis,
         'benefice_total': benefice_total,
@@ -792,24 +801,30 @@ def lots_receptionnes_view(request):
 @agent_mali_required
 def lots_livres_view(request):
     """
-    Liste des lots complètement livrés (statut: livre)
-    Archive avec traçabilité complète de tous les lots livrés
+    Liste des lots avec colis livrés
+    Affiche tous les lots ayant au moins un colis livré, groupés par lot
+    Un lot est marqué "Complet" quand tous ses colis sont livrés ou perdus
     """
-    # Base queryset
+    # Base queryset - Lots ayant au moins un colis livré
     lots = Lot.objects.filter(
-        statut='livre'
-    ).select_related('agent_createur').prefetch_related('colis__client__user')
+        colis__statut='livre'
+    ).distinct().select_related('agent_createur').prefetch_related('colis__client__user')
     
     # Filtres
-    search_query = request.GET.get('search', '')
+    search_query = request.GET.get('search', '').strip()
     type_transport = request.GET.get('type_transport', '')
     date_debut = request.GET.get('date_debut', '')
     date_fin = request.GET.get('date_fin', '')
     tri = request.GET.get('tri', '-date_arrivee')
     
     # Appliquer les filtres
+    # Recherche combinée : numéro de lot OU nom du client (prénom + nom)
     if search_query:
-        lots = lots.filter(numero_lot__icontains=search_query)
+        lots = lots.filter(
+            Q(numero_lot__icontains=search_query) |
+            Q(colis__client__user__first_name__icontains=search_query) |
+            Q(colis__client__user__last_name__icontains=search_query)
+        ).distinct()
     
     if type_transport:
         lots = lots.filter(type_lot=type_transport)

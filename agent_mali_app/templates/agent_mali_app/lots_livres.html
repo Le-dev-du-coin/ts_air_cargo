@@ -83,8 +83,8 @@
     <div class="card-body">
         <form method="get" class="row g-3">
             <div class="col-md-3">
-                <label class="form-label small">Rechercher</label>
-                <input type="text" name="search" class="form-control" placeholder="N° de lot..." value="{{ search_query }}">
+                <label class="form-label small"><i class="bi bi-search me-1"></i>Rechercher</label>
+                <input type="text" name="search" class="form-control" placeholder="N° de lot ou nom du client" value="{{ search_query }}">
             </div>
             <div class="col-md-2">
                 <label class="form-label small">Type Transport</label>
@@ -200,6 +200,11 @@
                             <span class="badge" style="background-color: #8b5cf6;">
                                 <i class="bi bi-check2-circle"></i> Livré
                             </span>
+                            {% if lot.statut == 'livre' %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-all"></i> Lot Complet
+                            </span>
+                            {% endif %}
                             <span class="badge bg-info">
                                 {{ lot.type_lot|upper }}
                             </span>
@@ -213,7 +218,7 @@
                                 <i class="bi bi-box text-primary"></i>
                                 <div>
                                     <small class="text-muted d-block">Colis Livrés</small>
-                                    <strong>{{ lot.colis.filter.count }}</strong>
+                                    <strong>{{ lot.colis.filter.count|default:lot.colis.count }}</strong>
                                 </div>
                             </div>
                         </div>
@@ -248,15 +253,20 @@
                         </div>
                     </div>
 
-                    <!-- Résumé des colis -->
+                    <!-- Résumé des colis livrés -->
+                    {% with colis_livres=lot.colis.filter.count|default:lot.colis.count %}
                     <div class="alert alert-success border-0 mb-0">
                         <div class="d-flex align-items-center gap-2">
                             <i class="bi bi-check-circle-fill"></i>
                             <span>
-                                <strong>{{ lot.colis.filter.count }} colis</strong> ont été livrés avec succès
+                                <strong>{{ colis_livres }} colis</strong> livré{{ colis_livres|pluralize }} avec succès
+                                {% if lot.statut == 'livre' %}
+                                    <span class="badge bg-success ms-2"><i class="bi bi-check-all"></i> Lot Complet</span>
+                                {% endif %}
                             </span>
                         </div>
                     </div>
+                    {% endwith %}
 
                     <div class="d-flex justify-content-end gap-2 mt-3">
                         <a href="{% url 'agent_mali:details_lot' lot.id %}" class="btn btn-outline-primary btn-sm">
@@ -272,44 +282,6 @@
         {% endfor %}
     </div>
 
-    <!-- Pagination -->
-    {% if lots.has_other_pages %}
-    <nav aria-label="Navigation des lots" class="mt-4">
-        <ul class="pagination justify-content-center">
-            {% if lots.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
-                        <i class="bi bi-chevron-double-left"></i>
-                    </a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ lots.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
-                        <i class="bi bi-chevron-left"></i>
-                    </a>
-                </li>
-            {% endif %}
-
-            <li class="page-item active">
-                <span class="page-link">
-                    Page {{ lots.number }} sur {{ lots.paginator.num_pages }}
-                </span>
-            </li>
-
-            {% if lots.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ lots.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
-                        <i class="bi bi-chevron-right"></i>
-                    </a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ lots.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
-                        <i class="bi bi-chevron-double-right"></i>
-                    </a>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
 {% else %}
     <!-- État vide -->
     <div class="card border-0 shadow-sm">
@@ -325,4 +297,7 @@
         </div>
     </div>
 {% endif %}
+
+<!-- Pagination modernisée -->
+{% include 'agent_mali_app/components/pagination.html' with page_obj=lots %}
 {% endblock %}

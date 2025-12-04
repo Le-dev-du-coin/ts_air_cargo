@@ -1,0 +1,140 @@
+{% comment %}
+Composant de pagination réutilisable avec design modernisé
+Usage: {% include 'agent_mali_app/components/pagination.html' with page_obj=lots search_query=search_query %}
+{% endcomment %}
+
+{% if page_obj.has_other_pages %}
+<div class="pagination-wrapper mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <!-- Info résultats -->
+        <div class="text-muted">
+            <i class="bi bi-info-circle me-1"></i>
+            Affichage de <strong>{{ page_obj.start_index }}</strong> à <strong>{{ page_obj.end_index }}</strong> 
+            sur <strong>{{ page_obj.paginator.count }}</strong> résultat{{ page_obj.paginator.count|pluralize }}
+        </div>
+        
+        <!-- Navigation pagination -->
+        <nav aria-label="Navigation de pagination">
+            <ul class="pagination mb-0">
+                {% if page_obj.has_previous %}
+                    <!-- Première page -->
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}{% if categorie_filter %}&categorie={{ categorie_filter }}{% endif %}{% if montant_min %}&montant_min={{ montant_min }}{% endif %}" title="Première page">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <!-- Page précédente -->
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}{% if categorie_filter %}&categorie={{ categorie_filter }}{% endif %}{% if montant_min %}&montant_min={{ montant_min }}{% endif %}" title="Page précédente">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-double-left"></i></span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                    </li>
+                {% endif %}
+                
+                <!-- Numéro de page actuel -->
+                <li class="page-item active">
+                    <span class="page-link fw-bold">
+                        Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                    <!-- Page suivante -->
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}{% if categorie_filter %}&categorie={{ categorie_filter }}{% endif %}{% if montant_min %}&montant_min={{ montant_min }}{% endif %}" title="Page suivante">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <!-- Dernière page -->
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if type_transport %}&type_transport={{ type_transport }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}{% if categorie_filter %}&categorie={{ categorie_filter }}{% endif %}{% if montant_min %}&montant_min={{ montant_min }}{% endif %}" title="Dernière page">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-double-right"></i></span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<style>
+.pagination-wrapper {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.pagination {
+    margin-bottom: 0;
+    gap: 4px;
+}
+
+.pagination .page-link {
+    border-radius: 8px;
+    margin: 0;
+    border: 1px solid #dee2e6;
+    color: #495057;
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.pagination .page-link:hover {
+    background-color: #22c55e;
+    border-color: #22c55e;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3);
+}
+
+.pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border-color: #22c55e;
+    color: white;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+}
+
+.pagination .page-item.disabled .page-link {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+.pagination .page-link i {
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .pagination-wrapper {
+        padding: 1rem;
+    }
+    
+    .pagination-wrapper .d-flex {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .pagination .page-link {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+</style>
+{% endif %}
