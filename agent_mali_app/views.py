@@ -657,13 +657,9 @@ def lots_en_transit_view(request):
     tri = request.GET.get('tri', '-date_expedition')
     
     # Appliquer les filtres
-    # Recherche combinée : numéro de lot OU nom du client (prénom + nom)
+    # Recherche par numéro de lot uniquement
     if search_query:
-        lots = lots.filter(
-            Q(numero_lot__icontains=search_query) |
-            Q(colis__client__user__first_name__icontains=search_query) |
-            Q(colis__client__user__last_name__icontains=search_query)
-        ).distinct()
+        lots = lots.filter(numero_lot__icontains=search_query)
     
     if type_transport:
         lots = lots.filter(type_lot=type_transport)
@@ -744,13 +740,9 @@ def lots_receptionnes_view(request):
     tri = request.GET.get('tri', '-date_arrivee')
     
     # Appliquer les filtres
-    # Recherche combinée : numéro de lot OU nom du client (prénom + nom)
+    # Recherche par numéro de lot uniquement
     if search_query:
-        lots = lots.filter(
-            Q(numero_lot__icontains=search_query) |
-            Q(colis__client__user__first_name__icontains=search_query) |
-            Q(colis__client__user__last_name__icontains=search_query)
-        ).distinct()
+        lots = lots.filter(numero_lot__icontains=search_query)
     
     if type_transport:
         lots = lots.filter(type_lot=type_transport)
@@ -818,13 +810,9 @@ def lots_livres_view(request):
     tri = request.GET.get('tri', '-date_arrivee')
     
     # Appliquer les filtres
-    # Recherche combinée : numéro de lot OU nom du client (prénom + nom)
+    # Recherche par numéro de lot uniquement
     if search_query:
-        lots = lots.filter(
-            Q(numero_lot__icontains=search_query) |
-            Q(colis__client__user__first_name__icontains=search_query) |
-            Q(colis__client__user__last_name__icontains=search_query)
-        ).distinct()
+        lots = lots.filter(numero_lot__icontains=search_query)
     
     if type_transport:
         lots = lots.filter(type_lot=type_transport)
@@ -1425,6 +1413,63 @@ def depenses_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # ==== GRAPHIQUES DYNAMIQUES ====
+    # 1. Évolution des dépenses (6 derniers mois)
+    import calendar
+    import json
+    from datetime import datetime
+    
+    graphique_evolution = {'labels': [], 'data': []}
+    for i in range(5, -1, -1):  # 6 derniers mois
+        mois_date = aujourd_hui - timedelta(days=i*30)
+        premier_jour = mois_date.replace(day=1)
+        # Dernier jour du mois
+        if mois_date.month == 12:
+            dernier_jour = mois_date.replace(day=31)
+        else:
+            dernier_jour = mois_date.replace(day=calendar.monthrange(mois_date.year, mois_date.month)[1])
+        
+        # Total dépenses du mois
+        total = Depense.objects.filter(
+            agent=request.user,
+            date_depense__gte=premier_jour,
+            date_depense__lte=dernier_jour
+        ).aggregate(total=Sum('montant'))['total'] or 0
+        
+        # Nom du mois en français
+        mois_names = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+        graphique_evolution['labels'].append(mois_names[mois_date.month - 1])
+        graphique_evolution['data'].append(float(total))
+    
+    # 2. Répartition par catégorie
+    categories_stats = Depense.objects.filter(
+        agent=request.user,
+        date_depense__gte=debut_mois
+    ).values('type_depense').annotate(
+        total=Sum('montant')
+    ).order_by('-total')
+    
+    graphique_categories = {
+        'labels': [],
+        'data': [],
+        'colors': ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+    }
+    
+    for i, cat in enumerate(categories_stats):
+        type_label = dict(Depense.TYPE_DEPENSE_CHOICES).get(cat['type_depense'], cat['type_depense'])
+        graphique_categories['labels'].append(type_label)
+        graphique_categories['data'].append(float(cat['total']))
+    
+    # 3. Statistiques supplémentaires (revenus et bénéfice)
+    from .models import Livraison
+    revenus_mois = Livraison.objects.filter(
+        date_livraison_effective__gte=debut_mois,
+        statut='livree',
+        montant_collecte__isnull=False
+    ).aggregate(total=Sum('montant_collecte'))['total'] or 0
+    
+    benefice_net = float(revenus_mois) - float(total_mois)
+    
     context = {
         'depenses': page_obj,
         'page_obj': page_obj,
@@ -1438,6 +1483,11 @@ def depenses_view(request):
         'date_fin': date_fin,
         'montant_min': montant_min,
         'title': 'Gestion des Dépenses',
+        # Données graphiques
+        'graphique_evolution_json': json.dumps(graphique_evolution),
+        'graphique_categories_json': json.dumps(graphique_categories),
+        'revenus_mois': float(revenus_mois),
+        'benefice_net': benefice_net,
     }
     return render(request, 'agent_mali_app/depenses.html', context)
 
