@@ -55,12 +55,23 @@ def exporter_lot_pdf(request, lot_id):
 
 def details_lot_view(request, lot_id):
     """
-    Affiche les détails d'un lot spécifique
+    Affiche les détails d'un lot spécifique avec filtres de recherche
     """
     lot = get_object_or_404(Lot, id=lot_id)
     
-    # Récupérer tous les colis du lot avec pagination
-    colis_list = lot.colis.all().order_by('date_creation')
+    # Récupérer tous les colis du lot
+    colis_list = lot.colis.all().select_related('client__user').order_by('date_creation')
+    
+    # Filtres de recherche
+    search_query = request.GET.get('search', '').strip()
+    
+    if search_query:
+        # Recherche par nom (prénom ou nom) OU numéro de téléphone
+        colis_list = colis_list.filter(
+            Q(client__user__first_name__icontains=search_query) |
+            Q(client__user__last_name__icontains=search_query) |
+            Q(client__user__telephone__icontains=search_query)
+        )
     
     # Pagination
     page = request.GET.get('page', 1)
@@ -112,6 +123,7 @@ def details_lot_view(request, lot_id):
         'benefice': benefice,
         'marge_beneficiaire': marge_beneficiaire,
         'taux_livraison': taux_livraison,
+        'search_query': search_query,
         'title': f'Détails du lot {lot.numero_lot}'
     }
     

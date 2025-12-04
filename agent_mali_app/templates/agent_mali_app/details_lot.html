@@ -204,6 +204,43 @@
     </div>
 </div>
 
+<!-- Filtre de recherche -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <form method="get" action="" class="row g-3">
+            <div class="col-md-10">
+                <label for="search" class="form-label small">
+                    <i class="bi bi-search me-1"></i>Rechercher un colis
+                </label>
+                <input type="text" 
+                       name="search" 
+                       id="search" 
+                       class="form-control" 
+                       placeholder="Rechercher par nom ou numéro de téléphone" 
+                       value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Rechercher
+                    </button>
+                </div>
+            </div>
+            {% if search_query %}
+            <div class="col-12">
+                <a href="{% url 'agent_mali:details_lot' lot.id %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Réinitialiser la recherche
+                </a>
+                <span class="text-muted ms-2">
+                    <i class="bi bi-funnel"></i> Recherche active : "{{ search_query }}"
+                </span>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
 <!-- Liste des colis -->
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
@@ -280,7 +317,11 @@
                     <tr>
                         <td colspan="6" class="text-center py-5">
                             <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
-                            <p class="text-muted mt-2">Aucun colis dans ce lot</p>
+                            {% if search_query %}
+                                <p class="text-muted mt-2">Aucun colis ne correspond à votre recherche</p>
+                            {% else %}
+                                <p class="text-muted mt-2">Aucun colis dans ce lot</p>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
