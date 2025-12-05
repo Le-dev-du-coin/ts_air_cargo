@@ -84,9 +84,11 @@
         <form method="get" class="row g-3">
             <div class="col-md-3">
                 <label class="form-label small"><i class="bi bi-search me-1"></i>Rechercher</label>
-                    <input type="text" name="search" class="form-control" 
-                           placeholder="Rechercher par N° de lot" 
-                           value="{{ search_query }}" id="searchInput">
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Rechercher par N° de lot" 
+                       value="{{ search_query }}" id="searchInput">
+            </div>
+            <div class="col-md-2">
                 <label class="form-label small">Type Transport</label>
                 <select name="type_transport" class="form-select">
                     <option value="">Tous</option>

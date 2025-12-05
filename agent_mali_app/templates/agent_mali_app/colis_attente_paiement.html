@@ -125,7 +125,7 @@
                                 <span class="badge bg-info text-dark">{{ colis.lot.numero_lot }}</span>
                             </td>
                             <td>
-                                <div class="fw-semibold text-success">{{ colis.prix_calcule|floatformat:0 }} F</div>
+                                <div class="fw-semibold text-success">{{ colis.prix_calcule|floatformat:0|intcomma }} F</div>
                                 <div class="text-muted small">{{ colis.get_type_transport_display }}</div>
                             </td>
                             <td>
@@ -148,7 +148,7 @@
                                 <form method="post" action="{% url 'agent_mali:marquer_paiement' colis.id %}" class="d-inline" id="payment-form-{{ colis.id }}">
                                     {% csrf_token %}
                                     <button type="button" class="btn btn-sm btn-success" 
-                                            onclick="confirmPayment('{{ colis.id }}', '{{ colis.numero_suivi }}', '{{ colis.client.user.get_full_name }}', '{{ colis.prix_calcule|floatformat:0 }}')"
+                                            onclick="confirmPayment('{{ colis.id }}', '{{ colis.numero_suivi }}', '{{ colis.client.user.get_full_name }}', '{{ colis.prix_calcule|floatformat:0|intcomma }}')"
                                             title="Marquer comme payé">
                                         <i class="bi bi-check-circle"></i> Payé
                                     </button>
