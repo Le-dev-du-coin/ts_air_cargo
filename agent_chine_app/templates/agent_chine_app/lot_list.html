@@ -108,6 +108,37 @@
     </div>
 </div>
 
+<!-- Onglets par type de transport -->
+<div class="mb-4">
+    <ul class="nav nav-tabs nav-fill" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if not type_filter %}active{% endif %}" 
+               href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if statut_filter %}statut={{ statut_filter }}&{% endif %}{% if agent_filter %}agent={{ agent_filter }}&{% endif %}{% if date_debut %}date_debut={{ date_debut }}&{% endif %}{% if date_fin %}date_fin={{ date_fin }}&{% endif %}{% if tri %}tri={{ tri }}{% endif %}">
+                <i class="bi bi-layers me-2"></i>Tous les lots
+                <span class="badge bg-secondary ms-2">{{ lots.paginator.count }}</span>
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if type_filter == 'cargo' %}active{% endif %}" 
+               href="?type_transport=cargo{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                <i class="bi bi-airplane me-2"></i>Cargo
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if type_filter == 'express' %}active{% endif %}" 
+               href="?type_transport=express{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                <i class="bi bi-lightning me-2"></i>Express
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if type_filter == 'bateau' %}active{% endif %}" 
+               href="?type_transport=bateau{% if search_query %}&search={{ search_query }}{% endif %}{% if statut_filter %}&statut={{ statut_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}{% if tri %}&tri={{ tri }}{% endif %}">
+                <i class="bi bi-water me-2"></i>Bateau
+            </a>
+        </li>
+    </ul>
+</div>
+
 <!-- Liste des lots -->
 <div class="modern-card">
     <div class="modern-card-header">

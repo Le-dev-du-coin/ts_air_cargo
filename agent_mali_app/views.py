@@ -736,12 +736,23 @@ def lots_en_transit_view(request):
 @agent_mali_required
 def lots_receptionnes_view(request):
     """
-    Liste des lots réceptionnés au Mali (statut: arrive)
-    Les colis sont groupés par lot pour une meilleure organisation
+    Liste des lots réceptionnés au Mali avec colis en attente de livraison
+    Affiche uniquement les lots qui ont au moins un colis non livré (statut='arrive')
+    Exclut les lots complètement terminés (tous colis livrés ou perdus)
     """
-    # Base queryset - inclure uniquement les lots ayant au moins un colis avec statut='arrive'
+    from django.db.models import Count, Q
+    
+    # Base queryset - lots ayant au moins un colis avec statut='arrive'
     lots = Lot.objects.filter(
         colis__statut='arrive'
+    ).annotate(
+        # Compter les colis non terminés (arrive)
+        colis_arrives_count=Count('colis', filter=Q(colis__statut='arrive')),
+        # Compter total des colis
+        total_colis_count=Count('colis')
+    ).filter(
+        # Garder uniquement les lots avec au moins 1 colis en attente
+        colis_arrives_count__gt=0
     ).distinct().select_related('agent_createur').prefetch_related('colis__client__user')
     
     # Filtres
@@ -805,13 +816,32 @@ def lots_receptionnes_view(request):
 @agent_mali_required
 def lots_livres_view(request):
     """
-    Liste des lots avec colis livrés
-    Affiche tous les lots ayant au moins un colis livré, groupés par lot
-    Un lot est marqué "Complet" quand tous ses colis sont livrés ou perdus
+    Archive des lots complètement traités
+    Affiche uniquement les lots où TOUS les colis sont livrés ou perdus
+    Un lot est "complet" quand (colis_livres + colis_perdus) == total_colis
     """
-    # Base queryset - Lots ayant au moins un colis livré
-    lots = Lot.objects.filter(
-        colis__statut='livre'
+    from django.db.models import Count, Q, F, ExpressionWrapper, IntegerField
+    
+    # Base queryset - Tous les lots avec annotations
+    lots = Lot.objects.annotate(
+        # Compter les colis livrés
+        colis_livres_count=Count('colis', filter=Q(colis__statut='livre')),
+        # Compter les colis perdus
+        colis_perdus_count=Count('colis', filter=Q(colis__statut='perdu')),
+        # Compter total des colis
+        total_colis_count=Count('colis'),
+        # Calculer livrés + perdus
+        colis_termines_count=ExpressionWrapper(
+            F('colis_livres_count') + F('colis_perdus_count'),
+            output_field=IntegerField()
+        )
+    ).filter(
+        # Garder uniquement les lots complètement terminés
+        # où tous les colis sont soit livrés soit perdus
+        total_colis_count__gt=0,
+        colis_livres_count__gt=0,  # Au moins un colis livré
+        # Vérifier que (livrés + perdus) == total
+        colis_termines_count=F('total_colis_count')
     ).distinct().select_related('agent_createur').prefetch_related('colis__client__user')
     
     # Filtres
