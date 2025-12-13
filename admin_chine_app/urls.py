@@ -66,5 +66,8 @@ urlpatterns = [
     
     # === Gestion des Clients (Admin Chine) ===
     path('clients/', views.clients_list, name='clients_list'),
+    path('clients/nouveau/', views.client_create, name='client_create'),
     path('clients/<int:client_id>/', views.client_detail, name='client_detail'),
+    path('clients/<int:client_id>/modifier/', views.client_edit, name='client_edit'),
+    path('clients/<int:client_id>/supprimer/', views.client_delete, name='client_delete'),
 ]

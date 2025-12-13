@@ -2930,3 +2930,240 @@ def client_detail(request, client_id):
         'stats_statut': stats_statut,
     }
     return render(request, 'admin_chine_app/clients/client_detail.html', context)
+
+
+@admin_chine_required
+def client_create(request):
+    """
+    Créer un nouveau client
+    """
+    from authentication.services import UserCreationService
+    from authentication.utils import normalize_phone_number, validate_phone_unique
+    from django.core.exceptions import ValidationError
+    
+    if request.method == 'POST':
+        try:
+            # Récupération des données du formulaire
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            telephone = request.POST.get('telephone', '').strip()
+            email = request.POST.get('email', '').strip()
+            pays = request.POST.get('pays', 'Mali').strip()
+            adresse = request.POST.get('adresse', '').strip()
+            
+            # Validation des champs obligatoires
+            if not all([first_name, last_name, telephone]):
+                messages.error(request, "Le prénom, nom et téléphone sont obligatoires.")
+                return render(request, 'admin_chine_app/clients/client_form.html', {
+                    'title': 'Créer un Client',
+                    'form_data': request.POST
+                })
+            
+            # Normaliser le numéro de téléphone
+            try:
+                normalized_phone = normalize_phone_number(telephone)
+            except ValidationError as e:
+                error_msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+                messages.error(request, error_msg)
+                return render(request, 'admin_chine_app/clients/client_form.html', {
+                    'title': 'Créer un Client',
+                    'form_data': request.POST
+                })
+            
+            # Vérifier l'unicité du numéro
+            try:
+                validate_phone_unique(normalized_phone)
+            except ValidationError as e:
+                error_msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+                messages.error(request, error_msg)
+                return render(request, 'admin_chine_app/clients/client_form.html', {
+                    'title': 'Créer un Client',
+                    'form_data': request.POST
+                })
+            
+            # Créer l'utilisateur via le service
+            user_service = UserCreationService()
+            result = user_service.create_client_account(
+                telephone=normalized_phone,
+                first_name=first_name,
+                last_name=last_name,
+                email=email or f"{normalized_phone.replace('+', '')}@ts-aircargo.com"
+            )
+            
+            user = result['user']
+            
+            # Créer ou obtenir le profil Client
+            client, created = Client.objects.get_or_create(
+                user=user,
+                defaults={
+                    'pays': pays,
+                    'adresse': adresse
+                }
+            )
+            
+            # Si le client existait déjà, mettre à jour ses infos
+            if not created:
+                client.pays = pays
+                client.adresse = adresse
+                client.save()
+            
+            messages.success(
+                request, 
+                f"✅ Client {user.get_full_name()} créé avec succès! "
+                f"Numéro: {normalized_phone}"
+            )
+            return redirect('admin_chine_app:client_detail', client_id=client.id)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la création du client: {str(e)}")
+            return render(request, 'admin_chine_app/clients/client_form.html', {
+                'title': 'Créer un Client',
+                'form_data': request.POST
+            })
+    
+    # GET request
+    context = {
+        'title': 'Créer un Client',
+        'is_edit': False,
+    }
+    return render(request, 'admin_chine_app/clients/client_form.html', context)
+
+
+@admin_chine_required
+def client_edit(request, client_id):
+    """
+    Modifier un client existant
+    """
+    from authentication.utils import normalize_phone_number, validate_phone_unique
+    from django.core.exceptions import ValidationError
+    
+    client = get_object_or_404(Client.objects.select_related('user'), id=client_id)
+    
+    if request.method == 'POST':
+        try:
+            # Récupération des données du formulaire
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            telephone = request.POST.get('telephone', '').strip()
+            email = request.POST.get('email', '').strip()
+            pays = request.POST.get('pays', '').strip()
+            adresse = request.POST.get('adresse', '').strip()
+            
+            # Validation des champs obligatoires
+            if not all([first_name, last_name, telephone]):
+                messages.error(request, "Le prénom, nom et téléphone sont obligatoires.")
+                return render(request, 'admin_chine_app/clients/client_form.html', {
+                    'title': 'Modifier le Client',
+                    'client': client,
+                    'is_edit': True,
+                    'form_data': request.POST
+                })
+            
+            # Normaliser le numéro de téléphone
+            try:
+                normalized_phone = normalize_phone_number(telephone)
+            except ValidationError as e:
+                error_msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+                messages.error(request, error_msg)
+                return render(request, 'admin_chine_app/clients/client_form.html', {
+                    'title': 'Modifier le Client',
+                    'client': client,
+                    'is_edit': True,
+                    'form_data': request.POST
+                })
+            
+            # Vérifier l'unicité du numéro (sauf pour ce client)
+            try:
+                validate_phone_unique(normalized_phone, exclude_user_id=client.user.id)
+            except ValidationError as e:
+                error_msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+                messages.error(request, error_msg)
+                return render(request, 'admin_chine_app/clients/client_form.html', {
+                    'title': 'Modifier le Client',
+                    'client': client,
+                    'is_edit': True,
+                    'form_data': request.POST
+                })
+            
+            # Mise à jour de l'utilisateur
+            user = client.user
+            user.first_name = first_name
+            user.last_name = last_name
+            user.telephone = normalized_phone
+            if email:
+                user.email = email
+            user.save()
+            
+            # Mise à jour du client
+            client.pays = pays
+            client.adresse = adresse
+            client.save()
+            
+            messages.success(
+                request, 
+                f"✅ Client {client.user.get_full_name()} modifié avec succès!"
+            )
+            return redirect('admin_chine_app:client_detail', client_id=client.id)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la modification du client: {str(e)}")
+            return render(request, 'admin_chine_app/clients/client_form.html', {
+                'title': 'Modifier le Client',
+                'client': client,
+                'is_edit': True,
+                'form_data': request.POST
+            })
+    
+    # GET request
+    context = {
+        'title': f'Modifier le Client: {client.user.get_full_name()}',
+        'client': client,
+        'is_edit': True,
+    }
+    return render(request, 'admin_chine_app/clients/client_form.html', context)
+
+
+@admin_chine_required
+def client_delete(request, client_id):
+    """
+    Supprimer définitivement un client et son compte utilisateur
+    """
+    client = get_object_or_404(Client.objects.select_related('user'), id=client_id)
+    
+    # Vérifier si le client a des colis en cours
+    colis_en_cours = client.colis.exclude(statut__in=['livre', 'perdu']).count()
+    
+    if request.method == 'POST':
+        if colis_en_cours > 0:
+            messages.error(
+                request, 
+                f"❌ Impossible de supprimer ce client. Il a {colis_en_cours} colis en cours de traitement."
+            )
+            return redirect('admin_chine_app:client_detail', client_id=client.id)
+        
+        try:
+            # Suppression complète du client et de son utilisateur
+            user = client.user
+            user_name = user.get_full_name()
+            user_telephone = user.telephone
+            
+            # Supprimer l'utilisateur (le profil Client sera supprimé automatiquement via CASCADE)
+            user.delete()
+            
+            messages.success(
+                request, 
+                f"✅ Client {user_name} ({user_telephone}) supprimé définitivement avec succès."
+            )
+            return redirect('admin_chine_app:clients_list')
+            
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la suppression du client: {str(e)}")
+            return redirect('admin_chine_app:client_detail', client_id=client.id)
+    
+    # GET request - afficher confirmation
+    context = {
+        'title': f'Supprimer le Client: {client.user.get_full_name()}',
+        'client': client,
+        'colis_en_cours': colis_en_cours,
+    }
+    return render(request, 'admin_chine_app/clients/client_delete_confirm.html', context)

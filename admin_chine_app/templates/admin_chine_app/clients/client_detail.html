@@ -6,13 +6,23 @@
 {% block content %}
 <div class="container-fluid py-4">
     <!-- En-tête -->
-    <div class="d-flex align-items-center mb-4">
-        <a href="{% url 'admin_chine_app:clients_list' %}" class="btn btn-outline-secondary me-3">
-            <i class="bi bi-arrow-left"></i>
-        </a>
-        <div>
-            <h2 class="mb-0">{{ client.nom_complet }}</h2>
-            <p class="text-muted mb-0">Client depuis le {{ client.date_creation|date:"d/m/Y" }}</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+            <a href="{% url 'admin_chine_app:clients_list' %}" class="btn btn-outline-secondary me-3">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="mb-0">{{ client.nom_complet }}</h2>
+                <p class="text-muted mb-0">Client depuis le {{ client.date_creation|date:"d/m/Y" }}</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin_chine_app:client_edit' client.id %}" class="btn btn-warning">
+                <i class="bi bi-pencil me-1"></i>Modifier
+            </a>
+            <a href="{% url 'admin_chine_app:client_delete' client.id %}" class="btn btn-danger">
+                <i class="bi bi-trash me-1"></i>Supprimer
+            </a>
         </div>
     </div>
     

@@ -1,0 +1,147 @@
+{% extends 'admin_chine_app/dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Admin Chine{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="d-flex align-items-center mb-4">
+                <a href="{% if client %}{% url 'admin_chine_app:client_detail' client.id %}{% else %}{% url 'admin_chine_app:clients_list' %}{% endif %}" 
+                   class="btn btn-outline-secondary me-3">
+                    <i class="bi bi-arrow-left"></i> Retour
+                </a>
+                <h2 class="mb-0">
+                    <i class="bi bi-person-{% if is_edit %}gear{% else %}plus{% endif %} me-2"></i>{{ title }}
+                </h2>
+            </div>
+            
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            <!-- Prénom -->
+                            <div class="col-md-6">
+                                <label for="first_name" class="form-label">
+                                    Prénom <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="first_name" 
+                                       name="first_name" 
+                                       value="{% if client %}{{ client.user.first_name }}{% elif form_data %}{{ form_data.first_name }}{% endif %}"
+                                       required>
+                            </div>
+                            
+                            <!-- Nom -->
+                            <div class="col-md-6">
+                                <label for="last_name" class="form-label">
+                                    Nom <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="last_name" 
+                                       name="last_name" 
+                                       value="{% if client %}{{ client.user.last_name }}{% elif form_data %}{{ form_data.last_name }}{% endif %}"
+                                       required>
+                            </div>
+                            
+                            <!-- Téléphone -->
+                            <div class="col-md-6">
+                                <label for="telephone" class="form-label">
+                                    Téléphone <span class="text-danger">*</span>
+                                </label>
+                                <input type="tel" 
+                                       class="form-control" 
+                                       id="telephone" 
+                                       name="telephone" 
+                                       value="{% if client %}{{ client.user.telephone }}{% elif form_data %}{{ form_data.telephone }}{% endif %}"
+                                       placeholder="+223XXXXXXXX ou +8613XXXXXXXXX"
+                                       required>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i> 
+                                    Formats acceptés: +223XXXXXXXX (Mali) ou +8613XXXXXXXXX (Chine)
+                                </div>
+                            </div>
+                            
+                            <!-- Email -->
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" 
+                                       class="form-control" 
+                                       id="email" 
+                                       name="email" 
+                                       value="{% if client %}{{ client.user.email }}{% elif form_data %}{{ form_data.email }}{% endif %}"
+                                       placeholder="exemple@email.com">
+                                <div class="form-text">
+                                    Optionnel - Un email sera généré automatiquement si non fourni
+                                </div>
+                            </div>
+                            
+                            <!-- Pays -->
+                            <div class="col-md-6">
+                                <label for="pays" class="form-label">Pays</label>
+                                <select class="form-select" id="pays" name="pays">
+                                    <option value="Mali" {% if client and client.pays == 'Mali' or form_data.pays == 'Mali' or not client and not form_data %}selected{% endif %}>Mali</option>
+                                    <option value="Chine" {% if client and client.pays == 'Chine' or form_data.pays == 'Chine' %}selected{% endif %}>Chine</option>
+                                    <option value="Autre" {% if client and client.pays == 'Autre' or form_data.pays == 'Autre' %}selected{% endif %}>Autre</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Adresse -->
+                            <div class="col-12">
+                                <label for="adresse" class="form-label">Adresse</label>
+                                <textarea class="form-control" 
+                                          id="adresse" 
+                                          name="adresse" 
+                                          rows="3"
+                                          placeholder="Adresse complète du client">{% if client %}{{ client.adresse }}{% elif form_data %}{{ form_data.adresse }}{% endif %}</textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Boutons -->
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-{% if is_edit %}check-circle{% else %}plus-circle{% endif %} me-2"></i>
+                                {% if is_edit %}Enregistrer les modifications{% else %}Créer le client{% endif %}
+                            </button>
+                            <a href="{% if client %}{% url 'admin_chine_app:client_detail' client.id %}{% else %}{% url 'admin_chine_app:clients_list' %}{% endif %}" 
+                               class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if is_edit and client %}
+            <!-- Info sur le client -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Informations</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <strong>Date de création:</strong> {{ client.date_creation|date:"d/m/Y à H:i" }}
+                        </li>
+                        <li class="mb-2">
+                            <strong>Statut du compte:</strong> 
+                            {% if client.user.is_active %}
+                                <span class="badge bg-success">Actif</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactif</span>
+                            {% endif %}
+                        </li>
+                        <li>
+                            <strong>Nombre de colis:</strong> {{ client.colis.count }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
