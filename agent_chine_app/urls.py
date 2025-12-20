@@ -27,6 +27,7 @@ urlpatterns = [
     path('lots/<int:lot_id>/', views.lot_detail_view, name='lot_detail'),
     path('lots/<int:lot_id>/close/', views.lot_close_view, name='lot_close'),
     path('lots/<int:lot_id>/expedite/', views.lot_expedite_view, name='lot_expedite'),
+    path('lots/<int:lot_id>/retry-notifications/', views.retry_lot_notifications, name='retry_lot_notifications'),
     
     # Gestion des colis
     path('colis/', views.colis_list_view, name='colis_list'),

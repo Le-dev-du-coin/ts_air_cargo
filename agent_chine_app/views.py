@@ -853,6 +853,70 @@ def lot_expedite_view(request, lot_id):
         messages.success(request, f"✅ Lot {lot.numero_lot} expédié avec succès ! Erreur lors du lancement des notifications.")
     return redirect('agent_chine:lot_detail', lot_id=lot_id)
 
+@agent_chine_required
+@require_http_methods(["POST"])
+def retry_lot_notifications(request, lot_id):
+    """
+    Réessaie l'envoi de toutes les notifications échouées ou en attente pour un lot
+    Endpoint AJAX avec réponse JSON
+    """
+    try:
+        lot = get_object_or_404(Lot, id=lot_id)
+        
+        # Vérifier que le lot est ouvert (sécurité)
+        if lot.statut != 'ouvert':
+            return JsonResponse({
+                'success': False,
+                'error': 'Le retry de notifications n\'est disponible que pour les lots ouverts.'
+            }, status=400)
+        
+        # Vérifier qu'il y a des colis dans le lot
+        if lot.colis.count() == 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ce lot ne contient aucun colis.'
+            }, status=400)
+        
+        # Appeler le service de notification
+        result = NotificationService.retry_notifications_for_lot(
+            lot=lot,
+            initiated_by=request.user
+        )
+        
+        # Construire la réponse
+        if result['success']:
+            if result['total_notifications'] == 0:
+                message = f"✅ Aucune notification en attente pour le lot {lot.numero_lot}. Toutes les notifications ont déjà été envoyées avec succès."
+            else:
+                message = f"✅ {result['sent']}/{result['total_notifications']} notification(s) renvoyée(s) avec succès pour le lot {lot.numero_lot}."
+                
+                if result['failed'] > 0:
+                    message += f" {result['failed']} échec(s)."
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'stats': {
+                    'total': result['total_notifications'],
+                    'sent': result['sent'],
+                    'failed': result['failed'],
+                    'already_sent': result['already_sent']
+                },
+                'details': result.get('details', [])
+            })
+        else:
+            error_message = result.get('error', 'Erreur inconnue lors du retry des notifications.')
+            return JsonResponse({
+                'success': False,
+                'error': error_message
+            }, status=500)
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur serveur: {str(e)}'
+        }, status=500)
+
 # === GESTION DES COLIS ===
 
 @agent_chine_required

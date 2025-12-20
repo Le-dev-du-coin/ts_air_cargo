@@ -557,3 +557,152 @@ Nous vous contacterons bientôt pour organiser la livraison.
                 'error': error_msg,
                 'lot_id': getattr(lot, 'id', None)
             }
+    
+    @staticmethod
+    def retry_notifications_for_lot(lot, initiated_by=None):
+        """
+        Réessaie l'envoi de toutes les notifications échouées ou en attente pour un lot
+        
+        Args:
+            lot: Instance du lot concerné
+            initiated_by: Utilisateur qui a déclenché le retry (optionnel)
+            
+        Returns:
+            dict: Statistiques du retry {
+                'success': bool,
+                'total_notifications': int,
+                'sent': int,
+                'failed': int,
+                'already_sent': int,
+                'details': list
+            }
+        """
+        try:
+            # Récupérer toutes les notifications échouées ou en attente pour les colis du lot
+            notifications = Notification.objects.filter(
+                lot_reference=lot,
+                statut__in=['echec', 'en_attente']
+            ).select_related('destinataire', 'colis_reference')
+            
+            total = notifications.count()
+            sent_count = 0
+            failed_count = 0
+            details = []
+            
+            logger.info(
+                f"Début retry notifications pour lot {lot.numero_lot}: "
+                f"{total} notification(s) à renvoyer. Initialisé par: {initiated_by or 'Système'}"
+            )
+            
+            # Renvoyer chaque notification
+            for notif in notifications:
+                try:
+                    # Réinitialiser le nombre de tentatives et la date de prochaine tentative
+                    notif.nombre_tentatives = 0
+                    notif.prochaine_tentative = timezone.now()
+                    notif.save(update_fields=['nombre_tentatives', 'prochaine_tentative'])
+                    
+                    # Renvoyer selon le type
+                    success = False
+                    message_id = None
+                    
+                    if notif.type_notification == 'whatsapp':
+                        success, message_id = NotificationService._send_whatsapp(
+                            notif.destinataire,
+                            notif.message,
+                            categorie=notif.categorie,
+                            title=notif.titre
+                        )
+                    elif notif.type_notification == 'sms':
+                        success, message_id = NotificationService._send_sms(
+                            notif.destinataire,
+                            notif.message
+                        )
+                    elif notif.type_notification == 'email':
+                        success, message_id = NotificationService._send_email(
+                            notif.destinataire,
+                            notif.message,
+                            notif.titre
+                        )
+                    
+                    # Mettre à jour le statut
+                    if success:
+                        notif.marquer_comme_envoye(message_id)
+                        sent_count += 1
+                        details.append({
+                            'notification_id': notif.id,
+                            'destinataire': notif.destinataire.get_full_name(),
+                            'telephone': notif.telephone_destinataire,
+                            'status': 'sent',
+                            'colis': notif.colis_reference.numero_suivi if notif.colis_reference else None
+                        })
+                        logger.info(
+                            f"Notification {notif.id} renvoyée avec succès à "
+                            f"{notif.destinataire.telephone} (msg_id: {message_id})"
+                        )
+                    else:
+                        notif.marquer_comme_echec(
+                            f"Retry échoué - API indisponible ou erreur réseau",
+                            erreur_type='temporaire'
+                        )
+                        failed_count += 1
+                        details.append({
+                            'notification_id': notif.id,
+                            'destinataire': notif.destinataire.get_full_name(),
+                            'telephone': notif.telephone_destinataire,
+                            'status': 'failed',
+                            'colis': notif.colis_reference.numero_suivi if notif.colis_reference else None
+                        })
+                        logger.error(
+                            f"Notification {notif.id} retry échoué pour "
+                            f"{notif.destinataire.telephone}"
+                        )
+                        
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(
+                        f"Erreur retry notification {notif.id}: {str(e)}"
+                    )
+                    details.append({
+                        'notification_id': notif.id,
+                        'destinataire': notif.destinataire.get_full_name() if notif.destinataire else 'Inconnu',
+                        'telephone': notif.telephone_destinataire,
+                        'status': 'error',
+                        'error': str(e)
+                    })
+            
+            # Compter les notifications déjà envoyées (pour info)
+            already_sent = Notification.objects.filter(
+                lot_reference=lot,
+                statut='envoye'
+            ).count()
+            
+            success = sent_count > 0 or total == 0
+            
+            logger.info(
+                f"Fin retry lot {lot.numero_lot}: "
+                f"{sent_count}/{total} envoyées, {failed_count} échecs, "
+                f"{already_sent} déjà envoyées"
+            )
+            
+            return {
+                'success': success,
+                'total_notifications': total,
+                'sent': sent_count,
+                'failed': failed_count,
+                'already_sent': already_sent,
+                'details': details
+            }
+            
+        except Exception as e:
+            error_msg = f"Échec retry notifications lot {lot.numero_lot}: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'success': False,
+                'error': error_msg,
+                'total_notifications': 0,
+                'sent': 0,
+                'failed': 0,
+                'already_sent': 0,
+                'details': []
+            }
