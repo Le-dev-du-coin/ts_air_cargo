@@ -854,6 +854,33 @@ def lot_expedite_view(request, lot_id):
     return redirect('agent_chine:lot_detail', lot_id=lot_id)
 
 @agent_chine_required
+def lot_notifications_count_api(request, lot_id):
+    """
+    API pour compter les notifications en échec ou en attente pour un lot
+    Endpoint GET avec réponse JSON
+    """
+    try:
+        lot = get_object_or_404(Lot, id=lot_id)
+        
+        # Compter les notifications en échec ou en attente
+        from notifications_app.models import Notification
+        count = Notification.objects.filter(
+            lot_reference=lot,
+            statut__in=['echec', 'en_attente']
+        ).count()
+        
+        return JsonResponse({
+            'success': True,
+            'count': count
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'count': 0
+        }, status=500)
+
+@agent_chine_required
 @require_http_methods(["POST"])
 def retry_lot_notifications(request, lot_id):
     """

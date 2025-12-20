@@ -197,6 +197,15 @@
                         </a>
                     </div>
                     {% endif %}
+                    {% if lot.statut == 'ouvert' %}
+                    <div class="col-12 mb-2">
+                        <button class="btn btn-outline-primary w-100" id="retryNotificationsBtn" onclick="retryNotifications()">
+                            <i class="bi bi-send"></i>
+                            Notifier clients
+                            <span class="badge bg-warning text-dark ms-2" id="notificationCount">0</span>
+                        </button>
+                    </div>
+                    {% endif %}
                     <div class="col-12 mb-2">
                         <button class="btn btn-info w-100" onclick="exportLot()">
                             <i class="bi bi-download"></i>
@@ -398,12 +407,150 @@ function printLot() {
     window.print();
 }
 
-// Initialiser les tooltips
+// Récupérer le token CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Charger le nombre de notifications en échec/en attente
+function loadNotificationCount() {
+    const lotId = {{ lot.id }};
+    
+    fetch(`/agent-chine/api/lots/${lotId}/notifications/count/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const countBadge = document.getElementById('notificationCount');
+        if (countBadge) {
+            countBadge.textContent = data.count || 0;
+            // Changer la couleur selon le nombre
+            if (data.count > 0) {
+                countBadge.classList.remove('bg-success');
+                countBadge.classList.add('bg-warning', 'text-dark');
+            } else {
+                countBadge.classList.remove('bg-warning', 'text-dark');
+                countBadge.classList.add('bg-success');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors du chargement du compteur:', error);
+    });
+}
+
+// Fonction pour renvoyer les notifications
+function retryNotifications() {
+    const lotId = {{ lot.id }};
+    const btn = document.getElementById('retryNotificationsBtn');
+    
+    // Demander confirmation
+    if (!confirm('Êtes-vous sûr de vouloir renvoyer toutes les notifications en échec pour ce lot ?')) {
+        return;
+    }
+    
+    // Désactiver le bouton et afficher un loader
+    btn.disabled = true;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Envoi en cours...';
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch(`/agent-chine/lots/${lotId}/retry-notifications/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Afficher un message de succès
+            showToast('Succès', data.message, 'success');
+            // Recharger le compteur
+            loadNotificationCount();
+        } else {
+            showToast('Erreur', data.message || 'Erreur lors du renvoi des notifications', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showToast('Erreur', 'Une erreur est survenue lors du renvoi des notifications', 'error');
+    })
+    .finally(() => {
+        // Réactiver le bouton
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    });
+}
+
+// Fonction pour afficher un toast message
+function showToast(title, message, type) {
+    // Créer un conteneur de toast s'il n'existe pas
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Créer le toast
+    const toastId = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}:</strong> ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    // Afficher le toast
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    // Supprimer le toast après sa fermeture
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+// Initialiser les tooltips et charger le compteur
 document.addEventListener('DOMContentLoaded', function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+    
+    // Charger le compteur de notifications si le bouton existe
+    if (document.getElementById('retryNotificationsBtn')) {
+        loadNotificationCount();
+    }
 });
 </script>
 {% endblock %}
