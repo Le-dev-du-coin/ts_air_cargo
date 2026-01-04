@@ -183,6 +183,26 @@ WACHAP_SYSTEM_INSTANCE_ID = os.getenv('WACHAP_SYSTEM_INSTANCE_ID', '')
 WACHAP_SYSTEM_WEBHOOK_URL = os.getenv('WACHAP_SYSTEM_WEBHOOK_URL', '')
 WACHAP_SYSTEM_ACTIVE = os.getenv('WACHAP_SYSTEM_ACTIVE', 'False').lower() == 'true'
 
+# === WaChap V4 API Configuration (Nouvelle API) ===
+# Interrupteur pour activer la nouvelle API V4. Mettre à True pour l'utiliser.
+USE_WACHAP_V4 = os.getenv('USE_WACHAP_V4', 'False').lower() == 'true'
+
+# Clé secrète unique pour l'API V4
+WACHAP_V4_SECRET_KEY = os.getenv('WACHAP_V4_SECRET_KEY', '')
+
+# Dictionnaire des comptes V4, map un rôle/région à un accountId
+# La valeur de cette variable d'environnement doit être un string JSON.
+# Exemple: '{"chine": "acc_id_1", "mali": "acc_id_2", "system": "acc_id_3"}'
+import json
+WACHAP_V4_ACCOUNTS_JSON = os.getenv('WACHAP_V4_ACCOUNTS', '{}')
+try:
+    WACHAP_V4_ACCOUNTS = json.loads(WACHAP_V4_ACCOUNTS_JSON)
+except json.JSONDecodeError:
+    print("Erreur: La variable d'environnement WACHAP_V4_ACCOUNTS n'est pas un JSON valide.")
+    WACHAP_V4_ACCOUNTS = {}
+
+
+
 # Admin Configuration
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', '')
 ADMIN_PHONE = os.getenv('ADMIN_PHONE', '')
