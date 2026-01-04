@@ -15,6 +15,11 @@ from urllib.parse import quote
 from django.utils import timezone
 from .timeout_handler import timeout_handler, circuit_breaker
 
+# Import pour la façade V4
+from django.conf import settings
+from .wachap_v4_service import wachap_v4_service
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +62,10 @@ class WaChapService:
     
     def _validate_config(self) -> None:
         """Valide que les configurations minimales sont présentes"""
+        if settings.USE_WACHAP_V4:
+            # La validation se fait dans le nouveau service
+            return
+            
         if not self.china_config['access_token'] and not self.mali_config['access_token']:
             logger.warning("Aucun token WaChap configuré. Service en mode simulation.")
             return
@@ -228,103 +237,87 @@ class WaChapService:
     def send_message(self, phone: str, message: str, sender_role: str = None, 
                     region: str = None) -> Tuple[bool, str, Optional[str]]:
         """
-        Envoie un message texte via WaChap avec monitoring automatique
-        
-        Args:
-            phone: Numéro de téléphone destinataire
-            message: Contenu du message
-            sender_role: Rôle de l'expéditeur (pour déterminer l'instance)
-            region: Force une région ('chine' ou 'mali'), sinon détection auto
-        
-        Returns:
-            Tuple[bool, str, Optional[str]]: (succès, message_retour, message_id)
+        Envoie un message texte via WaChap avec monitoring automatique.
+        Cette méthode agit comme une façade pour basculer entre l'ancienne et la nouvelle API.
         """
-        # Formater le numéro
+        # === FAÇADE V4 ===
+        if settings.USE_WACHAP_V4:
+            logger.debug("Utilisation de WaChap V4 API")
+            # Le nouveau service a une logique de détermination de région/compte différente
+            return wachap_v4_service.send_message(
+                phone=phone,
+                message=message,
+                sender_role=sender_role,
+                region=region
+            )
+        # =================
+        
+        # Logique existante de l'ancienne API
         formatted_phone = self.format_phone_number(phone)
         
-        # Déterminer l'instance à utiliser
         if region is None:
             region = self.determine_instance(
                 sender_role=sender_role,
                 recipient_phone=formatted_phone
             )
         
-        # Initialiser le monitoring
         attempt_id = None
         start_time = timezone.now()
         
         try:
-            # Import du monitoring (import local pour éviter les imports circulaires)
             from .monitoring import wachap_monitor
-            
-            # Enregistrer la tentative d'envoi pour le monitoring
             attempt_id = wachap_monitor.record_message_attempt(
                 region, formatted_phone, sender_role or 'unknown'
             )
             
-            # Récupérer la configuration
             config = self.get_config(region)
             
-            # Vérifier que la configuration est valide
             if not config['access_token'] or not config['instance_id']:
                 error_msg = f"Configuration WaChap {region.title()} incomplète"
                 logger.error(error_msg)
-                # Enregistrer l'erreur dans le monitoring
                 if attempt_id:
                     response_time = (timezone.now() - start_time).total_seconds() * 1000
                     wachap_monitor.record_message_error(attempt_id, 'config_error', error_msg, response_time)
                 return False, error_msg, None
             
-            # Vérifier que l'instance est active
             if not config['active']:
                 error_msg = f"Instance WaChap {region.title()} désactivée"
                 logger.warning(error_msg)
-                # Enregistrer l'erreur dans le monitoring
                 if attempt_id:
                     response_time = (timezone.now() - start_time).total_seconds() * 1000
                     wachap_monitor.record_message_error(attempt_id, 'instance_inactive', error_msg, response_time)
                 return False, error_msg, None
             
-            # Préparer les données pour l'API
             payload = {
-                "number": formatted_phone.replace('+', ''),  # WaChap sans le +
+                "number": formatted_phone.replace('+', ''),
                 "type": "text",
                 "message": message,
                 "instance_id": config['instance_id'],
                 "access_token": config['access_token']
             }
-            # Log sécurisé du contexte d'envoi
+            
             try:
                 safe_phone = formatted_phone[:-4].replace('+', '*') + formatted_phone[-4:]
                 safe_instance = (config['instance_id'][:6] + '...') if config.get('instance_id') else 'missing'
                 logger.debug(
                     "WA DEBUG send_message: attempt=%s region=%s role=%s to=%s payload_type=%s instance=%s",
-                    attempt_id,
-                    region,
-                    sender_role,
-                    safe_phone,
-                    payload.get('type'),
-                    safe_instance,
+                    attempt_id, region, sender_role, safe_phone, payload.get('type'), safe_instance,
                 )
             except Exception:
                 pass
             
-            # Envoyer via l'API WaChap avec timeout réduit à 15s
             response = requests.post(
                 f"{self.base_url}/send",
                 json=payload,
                 headers={'Content-Type': 'application/json'},
-                timeout=15  # Réduit de 30s à 15s pour éviter les blocages
+                timeout=15
             )
             
-            # Calculer le temps de réponse
             response_time = (timezone.now() - start_time).total_seconds() * 1000
             
-            # Logger la tentative
             logger.info(f"WaChap {region.title()} - Envoi vers {formatted_phone}: {response.status_code}")
             
             if response.status_code == 200:
-                # Tenter de parser la réponse de manière robuste
                 try:
                     response_data = response.json()
                     logger.debug(f"WaChap {region} - Réponse API: {json.dumps(response_data, ensure_ascii=False)[:500]}")
@@ -335,28 +328,22 @@ class WaChapService:
                     logger.error(f"Erreur inattendue lors du parsing de la réponse: {str(e)}")
                     response_data = {"raw": str(response.text)[:500], "error": "parsing_error"}
 
-                # Déterminer le succès métier avec plus de robustesse
                 success_flag = False
                 top_status = str(response_data.get('status', '')).lower().strip()
                 nested_status = ''
                 
-                # Vérifier les structures de réponse connues
                 if 'message' in response_data and isinstance(response_data['message'], dict):
                     nested_status = str(response_data['message'].get('status', '')).lower().strip()
                 
-                # Log supplémentaire pour le débogage
                 logger.debug(f"WaChap {region} - Statuts: top={top_status}, nested={nested_status}")
                 
-                # Marquer comme succès si l'un des statuts est 'success' ou si on a un message_id valide
                 success_flag = (top_status == 'success' or 
                               nested_status == 'success' or 
                               'id' in response_data or 
                               'message_id' in response_data)
 
-                # Extraction robuste de l'ID du message
                 message_id = None
                 try:
-                    # Essayer différentes structures de réponse connues
                     message_id = (
                         response_data.get('id') or
                         response_data.get('message_id') or
@@ -364,7 +351,6 @@ class WaChapService:
                         (response_data.get('data', {}).get('id') if isinstance(response_data.get('data'), dict) else None)
                     )
                     
-                    # Si on a un ID mais pas encore de succès, on considère quand même comme un succès
                     if message_id and not success_flag:
                         success_flag = True
                         logger.info(f"Message considéré comme réussi grâce à la présence d'un ID: {message_id}")
@@ -381,14 +367,12 @@ class WaChapService:
                     if not message_id:
                         logger.warning(
                             "WA WARN: Réponse 200 sans message_id. attempt=%s region=%s resp_keys=%s resp_raw=%s",
-                            attempt_id,
-                            region,
+                            attempt_id, region,
                             list(response_data.keys()) if isinstance(response_data, dict) else type(response_data).__name__,
                             str(response_data)[:500],
                         )
                     return True, success_msg, message_id
                 else:
-                    # Statut applicatif non succès malgré HTTP 200
                     error_text = response_data.get('message') if not isinstance(response_data.get('message'), dict) else json.dumps(response_data.get('message'))
                     error_msg = f"Erreur WaChap {region.title()} (200/app): {error_text}"
                     if attempt_id:
@@ -397,13 +381,9 @@ class WaChapService:
                     return False, error_msg, None
             else:
                 error_msg = f"Erreur WaChap {region.title()}: {response.status_code} - {response.text}"
-                
-                # Enregistrer l'erreur dans le monitoring
                 if attempt_id:
                     wachap_monitor.record_message_error(attempt_id, f'http_{response.status_code}', error_msg, response_time)
-                
                 logger.error(error_msg)
-                
                 return False, error_msg, None
                 
         except requests.exceptions.Timeout as te:
@@ -411,23 +391,15 @@ class WaChapService:
             error_type = 'timeout'
             error_details = f"Délai dépassé après {response_time:.0f}ms"
             error_msg = f"{error_type.upper()} - Impossible d'envoyer le message WaChap {region} à {phone}: {error_details}"
-            
             logger.error(error_msg, exc_info=True)
-            
-            # Enregistrer l'erreur dans le monitoring
             if attempt_id:
                 try:
                     from .monitoring import wachap_monitor
                     wachap_monitor.record_message_error(
-                        attempt_id, 
-                        error_type, 
-                        f"{error_type.upper()}: {error_details}", 
-                        response_time
+                        attempt_id, error_type, f"{error_type.upper()}: {error_details}", response_time
                     )
                 except ImportError:
                     logger.error("Impossible d'accéder au module de monitoring")
-            
-            # Retourner des informations détaillées pour le débogage
             return False, error_msg, None
             
         except requests.exceptions.RequestException as re:
@@ -435,48 +407,34 @@ class WaChapService:
             error_type = 'network_error'
             error_details = f"{type(re).__name__}: {str(re)}"
             error_msg = f"{error_type.upper()} - Échec d'envoi WaChap {region} à {phone}: {error_details}"
-            
             logger.error(error_msg, exc_info=True)
-            
-            # Déterminer le type d'erreur plus précisément
             if isinstance(re, requests.exceptions.ConnectionError):
                 error_type = 'connection_error'
             elif isinstance(re, requests.exceptions.SSLError):
                 error_type = 'ssl_error'
             
-            # Enregistrer l'erreur dans le monitoring
             if attempt_id:
                 try:
                     from .monitoring import wachap_monitor
                     wachap_monitor.record_message_error(
-                        attempt_id, 
-                        error_type, 
-                        f"{error_type.upper()}: {error_details}", 
-                        response_time
+                        attempt_id, error_type, f"{error_type.upper()}: {error_details}", response_time
                     )
                 except ImportError:
                     logger.error("Impossible d'accéder au module de monitoring")
-            
             return False, error_msg, None
             
         except Exception as e:
-            # Capturer toutes les autres exceptions non gérées
             response_time = (timezone.now() - start_time).total_seconds() * 1000
             error_type = 'unexpected_error'
             error_details = f"{type(e).__name__}: {str(e)}"
             error_msg = f"ERREUR INATTENDUE - Échec d'envoi WaChap {region} à {phone}: {error_details}"
-            
             logger.critical(error_msg, exc_info=True)
             
-            # Enregistrer l'erreur critique
             if attempt_id:
                 try:
                     from .monitoring import wachap_monitor
                     wachap_monitor.record_message_error(
-                        attempt_id, 
-                        error_type, 
-                        f"ERREUR_CRITIQUE: {error_details}", 
-                        response_time
+                        attempt_id, error_type, f"ERREUR_CRITIQUE: {error_details}", response_time
                     )
                 except ImportError:
                     logger.error("Impossible d'accéder au module de monitoring")
@@ -528,18 +486,20 @@ class WaChapService:
                    region: str = None) -> Tuple[bool, str, Optional[str]]:
         """
         Envoie un message avec média via WaChap
-        
-        Args:
-            phone: Numéro de téléphone destinataire
-            message: Contenu du message
-            media_url: URL du fichier média
-            filename: Nom du fichier (optionnel)
-            sender_role: Rôle de l'expéditeur
-            region: Force une région, sinon détection auto
-        
-        Returns:
-            Tuple[bool, str, Optional[str]]: (succès, message_retour, message_id)
         """
+        # === FAÇADE V4 ===
+        if settings.USE_WACHAP_V4:
+            logger.debug("Utilisation de WaChap V4 API pour send_media")
+            return wachap_v4_service.send_media(
+                phone=phone,
+                message=message,
+                media_url=media_url,
+                filename=filename,
+                sender_role=sender_role,
+                region=region
+            )
+        # =================
+        
         try:
             formatted_phone = self.format_phone_number(phone)
             
