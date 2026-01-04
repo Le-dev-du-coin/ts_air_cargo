@@ -185,10 +185,12 @@ WACHAP_SYSTEM_ACTIVE = os.getenv('WACHAP_SYSTEM_ACTIVE', 'False').lower() == 'tr
 
 # === WaChap V4 API Configuration (Nouvelle API) ===
 # Interrupteur pour activer la nouvelle API V4. Mettre à True pour l'utiliser.
-USE_WACHAP_V4 = os.getenv('USE_WACHAP_V4', 'False').lower() == 'true'
+USE_WACHAP_V4 = os.getenv('USE_WACHAP_V4', 'True').lower() == 'true'
 
 # Clé secrète unique pour l'API V4
 WACHAP_V4_SECRET_KEY = os.getenv('WACHAP_V4_SECRET_KEY', '')
+
+
 
 # Dictionnaire des comptes V4, map un rôle/région à un accountId
 # La valeur de cette variable d'environnement doit être un string JSON.

@@ -37,6 +37,7 @@ staticfiles/
 media/
 DEPLOYMENT.md
 FIX.md
+docs/
 
 # Production specific
 logs/
