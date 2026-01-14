@@ -82,13 +82,31 @@ class WaChapV4Service:
         if region is None:
             region = self.determine_region(sender_role, formatted_phone, message_type)
         
+        # Logique de sélection de compte avec fallback robuste
         account_id = self.accounts.get(region)
+        fallback_region = None
+
         if not account_id:
-            # Fallback simple: essayer 'system', puis 'mali'
-            account_id = self.accounts.get('system') or self.accounts.get('mali')
-            if not account_id:
-                 return False, f"Aucun accountId trouvé pour la région '{region}' et aucun fallback disponible.", None
-            logger.warning(f"AccountId non trouvé pour la région {region}, utilisation d'un fallback.")
+            logger.warning(f"AccountId non trouvé pour la région '{region}'. Tentative de fallback.")
+            
+            # Définir l'ordre de fallback en fonction de la région initiale
+            if region == 'system':
+                fallback_order = ['mali', 'chine']
+            elif region == 'chine':
+                fallback_order = ['mali', 'system']
+            else: # mali ou autre
+                fallback_order = ['chine', 'system']
+
+            for fallback in fallback_order:
+                account_id = self.accounts.get(fallback)
+                if account_id:
+                    fallback_region = fallback
+                    logger.info(f"Utilisation du compte de fallback '{fallback_region}' pour la région '{region}'.")
+                    break
+        
+        if not account_id:
+            return False, f"Aucun accountId trouvé pour la région '{region}' et aucun fallback disponible.", None
+
 
         headers = {
             'Authorization': f'Bearer {self.secret_key}',
