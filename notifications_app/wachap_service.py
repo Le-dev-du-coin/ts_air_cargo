@@ -83,9 +83,10 @@ class WaChapService:
         
         LOGIQUE PRIORITAIRE:
         1. Rôle de l'agent détermine son instance (agent_chine → chine, agent_mali → mali)
-        2. OTP selon numéro destinataire pour l'authentification
-        3. Admins utilisent leur instance régionale
-        4. Fallback automatique si instance indisponible
+        2. Messages système (OTP, alertes, évènements système) → Instance Système
+        3. OTP selon numéro destinataire pour l'authentification
+        4. Notifications standards, router par indicatif du destinataire
+        5. Fallback automatique si instance indisponible
         
         Args:
             sender_role: Rôle de l'expéditeur ('agent_chine', 'agent_mali', etc.)
@@ -97,28 +98,21 @@ class WaChapService:
         """
         preferred_region = 'mali'  # Défaut global
         
-        # PRIORITÉ 0: Messages système (OTP, alertes, évènements système) → Instance Système
-        if sender_role == 'system' or message_type in ['otp', 'alert', 'admin_alert', 'system', 'account']:
+        # PRIORITÉ 1: Agents et Admins utilisent TOUJOURS leur instance régionale (la plus haute priorité)
+        if sender_role == 'agent_chine' or sender_role == 'admin_chine':
+            preferred_region = 'chine'
+            logger.debug(f"Rôle {sender_role} → Instance Chine (prioritaire)")
+        elif sender_role == 'agent_mali' or sender_role == 'admin_mali':
+            preferred_region = 'mali'
+            logger.debug(f"Rôle {sender_role} → Instance Mali (prioritaire)")
+        
+        # PRIORITÉ 2: Messages système (OTP, alertes, évènements système) → Instance Système
+        # Cette vérification vient après les rôles spécifiques des agents/admins pour ne pas les surcharger
+        elif sender_role == 'system' or message_type in ['otp', 'alert', 'admin_alert', 'system', 'account']:
             preferred_region = 'system'
             logger.debug(f"Message système ({message_type}) → Instance Système")
         
-        # PRIORITÉ 1: Agents utilisent TOUJOURS leur instance régionale
-        # Logique métier: chaque agent utilise son système WhatsApp régional
-        elif sender_role == 'agent_chine':
-            preferred_region = 'chine'
-            logger.debug(f"Agent Chine → Instance Chine (indépendamment du destinataire)")
-        elif sender_role == 'agent_mali':
-            preferred_region = 'mali'
-            logger.debug(f"Agent Mali → Instance Mali (indépendamment du destinataire)")
-        
-        # PRIORITÉ 2: Admins utilisent leur instance régionale
-        elif sender_role == 'admin_chine':
-            preferred_region = 'chine'
-        elif sender_role in ['admin_mali']:
-            preferred_region = 'mali'
-        
         # PRIORITÉ 3: OTP d'authentification selon numéro du destinataire
-        # Pour l'authentification, on route selon la géolocalisation du numéro
         elif message_type == 'otp' and recipient_phone:
             clean_phone = recipient_phone.replace('+', '').replace(' ', '')
             if clean_phone.startswith('86'):  # Numéros chinois
@@ -132,8 +126,9 @@ class WaChapService:
                 preferred_region = 'mali'
                 logger.debug(f"OTP numéro autre {recipient_phone} → Instance Mali (défaut)")
         
-        # PRIORITÉ 4: Si on connaît le numéro du destinataire pour une notification standard, router par indicatif
-        elif recipient_phone and message_type in ['notification', 'account', 'creation_compte', 'colis_arrive', 'colis_livre', 'rapport', 'general']:
+        # PRIORITÉ 4: Notifications standards, router par indicatif du destinataire
+        elif recipient_phone and message_type in ['notification', 'creation_compte', 'colis_arrive', 'colis_livre', 'rapport', 'general']:
+            # Note: 'account' a été déplacé dans la priorité 2 (système) car souvent lié à OTP/compte
             clean_phone = recipient_phone.replace('+', '').replace(' ', '')
             if clean_phone.startswith('86'):
                 preferred_region = 'chine'
@@ -141,46 +136,33 @@ class WaChapService:
                 preferred_region = 'mali'
             else:
                 preferred_region = 'mali'
-        # PRIORITÉ 5: Clients et rôles génériques → Mali par défaut
+        
+        # PRIORITÉ 5: Clients et rôles génériques (ou si rien d'autre ne correspond) → Mali par défaut
         elif sender_role in ['client', 'customer', 'user'] or sender_role is None:
             preferred_region = 'mali'
         
         # VÉRIFICATION DISPONIBILITÉ ET FALLBACK
         preferred_config = self.get_config(preferred_region)
         if not preferred_config['access_token'] or not preferred_config['instance_id']:
-            # Fallback automatique
-            if preferred_region == 'system':
-                # Pour système, fallback vers Mali puis Chine
-                mali_config = self.get_config('mali')
-                if mali_config['access_token'] and mali_config['instance_id']:
-                    logger.warning(f"Instance Système non configurée, fallback vers Mali")
-                    return 'mali'
-                china_config = self.get_config('chine')
-                if china_config['access_token'] and china_config['instance_id']:
-                    logger.warning(f"Instance Système non configurée, fallback vers Chine")
-                    return 'chine'
-            elif preferred_region == 'chine':
-                # Fallback Chine -> Système -> Mali
-                system_config = self.get_config('system')
-                if system_config['access_token'] and system_config['instance_id']:
-                    logger.warning(f"Instance Chine non configurée, fallback vers Système")
-                    return 'system'
-                mali_config = self.get_config('mali')
-                if mali_config['access_token'] and mali_config['instance_id']:
-                    logger.warning(f"Instance Chine non configurée, fallback vers Mali")
-                    return 'mali'
-            elif preferred_region == 'mali':
-                # Fallback Mali -> Système -> Chine
-                system_config = self.get_config('system')
-                if system_config['access_token'] and system_config['instance_id']:
-                    logger.warning(f"Instance Mali non configurée, fallback vers Système")
-                    return 'system'
-                china_config = self.get_config('chine')
-                if china_config['access_token'] and china_config['instance_id']:
-                    logger.warning(f"Instance Mali non configurée, fallback vers Chine")
-                    return 'chine'
-        
-        logger.debug(f"Instance finale: {preferred_region.title()}")
+            logger.warning(f"Instance préférée '{preferred_region}' non configurée ou inactive. Tentative de fallback.")
+            
+            # Ordre de fallback (exclure la région déjà tentée)
+            fallback_order = []
+            if preferred_region != 'mali': fallback_order.append('mali')
+            if preferred_region != 'chine': fallback_order.append('chine')
+            if preferred_region != 'system': fallback_order.append('system')
+            
+            for fallback_reg in fallback_order:
+                fallback_config = self.get_config(fallback_reg)
+                if fallback_config['access_token'] and fallback_config['instance_id'] and fallback_config['active']:
+                    logger.info(f"Fallback réussi vers l'instance '{fallback_reg}'.")
+                    return fallback_reg
+            
+            logger.error(f"Aucune instance WaChap fonctionnelle n'a été trouvée après plusieurs tentatives de fallback. "
+                         f"Vérifiez les configurations pour '{preferred_region}' et les fallbacks: {', '.join(fallback_order)}.")
+            return preferred_region  # Retourne la région initiale, même si non configurée, pour une erreur explicite.
+            
+        logger.debug(f"Instance finale utilisée: {preferred_region.title()}")
         return preferred_region
     
     def get_config(self, region: str) -> Dict[str, Any]:
