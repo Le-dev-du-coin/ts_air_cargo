@@ -2370,7 +2370,8 @@ def client_reset_password_view(request, client_id):
         notification_result = NotificationService.send_critical_notification(
             user=user,
             temp_password=new_password,
-            notification_type='password_reset'
+            notification_type='password_reset',
+            sender_role=request.user.role
         )
         
         # Afficher le message approprié selon les résultats

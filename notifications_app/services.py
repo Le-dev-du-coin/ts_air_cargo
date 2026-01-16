@@ -41,7 +41,7 @@ class NotificationService:
     """
     
     @staticmethod
-    def send_notification(user, message, method='whatsapp', title="Notification TS Air Cargo", categorie='information_generale'):
+    def send_notification(user, message, method='whatsapp', title="Notification TS Air Cargo", categorie='information_generale', sender_role=None):
         """
         Envoie une notification à un utilisateur
         
@@ -51,6 +51,7 @@ class NotificationService:
             method: Méthode d'envoi ('whatsapp', 'sms', 'email', 'in_app')
             title: Titre de la notification
             categorie: Catégorie de la notification
+            sender_role: Rôle de l'expéditeur pour le routage WaChap
         """
         try:
             # Enregistrer la notification en base avec les bons champs
@@ -70,7 +71,7 @@ class NotificationService:
             message_id = None
             
             if method == 'whatsapp':
-                success, message_id = NotificationService._send_whatsapp(user, message, categorie=categorie, title=title)
+                success, message_id = NotificationService._send_whatsapp(user, message, categorie=categorie, title=title, sender_role=sender_role)
             elif method == 'sms':
                 success, message_id = NotificationService._send_sms(user, message)
             elif method == 'email':
@@ -93,32 +94,25 @@ class NotificationService:
             return False
     
     @staticmethod
-    def _send_whatsapp(user, message, categorie=None, title=None):
+    def _send_whatsapp(user, message, categorie=None, title=None, sender_role=None):
         """
         Envoie un message WhatsApp via WaChap
         """
         try:
             # Déterminer le numéro de destination
-            # En mode développement, rediriger UNIQUEMENT si ADMIN_PHONE est défini
             dev_mode = getattr(settings, 'DEBUG', False)
             admin_phone = getattr(settings, 'ADMIN_PHONE', '').strip()
             test_phone = admin_phone if (dev_mode and admin_phone) else None
             destination_phone = test_phone or user.telephone
-            logger.debug(
-                "WA DEBUG _send_whatsapp: original=%s destination=%s dev=%s admin_phone_set=%s categorie=%s title=%s",
-                user.telephone,
-                destination_phone,
-                dev_mode,
-                bool(admin_phone),
-                categorie,
-                title,
-            )
             
-            # Déterminer le rôle de l'expéditeur pour la sélection d'instance
-            # Déterminer le type de message et le rôle expéditeur
+            logger.debug(
+                "WA DEBUG _send_whatsapp: original=%s destination=%s dev=%s admin_phone_set=%s categorie=%s title=%s sender_role=%s",
+                user.telephone, destination_phone, dev_mode, bool(admin_phone), categorie, title, sender_role
+            )
+
+            # Déterminer le type de message
             message_type = 'notification'
             if categorie in ['creation_compte', 'reinitialisation_mot_de_passe', 'otp', 'system', 'information_systeme']:
-                # Réinitialisation mot de passe = account (même traitement que création compte)
                 if categorie in ['creation_compte', 'reinitialisation_mot_de_passe']:
                     message_type = 'account'
                 elif categorie == 'otp':
@@ -126,23 +120,20 @@ class NotificationService:
                 else:
                     message_type = 'system'
             elif title and ('OTP' in title or 'Compte' in title or 'Système' in title or 'Réinitialisation' in title or 'mot de passe' in title):
-                # fallback basé sur le titre
-                if 'OTP' in title:
-                    message_type = 'otp'
-                elif 'Compte' in title or 'Réinitialisation' in title or 'mot de passe' in title:
-                    message_type = 'account'
-                elif 'Système' in title:
-                    message_type = 'system'
+                if 'OTP' in title: message_type = 'otp'
+                elif 'Compte' in title or 'Réinitialisation' in title or 'mot de passe' in title: message_type = 'account'
+                elif 'Système' in title: message_type = 'system'
 
-            sender_role = 'system' if message_type in ['otp', 'account', 'system'] else getattr(user, 'role', None)
+            # Déterminer le rôle de l'expéditeur, en donnant la priorité à celui qui est passé en paramètre
+            final_sender_role = sender_role
+            if not final_sender_role:
+                final_sender_role = 'system' if message_type in ['otp', 'account', 'system'] else getattr(user, 'role', None)
 
             # Forcer l'instance selon la catégorie métier (priorité produit)
             region_override = None
             if categorie in {'colis_cree', 'lot_expedie', 'colis_en_transit'}:
-                # Création colis, fermeture de lot (prêt/expédition), expédition/en transit → Instance Chine
                 region_override = 'chine'
             elif categorie in {'colis_arrive', 'colis_livre'}:
-                # Arrivée et Livraison (côté Mali) → Instance Mali
                 region_override = 'mali'
             
             # Enrichir le message en mode développement pour identification
@@ -158,34 +149,24 @@ TS Air Cargo - Mode Développement"""
                 enriched_message = message
             
             # Envoyer via WaChap
-            # Utiliser la version avec type et override de région si défini
             success, result_message, message_id = wachap_service.send_message_with_type(
                 phone=destination_phone,
                 message=enriched_message,
                 message_type=message_type,
-                sender_role=sender_role,
+                sender_role=final_sender_role,
                 region=region_override
             )
             
             if success:
                 logger.info(
                     "WA OK: to_user=%s via=%s type=%s sender_role=%s msg_id=%s result=%s",
-                    user.telephone,
-                    destination_phone,
-                    message_type,
-                    sender_role,
-                    message_id,
-                    result_message,
+                    user.telephone, destination_phone, message_type, final_sender_role, message_id, result_message
                 )
                 return True, message_id
             else:
                 logger.error(
                     "WA ERROR: to_user=%s via=%s type=%s sender_role=%s result=%s",
-                    user.telephone,
-                    destination_phone,
-                    message_type,
-                    sender_role,
-                    result_message,
+                    user.telephone, destination_phone, message_type, final_sender_role, result_message
                 )
                 return False, None
                 
@@ -325,7 +306,8 @@ TS Air Cargo - Mode Développement"""
                 message=message,
                 method='whatsapp',
                 title=title,
-                categorie=categorie
+                categorie=categorie,
+                sender_role=sender_role
             )
             
         except Exception as e:
@@ -333,7 +315,7 @@ TS Air Cargo - Mode Développement"""
             return False
     
     @staticmethod
-    def send_critical_notification(user, temp_password, notification_type='password_reset'):
+    def send_critical_notification(user, temp_password, notification_type='password_reset', sender_role=None):
         """
         Envoie une notification critique via WhatsApp (WaChap)
         L'envoi SMS via Orange API sera configuré ultérieurement
@@ -343,6 +325,7 @@ TS Air Cargo - Mode Développement"""
             user: L'utilisateur concerné
             temp_password: Le mot de passe temporaire
             notification_type: Type de notification ('password_reset', 'account_creation')
+            sender_role: Rôle de l'expéditeur pour le routage WaChap
             
         Returns:
             dict: {
@@ -375,7 +358,7 @@ TS Air Cargo - Mode Développement"""
             # Résultats d'envoi
             results = {
                 'whatsapp': False,
-                'sms': False,  # SMS Orange API sera configuré ultérieurement
+                'sms': False,
                 'success': False
             }
             
@@ -386,7 +369,8 @@ TS Air Cargo - Mode Développement"""
                     message=message,
                     method='whatsapp',
                     title=title,
-                    categorie=categorie
+                    categorie=categorie,
+                    sender_role=sender_role
                 )
                 results['whatsapp'] = whatsapp_success
                 results['success'] = whatsapp_success
